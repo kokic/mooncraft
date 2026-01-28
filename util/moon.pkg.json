@@ -1,7 +1,8 @@
 {
     "import": [
-        "moonbitlang/core/env",
-        "moonbitlang/core/cmp",
-        "moonbitlang/core/math"
+    "moonbitlang/core/env",
+    "moonbitlang/core/cmp",
+    "moonbitlang/core/math",
+    "moonbitlang/core/strconv"
     ]
 }

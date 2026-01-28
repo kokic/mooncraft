@@ -19,3 +19,7 @@ pub extern "js" fn define_custom_elements(name : String) -> Unit =
   #| (name) => customElements.define(name, class extends HTMLElement {
   #|     
   #| });
+
+///|
+pub extern "js" fn set_global_value(name : String, value : JsValue) -> Unit =
+  #| (name, value) => { globalThis[name] = value }

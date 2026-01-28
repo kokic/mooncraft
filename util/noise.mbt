@@ -25,8 +25,31 @@ pub fn Noise::fast(n : Int) -> Double {
 
 ///|
 pub struct Noise {
-  original_seed : String
   seed : UInt64
-  permutations : Array[UInt]
-  random : LCG
+  permutations : Array[Int]
+}
+
+///|
+pub fn Noise::new(seed? : UInt64 = @env.now()) -> Noise {
+  let random = LCG::new(seed~)
+  let permutations = Noise::build_permutations(random)
+  Noise::{ seed, permutations }
+}
+
+///|
+fn Noise::build_permutations(random : LCG) -> Array[Int] {
+  let perm = Array::make(512, 0)
+  for i in 0..<=255 {
+    perm[i] = i
+  }
+  for i in 0..<=255 {
+    let span = (256 - i).to_uint64()
+    let j = i + random.next(modulus=span).to_int()
+    let t = perm[i]
+    let v = perm[j]
+    perm[i] = v
+    perm[i + 256] = v
+    perm[j] = t
+  }
+  perm
 }

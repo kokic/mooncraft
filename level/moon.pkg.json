@@ -1,6 +1,9 @@
 {
   "import": [
-    "kokic/mooncraft/util",
-    "moonbitlang/core/env"
+    "moonbitlang/core/env",
+    "moonbitlang/core/strconv",
+    "kokic/mooncraft/biome",
+    "kokic/mooncraft/util", 
+    "kokic/mooncraft/block"
   ]
 }

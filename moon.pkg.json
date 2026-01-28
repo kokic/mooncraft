@@ -3,6 +3,7 @@
   "import": [
     "moonbitlang/core/hashmap",
     "kokic/mooncraft/ffi",
-    "kokic/mooncraft/level"
+    "kokic/mooncraft/level",
+    "kokic/mooncraft/block"
   ]
 }

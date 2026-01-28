@@ -66,24 +66,46 @@ pub let block_dirt : Block = Block::{
 }
 
 ///|
+pub let block_sand : Block = Block::{
+  name: "sand",
+  id: 4,
+  state: 0,
+  opacity: 15,
+  render_type: RenderType::Normal,
+}
+
+///|
+pub let block_sandstone : Block = Block::{
+  name: "sandstone",
+  id: 5,
+  state: 0,
+  opacity: 15,
+  render_type: RenderType::Normal,
+}
+
+///|
 pub fn get_block_by_name(name : String) -> Block? {
   match name {
     "air" => Some(block_air)
     "stone" => Some(block_stone)
     "grass" => Some(block_grass)
     "dirt" => Some(block_dirt)
+    "sand" => Some(block_sand)
+    "sandstone" => Some(block_sandstone)
     _ => None
   }
 }
 
 ///|
 pub fn get_block_by_long_id(long_id : UInt) -> Block? {
-  let (id, bd) = unpack_long_id(long_id)
-  match (id, bd) {
+  let (id, state) = unpack_long_id(long_id)
+  match (id, state) {
     (0, _) => Some(block_air)
     (1, 0) => Some(block_stone)
     (2, 0) => Some(block_grass)
     (3, 0) => Some(block_dirt)
+    (4, 0) => Some(block_sand)
+    (5, 0) => Some(block_sandstone)
     _ => None
   }
 }

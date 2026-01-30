@@ -69,6 +69,8 @@ pub struct MeshData {
   positions : Array[Float]
   uvs : Array[Float]
   layers : Array[Float]
+  colors : Array[Float]
+  normals : Array[Float]
   count : Int
 }
 
@@ -81,19 +83,26 @@ pub fn build_chunk_mesh(
   let positions : Array[Float] = []
   let uvs : Array[Float] = []
   let layers : Array[Float] = []
-  let zero = Float::from_int(0)
-  let one = Float::from_int(1)
+  let colors : Array[Float] = []
+  let normals : Array[Float] = []
   let base_uvs : Array[(Float, Float)] = [
-    (zero, zero),
-    (one, zero),
-    (one, one),
-    (zero, zero),
-    (one, one),
-    (zero, one),
+    (0, 0),
+    (1, 0),
+    (1, 1),
+    (0, 0),
+    (1, 1),
+    (0, 1),
   ]
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
-    None => return MeshData::{ positions: [], uvs: [], layers: [], count: 0 }
+    None => return MeshData::{
+      positions: [],
+      uvs: [],
+      layers: [],
+      colors: [],
+      normals: [],
+      count: 0,
+    }
   }
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
@@ -120,6 +129,12 @@ pub fn build_chunk_mesh(
           let (nx, ny, nz) = face.normal
           let neighbor = get_block(x + nx, y + ny, z + nz)
           if neighbor.name is "air" {
+            let shade = match face.name {
+              FaceName::PosY => 1.0F
+              FaceName::NegY => 0.5F
+              FaceName::PosZ | FaceName::NegZ => 0.8F
+              FaceName::PosX | FaceName::NegX => 0.6F
+            }
             let layer = match face.name {
               FaceName::PosX => block.faces.pos_x
               FaceName::NegX => block.faces.neg_x
@@ -157,8 +172,15 @@ pub fn build_chunk_mesh(
               positions.push(Float::from_int(vx))
               positions.push(Float::from_int(vy))
               positions.push(Float::from_int(vz))
+              colors.push(shade)
+              colors.push(shade)
+              colors.push(shade)
+              colors.push(1.0F)
+              normals.push(Float::from_int(nx))
+              normals.push(Float::from_int(ny))
+              normals.push(Float::from_int(nz))
               let (u, v) = base_uvs[i]
-              let v2 = if flip_uv { one - v } else { v }
+              let v2 = if flip_uv { 1.0F - v } else { v }
               uvs.push(u)
               uvs.push(v2)
               layers.push(layer_f)
@@ -168,7 +190,7 @@ pub fn build_chunk_mesh(
       }
     }
   }
-  MeshData::{ positions, uvs, layers, count: positions.length() / 3 }
+  MeshData::{ positions, uvs, layers, colors, normals, count: positions.length() / 3 }
 }
 
 ///|
@@ -180,6 +202,8 @@ pub fn build_world_mesh(
   let positions : Array[Float] = []
   let uvs : Array[Float] = []
   let layers : Array[Float] = []
+  let colors : Array[Float] = []
+  let normals : Array[Float] = []
   for entry in entries {
     let mesh = build_chunk_mesh(registry, entry.data, size)
     let offset_x = Float::from_int(entry.x * size)
@@ -194,7 +218,16 @@ pub fn build_world_mesh(
       uvs.push(mesh.uvs[uidx])
       uvs.push(mesh.uvs[uidx + 1])
       layers.push(mesh.layers[i])
+      let cidx = i * 4
+      colors.push(mesh.colors[cidx])
+      colors.push(mesh.colors[cidx + 1])
+      colors.push(mesh.colors[cidx + 2])
+      colors.push(mesh.colors[cidx + 3])
+      let nidx = i * 3
+      normals.push(mesh.normals[nidx])
+      normals.push(mesh.normals[nidx + 1])
+      normals.push(mesh.normals[nidx + 2])
     }
   }
-  MeshData::{ positions, uvs, layers, count: positions.length() / 3 }
+  MeshData::{ positions, uvs, layers, colors, normals, count: positions.length() / 3 }
 }

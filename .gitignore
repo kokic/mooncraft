@@ -7,6 +7,7 @@ target
 .mooncakes/
 .moonagent/
 .local/
+.old-demo/
 dist/js/
 dist/.moon-lock
 dev/

@@ -127,6 +127,14 @@ pub let block_render_defs : Array[BlockRenderDef] = [
       "sandstone_normal",
     ),
   },
+  BlockRenderDef::{
+    name: "bedrock",
+    id: 6,
+    state: 0,
+    opacity: 15,
+    render_type: RenderType::Normal,
+    faces: Faces::isotropic("bedrock"),
+  },
 ]
 
 ///|

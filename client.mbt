@@ -13,11 +13,8 @@ fn main {
     @ffi.JsValue::cast_from(@level.CHUNK_X_SIZE),
   )
   @ffi.set_global_value("mcChunkData", @ffi.JsValue::cast_from(chunk.tile_map))
-  @ffi.set_global_value("mcWorldMinY", @ffi.JsValue::cast_from(0))
-  @ffi.set_global_value(
-    "mcWorldMaxY",
-    @ffi.JsValue::cast_from(@level.CHUNK_Y_SIZE * 4 - 1),
-  )
+  @ffi.set_global_value("mcWorldMinY", @ffi.JsValue::cast_from(@level.WORLD_MIN_Y))
+  @ffi.set_global_value("mcWorldMaxY", @ffi.JsValue::cast_from(@level.WORLD_MAX_Y))
   @ffi.set_global_value(
     "mcCollectTextureNames",
     @ffi.JsValue::cast_from(@block.collect_texture_names),
@@ -25,6 +22,10 @@ fn main {
   @ffi.set_global_value(
     "mcCreateBlockRegistry",
     @ffi.JsValue::cast_from(@block.create_block_registry),
+  )
+  @ffi.set_global_value(
+    "mcBlockIsSelectable",
+    @ffi.JsValue::cast_from(@block.BlockRegistry::is_selectable),
   )
   @ffi.set_global_value(
     "mcBuildChunkMesh",

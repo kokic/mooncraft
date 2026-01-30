@@ -92,3 +92,12 @@ pub fn BlockRegistry::get_by_name(self : BlockRegistry, name : String) -> Render
 pub fn BlockRegistry::get_by_long_id(self : BlockRegistry, long_id : UInt) -> RenderBlock? {
   self.blocks_by_long_id.get(long_id)
 }
+
+///|
+/// True if the block should be selectable (outlined) in UI.
+pub fn BlockRegistry::is_selectable(self : BlockRegistry, long_id : UInt) -> Bool {
+  match self.get_by_long_id(long_id) {
+    Some(block) => block.opacity > 0
+    None => false
+  }
+}

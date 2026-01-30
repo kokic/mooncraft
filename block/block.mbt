@@ -84,6 +84,15 @@ pub let block_sandstone : Block = Block::{
 }
 
 ///|
+pub let block_bedrock : Block = Block::{
+  name: "bedrock",
+  id: 6,
+  state: 0,
+  opacity: 15,
+  render_type: RenderType::Normal,
+}
+
+///|
 pub fn get_block_by_name(name : String) -> Block? {
   match name {
     "air" => Some(block_air)
@@ -92,6 +101,7 @@ pub fn get_block_by_name(name : String) -> Block? {
     "dirt" => Some(block_dirt)
     "sand" => Some(block_sand)
     "sandstone" => Some(block_sandstone)
+    "bedrock" => Some(block_bedrock)
     _ => None
   }
 }
@@ -106,6 +116,7 @@ pub fn get_block_by_long_id(long_id : UInt) -> Block? {
     (3, 0) => Some(block_dirt)
     (4, 0) => Some(block_sand)
     (5, 0) => Some(block_sandstone)
+    (6, 0) => Some(block_bedrock)
     _ => None
   }
 }

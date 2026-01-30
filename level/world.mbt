@@ -4,146 +4,95 @@ pub struct World {
   world_type : WorldType
   noise : @util.PerlinNoise
 }
+///|
+/// Pre-classic bottom layer Y (bedrock).
+pub const PRECLASSIC_MIN_Y : Int = -32
 
 ///|
-const DETAIL_SCALE : Double = 22.0
+/// Highest world Y (fixed for now).
+pub const WORLD_MAX_Y : Int = 32
 
 ///|
+/// Lowest world Y (player view).
+pub const WORLD_MIN_Y : Int = PRECLASSIC_MIN_Y - 10
+
+///|
+/// Hard floor for terrain height; higher => raises lowest land.
 const MIN_TERRAIN_HEIGHT : Int = 0
 
 ///|
+/// Reserved global cap for terrain height; higher => allows taller peaks.
 const MAX_TERRAIN_HEIGHT : Int = 127
 
 ///|
+/// Sea level baseline; higher => more land submerged.
 const SEA_LEVEL : Int = 8
 
 ///|
+/// Detail noise scale for dirt thickness; higher => smoother soil variation.
+const DETAIL_SCALE : Double = 22.0
+
+///|
+/// Peak/valley noise frequency; higher => more frequent ridges.
 const PV_FREQ : Double = 0.015
 
 ///|
-const PLAINS_MOUNTAIN_AMP : Double = 12.0
+/// Plains micro-variation frequency; higher => shorter flat spans.
+const PLAINS_WAVE_FREQ : Double = 0.01
 
 ///|
-const MOUNTAIN_MOUNTAIN_AMP : Double = 40.0
+/// Plains micro-variation amplitude; higher => more visible undulation.
+const PLAINS_WAVE_AMP : Double = 1.6
 
 ///|
-const DESERT_MOUNTAIN_AMP : Double = 6.0
+/// Plains domain warp frequency; higher => more irregular contours.
+const PLAINS_WARP_FREQ : Double = 0.006
 
 ///|
-const PLAINS_BASE_OFFSET : Double = 0.0
+/// Plains domain warp amplitude; higher => stronger warp.
+const PLAINS_WARP_AMP : Double = 18.0
 
 ///|
-const MOUNTAIN_BASE_OFFSET : Double = 12.0
-
-///|
-const DESERT_BASE_OFFSET : Double = -2.0
-
-///|
+/// 3D carve noise frequency; higher => more small caves/voids.
 const TERRAIN_3D_FREQ : Double = 0.02
 
 ///|
+/// 3D carve amplitude; higher => more aggressive carving.
 const TERRAIN_3D_AMP : Double = 2.0
 
 ///|
+/// Cave noise frequency; higher => denser cave networks.
 const CAVE_FREQ : Double = 0.045
 
 ///|
+/// Cave threshold; higher => fewer caves, lower => more caves.
 const CAVE_THRESHOLD : Double = 0.28
 
 ///|
-const PLAINS_MAX_HEIGHT : Int = 15
-
-///|
-const DESERT_MAX_HEIGHT : Int = 15
-
-///|
-const MOUNTAIN_MAX_HEIGHT : Int = 120
-
-///|
+/// Desert sand minimum depth; higher => thicker sand layers.
 const DESERT_SAND_DEPTH_MIN : Int = 4
 
 ///|
+/// Desert sand maximum depth; higher => thicker sand variation.
 const DESERT_SAND_DEPTH_MAX : Int = 6
 
 ///|
+/// Desert sand noise scale; higher => smoother sand depth changes.
 const DESERT_SAND_SCALE : Double = 30.0
 
 ///|
+/// Desert sandstone depth; higher => thicker sandstone layer.
 const DESERT_SANDSTONE_DEPTH : Int = 4
 
 ///|
-fn fbm2d(
-  noise : @util.PerlinNoise,
-  x : Double,
-  z : Double,
-  octaves : Int,
-  lacunarity : Double,
-  gain : Double,
-) -> Double {
-  let mut freq = 1.0
-  let mut amp = 1.0
-  let mut sum = 0.0
-  let mut norm = 0.0
-  for _ in 0..<octaves {
-    sum = sum + noise.gen2d(x * freq, z * freq) * amp
-    norm = norm + amp
-    freq = freq * lacunarity
-    amp = amp * gain
-  }
-  if norm == 0.0 {
-    0.0
-  } else {
-    sum / norm
-  }
-}
-
-///|
-fn biome_at(world : World, wx : Int, wz : Int) -> @biome.Biome {
-  let x = wx.to_double()
-  let z = wz.to_double()
-  let noise = world.noise
-  let temp = fbm2d(
-    noise,
-    x * @biome.BIOME_FREQ,
-    z * @biome.BIOME_FREQ,
-    2,
-    2.0,
-    0.5,
-  )
-  let humid = fbm2d(
-    noise,
-    (x + 1000.0) * @biome.BIOME_FREQ,
-    (z - 1000.0) * @biome.BIOME_FREQ,
-    2,
-    2.0,
-    0.5,
-  )
-  if temp > 0.25 && humid < -0.05 {
-    @biome.Desert
-  } else {
-    let mountain_mask = fbm2d(
-      noise,
-      x * @biome.MOUNTAIN_MASK_FREQ,
-      z * @biome.MOUNTAIN_MASK_FREQ,
-      2,
-      2.0,
-      0.5,
-    ).abs()
-    if mountain_mask > 0.35 {
-      @biome.Mountains
-    } else {
-      @biome.Plains
-    }
-  }
-}
-
-///|
+/// Base (flat) height per biome, before mountain shaping.
 fn plain_height(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise
-  let biome = biome_at(world, wx, wz)
-  let continental = fbm2d(
+  let biome = @biome.biome_at(noise, wx, wz)
+  let params = @biome.params(biome)
+  let continental = @biome.fbm2d(
     noise,
     x * @biome.CONTINENTAL_FREQ,
     z * @biome.CONTINENTAL_FREQ,
@@ -152,15 +101,31 @@ fn plain_height(world : World, wx : Int, wz : Int) -> Int {
     0.5,
   )
   let base = SEA_LEVEL.to_double() + continental * 6.0
-  let base_offset = match biome {
-    @biome.Plains => PLAINS_BASE_OFFSET
-    @biome.Mountains => MOUNTAIN_BASE_OFFSET
-    @biome.Desert => DESERT_BASE_OFFSET
+  let plains_wave = if biome is @biome.Plains {
+    let warp_x = noise.gen2d(x * PLAINS_WARP_FREQ, z * PLAINS_WARP_FREQ) *
+      PLAINS_WARP_AMP
+    let warp_z = noise.gen2d(
+        (x + 400.0) * PLAINS_WARP_FREQ,
+        (z - 400.0) * PLAINS_WARP_FREQ,
+      ) *
+      PLAINS_WARP_AMP
+    @biome.fbm2d(
+      noise,
+      (x + warp_x) * PLAINS_WAVE_FREQ,
+      (z + warp_z) * PLAINS_WAVE_FREQ,
+      3,
+      2.0,
+      0.5,
+    ) *
+    PLAINS_WAVE_AMP
+  } else {
+    0.0
   }
-  let height = base + base_offset
+  let height = base + params.base_offset + plains_wave
   let h = height.round().to_int()
-  let min_h = 5
-  let max_h = 15
+  let base_shift = params.base_offset.round().to_int()
+  let min_h = 5 + base_shift
+  let max_h = 15 + base_shift
   if h < min_h {
     min_h
   } else if h > max_h {
@@ -171,12 +136,14 @@ fn plain_height(world : World, wx : Int, wz : Int) -> Int {
 }
 
 ///|
+/// Surface height with biome-aware mountain shaping and erosion.
 fn surface_height(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise
-  let biome = biome_at(world, wx, wz)
-  let erosion = fbm2d(
+  let biome = @biome.biome_at(noise, wx, wz)
+  let params = @biome.params(biome)
+  let erosion = @biome.fbm2d(
     noise,
     x * @biome.EROSION_FREQ,
     z * @biome.EROSION_FREQ,
@@ -184,17 +151,17 @@ fn surface_height(world : World, wx : Int, wz : Int) -> Int {
     2.0,
     0.5,
   )
-  let peaks = fbm2d(noise, x * PV_FREQ, z * PV_FREQ, 3, 2.0, 0.5).abs()
+  let peaks = @biome.fbm2d(noise, x * PV_FREQ, z * PV_FREQ, 3, 2.0, 0.5).abs()
   let erosion_t = (erosion + 1.0) / 2.0
-  let ridge = peaks * peaks
-  let (mountain_amp, max_h) = match biome {
-    @biome.Plains => (2.0, PLAINS_MAX_HEIGHT)
-    @biome.Mountains => (MOUNTAIN_MOUNTAIN_AMP, MOUNTAIN_MAX_HEIGHT)
-    @biome.Desert => (1.0, DESERT_MAX_HEIGHT)
-  }
-  let mountain = ridge * mountain_amp * (1.0 - erosion_t * 0.6)
+  let ridge = peaks * peaks * peaks
+  let mountain = ridge * params.mountain_amp * (1.0 - erosion_t * 0.6)
   let height = plain_height(world, wx, wz).to_double() + mountain
   let h = height.round().to_int()
+  let max_h = if params.max_height > MAX_TERRAIN_HEIGHT {
+    MAX_TERRAIN_HEIGHT
+  } else {
+    params.max_height
+  }
   if h < MIN_TERRAIN_HEIGHT {
     MIN_TERRAIN_HEIGHT
   } else if h > max_h {
@@ -205,6 +172,7 @@ fn surface_height(world : World, wx : Int, wz : Int) -> Int {
 }
 
 ///|
+/// Dirt depth varies by low-frequency detail noise.
 fn surface_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
@@ -213,6 +181,7 @@ fn surface_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
 }
 
 ///|
+/// Desert sand depth varies smoothly across the desert.
 fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
@@ -224,23 +193,31 @@ fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
 }
 
 ///|
+/// Density field used to decide air vs solid for pre-classic terrain.
 fn density_at(world : World, wx : Int, wy : Int, wz : Int) -> Double {
   let x = wx.to_double()
   let y = wy.to_double()
   let z = wz.to_double()
+  let biome = @biome.biome_at(world.noise, wx, wz)
   let surface = surface_height(world, wx, wz).to_double()
   let plain = plain_height(world, wx, wz).to_double()
   if y > surface {
     -1.0
   } else if y <= plain {
-    let cave = world.noise
-      .gen3d(x * CAVE_FREQ, y * CAVE_FREQ, z * CAVE_FREQ)
-      .abs()
-    if y < plain - 1.0 && cave < CAVE_THRESHOLD {
-      -1.0
-    } else {
+    if biome is @biome.Mountains {
       1.0
+    } else {
+      let cave = world.noise
+        .gen3d(x * CAVE_FREQ, y * CAVE_FREQ, z * CAVE_FREQ)
+        .abs()
+      if y < surface - 6.0 && cave < CAVE_THRESHOLD {
+        -1.0
+      } else {
+        1.0
+      }
     }
+  } else if biome is @biome.Mountains {
+    surface - y
   } else {
     let carve = world.noise
       .gen3d(x * TERRAIN_3D_FREQ, y * TERRAIN_3D_FREQ, z * TERRAIN_3D_FREQ)
@@ -250,11 +227,16 @@ fn density_at(world : World, wx : Int, wy : Int, wz : Int) -> Double {
     if y > plain + 3.0 {
       density = density - carve
     }
-    if density <= 0.0 { -1.0 } else { density }
+    if density <= 0.0 {
+      -1.0
+    } else {
+      density
+    }
   }
 }
 
 ///|
+/// Create a world with noise seeded by time by default.
 pub fn World::new(
   seed? : UInt64 = @env.now(),
   world_type? : WorldType = WorldType::PreClassic,
@@ -264,6 +246,7 @@ pub fn World::new(
 }
 
 ///|
+/// Generate a chunk based on the configured world type.
 pub fn World::generate_chunk(
   self : World,
   chunk_x : Int,
@@ -275,88 +258,4 @@ pub fn World::generate_chunk(
     WorldType::Flat => fill_flat(chunk)
     WorldType::PreClassic => fill_pre_classic(self, chunk)
   }
-}
-
-///|
-fn fill_flat(chunk : Chunk) -> Chunk {
-  let air_id = @block.pack_long_id(@block.block_air.id, @block.block_air.state)
-  let stone_id = @block.pack_long_id(
-    @block.block_stone.id,
-    @block.block_stone.state,
-  )
-  let grass_id = @block.pack_long_id(
-    @block.block_grass.id,
-    @block.block_grass.state,
-  )
-  for rx in 0..<CHUNK_X_SIZE {
-    for rz in 0..<CHUNK_Z_SIZE {
-      for ry in 0..<CHUNK_Y_SIZE {
-        let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
-        if wy < 0 {
-          chunk.set_tile(rx, ry, rz, stone_id)
-        } else if wy == 0 {
-          chunk.set_tile(rx, ry, rz, grass_id)
-        } else {
-          chunk.set_tile(rx, ry, rz, air_id)
-        }
-      }
-    }
-  }
-  chunk
-}
-
-///|
-fn fill_pre_classic(world : World, chunk : Chunk) -> Chunk {
-  let air_id = @block.pack_long_id(@block.block_air.id, @block.block_air.state)
-  let stone_id = @block.pack_long_id(
-    @block.block_stone.id,
-    @block.block_stone.state,
-  )
-  let grass_id = @block.pack_long_id(
-    @block.block_grass.id,
-    @block.block_grass.state,
-  )
-  let dirt_id = @block.pack_long_id(
-    @block.block_dirt.id,
-    @block.block_dirt.state,
-  )
-  let sand_id = @block.pack_long_id(
-    @block.block_sand.id,
-    @block.block_sand.state,
-  )
-  let sandstone_id = @block.pack_long_id(
-    @block.block_sandstone.id,
-    @block.block_sandstone.state,
-  )
-  for rx in 0..<CHUNK_X_SIZE {
-    for rz in 0..<CHUNK_Z_SIZE {
-      let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      let biome = biome_at(world, wx, wz)
-      let dirt_depth = surface_dirt_depth(world, wx, wz)
-      let sand_depth = desert_sand_depth(world, wx, wz)
-      let surface = surface_height(world, wx, wz)
-      for ry in 0..<CHUNK_Y_SIZE {
-        let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
-        let density = density_at(world, wx, wy, wz)
-        if density <= 0.0 {
-          chunk.set_tile(rx, ry, rz, air_id)
-        } else if wy == surface {
-          match biome {
-            @biome.Desert => chunk.set_tile(rx, ry, rz, sand_id)
-            _ => chunk.set_tile(rx, ry, rz, grass_id)
-          }
-        } else if biome is @biome.Desert && wy >= surface - sand_depth {
-          chunk.set_tile(rx, ry, rz, sand_id)
-        } else if biome is @biome.Desert &&
-          wy >= surface - sand_depth - DESERT_SANDSTONE_DEPTH {
-          chunk.set_tile(rx, ry, rz, sandstone_id)
-        } else if wy >= surface - dirt_depth {
-          chunk.set_tile(rx, ry, rz, dirt_id)
-        } else {
-          chunk.set_tile(rx, ry, rz, stone_id)
-        }
-      }
-    }
-  }
-  chunk
 }

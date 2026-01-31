@@ -1,15 +1,79 @@
 ///|
-pub enum RenderType {
-  Normal
+/// Per-face material names from authoring data.
+/// These are symbolic texture keys that get resolved into atlas indices later.
+pub struct MaterialNames {
+  pos_x : String?
+  neg_x : String?
+  pos_y : String?
+  neg_y : String?
+  pos_z : String?
+  neg_z : String?
 }
 
 ///|
+pub fn MaterialNames::new(
+  pos_x? : String,
+  neg_x? : String,
+  pos_y? : String,
+  neg_y? : String,
+  pos_z? : String,
+  neg_z? : String,
+) -> MaterialNames {
+  MaterialNames::{ pos_x, neg_x, pos_y, neg_y, pos_z, neg_z }
+}
+
+///|
+pub fn MaterialNames::isotropic(all : String) -> MaterialNames {
+  MaterialNames::new(
+    pos_x=all,
+    neg_x=all,
+    pos_y=all,
+    neg_y=all,
+    pos_z=all,
+    neg_z=all,
+  )
+}
+
+///|
+pub fn MaterialNames::axial(axial : String, side : String) -> MaterialNames {
+  MaterialNames::new(
+    pos_x=side,
+    neg_x=side,
+    pos_y=axial,
+    neg_y=axial,
+    pos_z=side,
+    neg_z=side,
+  )
+}
+
+///|
+pub fn MaterialNames::top_bottom(
+  top : String,
+  bottom : String,
+  side : String,
+) -> MaterialNames {
+  MaterialNames::new(
+    pos_x=side,
+    neg_x=side,
+    pos_y=top,
+    neg_y=bottom,
+    pos_z=side,
+    neg_z=side,
+  )
+}
+
+///|
+/// Block definition used by both simulation and rendering.
+/// Rendering derives texture indices from `faces`.
 pub struct Block {
+  /// unique internal name
   name : String
   id : UInt
   state : UInt
   opacity : Int
-  render_type : RenderType
+  luminance : Int
+  shape : Shape
+  faces : MaterialNames
 }
 
 ///|
@@ -27,96 +91,4 @@ pub fn pack_long_id(id : UInt, state : UInt) -> UInt {
 ///|
 pub fn unpack_long_id(long_id : UInt) -> (UInt, UInt) {
   (long_id & 0xffff, long_id >> 16)
-}
-
-///|
-pub let block_air : Block = Block::{
-  name: "air",
-  id: 0,
-  state: 0,
-  opacity: 0,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub let block_stone : Block = Block::{
-  name: "stone",
-  id: 1,
-  state: 0,
-  opacity: 15,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub let block_grass : Block = Block::{
-  name: "grass",
-  id: 2,
-  state: 0,
-  opacity: 15,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub let block_dirt : Block = Block::{
-  name: "dirt",
-  id: 3,
-  state: 0,
-  opacity: 15,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub let block_sand : Block = Block::{
-  name: "sand",
-  id: 4,
-  state: 0,
-  opacity: 15,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub let block_sandstone : Block = Block::{
-  name: "sandstone",
-  id: 5,
-  state: 0,
-  opacity: 15,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub let block_bedrock : Block = Block::{
-  name: "bedrock",
-  id: 6,
-  state: 0,
-  opacity: 15,
-  render_type: RenderType::Normal,
-}
-
-///|
-pub fn get_block_by_name(name : String) -> Block? {
-  match name {
-    "air" => Some(block_air)
-    "stone" => Some(block_stone)
-    "grass" => Some(block_grass)
-    "dirt" => Some(block_dirt)
-    "sand" => Some(block_sand)
-    "sandstone" => Some(block_sandstone)
-    "bedrock" => Some(block_bedrock)
-    _ => None
-  }
-}
-
-///|
-pub fn get_block_by_long_id(long_id : UInt) -> Block? {
-  let (id, state) = unpack_long_id(long_id)
-  match (id, state) {
-    (0, _) => Some(block_air)
-    (1, 0) => Some(block_stone)
-    (2, 0) => Some(block_grass)
-    (3, 0) => Some(block_dirt)
-    (4, 0) => Some(block_sand)
-    (5, 0) => Some(block_sandstone)
-    (6, 0) => Some(block_bedrock)
-    _ => None
-  }
 }

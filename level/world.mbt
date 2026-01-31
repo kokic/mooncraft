@@ -4,6 +4,7 @@ pub struct World {
   world_type : WorldType
   noise : @util.PerlinNoise
 }
+
 ///|
 /// Pre-classic bottom layer Y (bedrock).
 pub const PRECLASSIC_MIN_Y : Int = -32
@@ -14,7 +15,7 @@ pub const WORLD_MAX_Y : Int = 32
 
 ///|
 /// Lowest world Y (player view).
-pub const WORLD_MIN_Y : Int = PRECLASSIC_MIN_Y - 10
+pub const WORLD_MIN_Y : Int = PRECLASSIC_MIN_Y - 32
 
 ///|
 /// Hard floor for terrain height; higher => raises lowest land.

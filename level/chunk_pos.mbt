@@ -33,12 +33,20 @@ pub fn ChunkBlockPos::from_block_pos(block_pos : BlockPos) -> ChunkBlockPos {
 }
 
 ///|
-pub fn chunk_key_by_chunk_xyz(chunk_x : Int, chunk_y : Int, chunk_z : Int) -> String {
+pub fn chunk_key_by_chunk_xyz(
+  chunk_x : Int,
+  chunk_y : Int,
+  chunk_z : Int,
+) -> String {
   "\{chunk_x},\{chunk_y},\{chunk_z}"
 }
 
 ///|
-pub fn chunk_key_by_block_xyz(block_x : Int, block_y : Int, block_z : Int) -> String {
+pub fn chunk_key_by_block_xyz(
+  block_x : Int,
+  block_y : Int,
+  block_z : Int,
+) -> String {
   "\{block_x >> SHIFT_X},\{block_y >> SHIFT_Y},\{block_z >> SHIFT_Z}"
 }
 
@@ -58,19 +66,35 @@ pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
   if parts.length() != 3 {
     (0, 0, 0)
   } else {
-    (parse_int_or_zero(parts[0]), parse_int_or_zero(parts[1]), parse_int_or_zero(parts[2]))
+    (
+      parse_int_or_zero(parts[0]),
+      parse_int_or_zero(parts[1]),
+      parse_int_or_zero(parts[2]),
+    )
   }
 }
 
 ///|
-pub fn get_relative_block_xyz(block_x : Int, block_y : Int, block_z : Int) -> (Int, Int, Int) {
-  let mod = fn(n : Int, m : Int) -> Int { (m + (n % m)) % m }
-  (mod(block_x, CHUNK_X_SIZE), mod(block_y, CHUNK_Y_SIZE), mod(block_z, CHUNK_Z_SIZE))
+pub fn get_relative_block_xyz(
+  block_x : Int,
+  block_y : Int,
+  block_z : Int,
+) -> (Int, Int, Int) {
+  let mod = fn(n : Int, m : Int) -> Int { (m + n % m) % m }
+  (
+    mod(block_x, CHUNK_X_SIZE),
+    mod(block_y, CHUNK_Y_SIZE),
+    mod(block_z, CHUNK_Z_SIZE),
+  )
 }
 
 ///|
 /// YZX = y * Y_SIZE * Z_SIZE + z * Z_SIZE + x
-pub fn get_linear_block_index(block_rx : Int, block_ry : Int, block_rz : Int) -> Int {
+pub fn get_linear_block_index(
+  block_rx : Int,
+  block_ry : Int,
+  block_rz : Int,
+) -> Int {
   (((block_ry << SHIFT_Y) + block_rz) << SHIFT_Z) | block_rx
 }
 

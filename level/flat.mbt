@@ -1,7 +1,7 @@
 ///|
 /// Flat world layers listed from top to bottom (y = highest .. y = 0).
 let default_flat_layer_blocks : Array[String] = [
-  "grass", "grass", "grass", "bedrock",
+  "tile.grass", "tile.dirt", "tile.dirt", "tile.bedrock",
 ]
 
 ///|

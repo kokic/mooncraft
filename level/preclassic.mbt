@@ -15,7 +15,6 @@ fn fill_pre_classic(world : World, chunk : Chunk) -> Chunk {
       let dirt_depth = surface_dirt_depth(world, wx, wz)
       let sand_depth = desert_sand_depth(world, wx, wz)
       let surface = surface_height(world, wx, wz)
-      
       for ry in 0..<CHUNK_Y_SIZE {
         let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
         let density = density_at(world, wx, wy, wz)

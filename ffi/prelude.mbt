@@ -1,4 +1,8 @@
 ///|
+pub extern "js" fn set_global_value(name : String, value : JsValue) -> Unit =
+  #| (name, value) => { globalThis[name] = value }
+
+///|
 pub extern "js" fn js_console_log(v : JsValue) -> Unit = "(v) => console.log(v)"
 
 ///|

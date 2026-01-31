@@ -1,16 +1,13 @@
 ///|
 pub struct RenderBlock {
-  name : String
-  id : UInt
-  state : UInt
-  opacity : Int
-  render_type : RenderType
-  faces : FaceLayers
+  block : Block
+  faces : FaceLayerIndices
   long_id : UInt
 }
 
 ///|
-pub struct FaceLayers {
+/// Per-face texture layer indices resolved from FaceMaterialNames.
+pub struct FaceLayerIndices {
   pos_x : Int
   neg_x : Int
   pos_y : Int
@@ -21,12 +18,12 @@ pub struct FaceLayers {
 
 ///|
 pub struct BlockRegistry {
-  blocks_by_name : Map[String, RenderBlock]
-  blocks_by_long_id : Map[UInt, RenderBlock]
+  by_name : Map[String, RenderBlock]
+  by_long_id : Map[UInt, RenderBlock]
 }
 
 ///|
-pub fn create_block_registry(
+pub fn BlockRegistry::create(
   texture_names : Array[String],
   texture_indices : Array[Int],
 ) -> BlockRegistry {
@@ -45,20 +42,18 @@ pub fn create_block_registry(
   }
   let blocks_by_name : Map[String, RenderBlock] = Map::new()
   let blocks_by_long_id : Map[UInt, RenderBlock] = Map::new()
-
-  for def in block_render_defs {
+  for def in blocks {
     let resolve_layer = fn(tex_name : String?) -> Int {
       match tex_name {
-        Some(name) => {
+        Some(name) =>
           match texture_index.get(name) {
             Some(v) => v
             None => 0
           }
-        }
         None => 0
       }
     }
-    let faces = FaceLayers::{
+    let faces = FaceLayerIndices::{
       pos_x: resolve_layer(def.faces.pos_x),
       neg_x: resolve_layer(def.faces.neg_x),
       pos_y: resolve_layer(def.faces.pos_y),
@@ -67,37 +62,37 @@ pub fn create_block_registry(
       neg_z: resolve_layer(def.faces.neg_z),
     }
     let long_id = pack_long_id(def.id, def.state)
-    let block = RenderBlock::{
-      name: def.name,
-      id: def.id,
-      state: def.state,
-      opacity: def.opacity,
-      render_type: def.render_type,
-      faces,
-      long_id,
-    }
-    blocks_by_name[block.name] = block
-    blocks_by_long_id[block.long_id] = block
+    let block = RenderBlock::{ block: def, faces, long_id }
+    blocks_by_name[def.name] = block
+    blocks_by_long_id[long_id] = block
   }
-
-  BlockRegistry::{ blocks_by_name, blocks_by_long_id }
+  BlockRegistry::{ by_name: blocks_by_name, by_long_id: blocks_by_long_id }
 }
 
 ///|
-pub fn BlockRegistry::get_by_name(self : BlockRegistry, name : String) -> RenderBlock? {
-  self.blocks_by_name.get(name)
+pub fn BlockRegistry::get_by_name(
+  self : BlockRegistry,
+  name : String,
+) -> RenderBlock? {
+  self.by_name.get(name)
 }
 
 ///|
-pub fn BlockRegistry::get_by_long_id(self : BlockRegistry, long_id : UInt) -> RenderBlock? {
-  self.blocks_by_long_id.get(long_id)
+pub fn BlockRegistry::get_by_long_id(
+  self : BlockRegistry,
+  long_id : UInt,
+) -> RenderBlock? {
+  self.by_long_id.get(long_id)
 }
 
 ///|
 /// True if the block should be selectable (outlined) in UI.
-pub fn BlockRegistry::is_selectable(self : BlockRegistry, long_id : UInt) -> Bool {
+pub fn BlockRegistry::is_selectable(
+  self : BlockRegistry,
+  long_id : UInt,
+) -> Bool {
   match self.get_by_long_id(long_id) {
-    Some(block) => block.opacity > 0
+    Some(block) => block.block.opacity > 0
     None => false
   }
 }

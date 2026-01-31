@@ -140,21 +140,23 @@ pub struct BiomeParams {
 /// Biome tuning parameters for surface shaping.
 pub fn params(biome : Biome) -> BiomeParams {
   match biome {
-    Plains => BiomeParams::{
-      base_offset: PLAINS_BASE_OFFSET,
-      mountain_amp: PLAINS_MOUNTAIN_AMP,
-      max_height: PLAINS_MAX_HEIGHT,
-    }
-    Mountains => BiomeParams::{
-      base_offset: MOUNTAIN_BASE_OFFSET,
-      mountain_amp: MOUNTAIN_MOUNTAIN_AMP,
-      max_height: MOUNTAIN_MAX_HEIGHT,
-    }
-    Desert => BiomeParams::{
-      base_offset: DESERT_BASE_OFFSET,
-      mountain_amp: DESERT_MOUNTAIN_AMP,
-      max_height: DESERT_MAX_HEIGHT,
-    }
+    Plains =>
+      BiomeParams::{
+        base_offset: PLAINS_BASE_OFFSET,
+        mountain_amp: PLAINS_MOUNTAIN_AMP,
+        max_height: PLAINS_MAX_HEIGHT,
+      }
+    Mountains =>
+      BiomeParams::{
+        base_offset: MOUNTAIN_BASE_OFFSET,
+        mountain_amp: MOUNTAIN_MOUNTAIN_AMP,
+        max_height: MOUNTAIN_MAX_HEIGHT,
+      }
+    Desert =>
+      BiomeParams::{
+        base_offset: DESERT_BASE_OFFSET,
+        mountain_amp: DESERT_MOUNTAIN_AMP,
+        max_height: DESERT_MAX_HEIGHT,
+      }
   }
 }
-

@@ -40,6 +40,11 @@ pub impl Show for JsValue with output(self, logger) -> Unit {
 }
 
 ///|
+pub fn[T] cast_to_json_string(value : T) -> String {
+  JsValue::cast_from(value).to_json_string()
+}
+
+///|
 pub fn[T] JsValue::cast_from(value : T) -> JsValue = "%identity"
 
 ///|

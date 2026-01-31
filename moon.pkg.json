@@ -4,6 +4,8 @@
     "moonbitlang/core/hashmap",
     "kokic/mooncraft/ffi",
     "kokic/mooncraft/level",
-    "kokic/mooncraft/block"
+    "kokic/mooncraft/block",
+    "kokic/mooncraft/player",
+    "kokic/mooncraft/block/genus"
   ]
 }

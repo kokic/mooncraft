@@ -1,9 +1,7 @@
 {
   "name": "kokic/mooncraft",
   "version": "0.1.0",
-  "deps": {
-    "moonbitlang/async": "0.16.1"
-  },
+  "deps": {},
   "readme": "README.md",
   "repository": "",
   "license": "GPL-3.0",

@@ -4,6 +4,8 @@
     "moonbitlang/core/strconv",
     "kokic/mooncraft/biome",
     "kokic/mooncraft/util", 
-    "kokic/mooncraft/block"
+    "kokic/mooncraft/block",
+    "kokic/mooncraft/block/genus",
+    "kokic/mooncraft/ffi"
   ]
 }

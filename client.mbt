@@ -48,6 +48,7 @@ fn main {
   @ffi.cast_global_set("mcBuildChunkColors", @block.build_chunk_colors)
   @ffi.cast_global_set("mcBuildWorldMesh", @block.build_world_mesh)
   @ffi.cast_global_set("mcBuildWorldMeshSplit", @block.build_world_mesh_split)
+  @ffi.cast_global_set("mcBuildUiItemMesh", @block.build_ui_item_mesh)
   @ffi.cast_global_set("mcComputeSpawnPosition", @level.compute_spawn_position)
   @ffi.cast_global_set("mcRaycastBlocks", @level.raycast_blocks)
   @ffi.cast_global_set("mcGetBlockId", @level.get_block_id)

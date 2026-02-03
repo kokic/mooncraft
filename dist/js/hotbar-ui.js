@@ -180,7 +180,8 @@ function createHotbarUI({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       return;
     }
-    drawItemIcon(ctx, textures, item, { flatSize: ICON_FLAT_SIZE });
+    const hotbarOffsetY = -3 / ICON_DISPLAY_SIZE;
+    drawItemIcon(ctx, textures, item, { flatSize: ICON_FLAT_SIZE, offsetY: hotbarOffsetY });
   };
 
   const renderItems = (textures) => {
@@ -262,6 +263,7 @@ function createHotbarUI({
     selectNext,
     selectPrev,
     getSelectedIndex: () => state.index,
+    getItems: () => state.items.slice(),
     setItems: (items, textures) => {
       state.items = Array.isArray(items) ? items.slice(0, slotCount) : [];
       while (state.items.length < slotCount) state.items.push(null);

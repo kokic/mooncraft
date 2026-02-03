@@ -84,6 +84,8 @@ function createInventoryUI({
     canvas.height = canvasSize;
     canvas.style.width = `${slotSize}px`;
     canvas.style.height = `${slotSize}px`;
+    canvas.style.imageRendering = "pixelated";
+    canvas.style.imageRendering = "crisp-edges";
     canvas.style.background = "rgba(20, 20, 20, 0.8)";
     canvas.style.border = "1px solid rgba(255, 255, 255, 0.08)";
     canvas.style.boxShadow = "inset 0 0 4px rgba(0, 0, 0, 0.7)";

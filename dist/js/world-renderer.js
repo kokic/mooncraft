@@ -795,12 +795,14 @@ function renderTestChunk({
         items.push({
           name: def.name,
           kind: "flat",
+          shape: def.shape,
           texture: { name: def.texture || "missing_tile" },
         });
       } else {
         items.push({
           name: def.name,
-          kind: "block",
+          kind: def.kind || "block",
+          shape: def.shape,
           top: { name: def.top || "missing_tile" },
           side: { name: def.side || def.top || "missing_tile" },
           bottom: { name: def.bottom || "missing_tile" },

@@ -1,243 +1,79 @@
 ///|
-fn make_block(
-  name : String,
-  id : UInt,
-  state : UInt,
-  opacity : Int,
-  luminance : Int,
-  shape : Shape,
-  faces : MaterialNames,
-) -> Block {
-  Block::{ name, id, state, opacity, luminance, shape, faces }
-}
-
-///|
-pub let block_air : Block = make_block(
-  "tile.air",
-  alloc_id(),
-  0,
-  0,
-  0,
-  Shape::Normal,
-  MaterialNames::new(),
-)
-
-///|
-pub let block_stone : Block = make_block(
-  "tile.stone",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::isotropic("stone"),
-)
-
-///|
-pub let block_grass : Block = make_block(
-  "tile.grass",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::top_bottom("grass_carried", "dirt", "grass_side_carried"),
-)
-
-///|
-pub let block_dirt : Block = make_block(
-  "tile.dirt",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::isotropic("dirt"),
-)
-
-///|
-pub let block_sand : Block = make_block(
-  "tile.sand",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::isotropic("sand"),
-)
-
-///|
-pub let block_sandstone : Block = make_block(
-  "tile.sandstone",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::top_bottom(
+pub let blocks : Array[Block] = [
+  Block::create("air", opacity=0, shape=Shape::Air, [], category=@item.None),
+  Block::create("stone", ["stone"]),
+  Block::create("dirt", ["dirt"]),
+  Block::create("grass", ["grass_carried", "dirt", "grass_side_carried"]),
+  Block::create("sand", ["sand"]),
+  Block::create("sandstone", [
     "sandstone_top", "sandstone_bottom", "sandstone_normal",
-  ),
-)
-
-///|
-pub let block_sandstone_carved : Block = make_block(
-  "tile.sandstone_carved",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::top_bottom(
+  ]),
+  Block::create("sandstone_carved", [
     "sandstone_top", "sandstone_bottom", "sandstone_carved",
-  ),
-)
-
-///|
-pub let block_sandstone_smooth : Block = make_block(
-  "tile.sandstone_smooth",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::top_bottom(
+  ]),
+  Block::create("sandstone_smooth", [
     "sandstone_top", "sandstone_bottom", "sandstone_smooth",
+  ]),
+  Block::create("bedrock", ["bedrock"]),
+  Block::create("netherrack", ["netherrack"]),
+  Block::create("tnt", ["tnt_top", "tnt_bottom", "tnt_side"]),
+  Block::create("oak_log", ["oak_log_top", "oak_log"]),
+  Block::create("oak_leaves", ["oak_leaves"], material=Material::TintedLeaf),
+  ..create_torch_group("torch", ["torch"], Shape::Torch),
+  ..create_torch_group(
+    "redstone_torch",
+    ["redstone_torch"],
+    Shape::RedstoneTorch,
   ),
-)
+  ..create_torch_group(
+    "redstone_torch_classic",
+    ["redstone_torch_classic"],
+    Shape::RedstoneTorchClassic,
+  ),
+  ..create_torch_group("soul_torch", ["soul_torch"], Shape::Torch),
+  ..create_torch_group("copper_torch", ["copper_torch"], Shape::Torch),
+]
 
 ///|
-pub let block_bedrock : Block = make_block(
-  "tile.bedrock",
-  alloc_id(),
-  0,
-  15,
-  0,
-  Shape::Normal,
-  MaterialNames::isotropic("bedrock"),
-)
+/// The long id of the air block should be an invariant
+pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
+
+///|
+pub fn Block::is_air(block : Block) -> Bool {
+  block.id == AIR_LONG_ID
+}
 
 ///|
 fn create_torch(
   base : String,
   id : UInt,
   state : UInt,
-  material : MaterialNames,
+  faces : FixedArray[String],
   shape : Shape,
+  category? : @item.Category = @item.Item,
 ) -> Block {
-  make_block(
+  Block::create(
     @genus.Torch::unique_name(base, state),
-    id,
-    state,
-    15,
-    0,
-    shape,
-    material,
+    id~,
+    state~,
+    shape~,
+    category~,
+    faces,
   )
 }
 
 ///|
-fn add_torch_group(
+fn create_torch_group(
   base : String,
-  id : UInt,
-  material : MaterialNames,
+  id? : UInt = alloc_id(),
+  faces : FixedArray[String],
   shape : Shape,
 ) -> Array[Block] {
-  let groups = [
-    create_torch(base, id, 0, material, shape),
-    create_torch(base, id, 1, material, shape),
-    create_torch(base, id, 2, material, shape),
-    create_torch(base, id, 3, material, shape),
-    create_torch(base, id, 4, material, shape),
+  [
+    create_torch(base, id, 0, faces, shape),
+    create_torch(base, id, 1, faces, shape, category=@item.None),
+    create_torch(base, id, 2, faces, shape, category=@item.None),
+    create_torch(base, id, 3, faces, shape, category=@item.None),
+    create_torch(base, id, 4, faces, shape, category=@item.None),
   ]
-  blocks.append(groups) // side effect
-  groups
-}
-
-///|
-pub let torch_blocks : Array[Block] = add_torch_group(
-  "tile.torch",
-  alloc_id(),
-  MaterialNames::isotropic("torch"),
-  Shape::Torch,
-)
-
-///|
-pub let redstone_torch_blocks : Array[Block] = add_torch_group(
-  "tile.redstone_torch",
-  alloc_id(),
-  MaterialNames::isotropic("redstone_torch"),
-  Shape::RedstoneTorch,
-)
-
-///|
-pub let redstone_torch_classic_blocks : Array[Block] = add_torch_group(
-  "tile.redstone_torch_classic",
-  alloc_id(),
-  MaterialNames::isotropic("redstone_torch_classic"),
-  Shape::RedstoneTorchClassic,
-)
-
-///|
-pub let soul_torch_blocks : Array[Block] = add_torch_group(
-  "tile.soul_torch",
-  alloc_id(),
-  MaterialNames::isotropic("soul_torch"),
-  Shape::Torch,
-)
-
-///|
-pub let copper_torch_blocks : Array[Block] = add_torch_group(
-  "tile.copper_torch",
-  alloc_id(),
-  MaterialNames::isotropic("copper_torch"),
-  Shape::Torch,
-)
-
-///|
-pub let blocks : Array[Block] = [
-  block_air, block_stone, block_grass, block_dirt, block_sand, block_sandstone, block_sandstone_carved,
-  block_sandstone_smooth, block_bedrock,
-]
-
-///|
-let blocks_by_name : Map[String, Block] = {
-  let out : Map[String, Block] = Map::new()
-  for block in blocks {
-    if !out.contains(block.name) {
-      out[block.name] = block
-    }
-  }
-  out
-}
-
-///|
-let blocks_by_long_id : Map[UInt, Block] = {
-  let out : Map[UInt, Block] = Map::new()
-  for block in blocks {
-    out[block.long_id()] = block
-  }
-  out
-}
-
-///|
-pub fn get_block_by_name(name : String) -> Block? {
-  blocks_by_name.get(name)
-}
-
-///|
-pub fn get_block_by_long_id(long_id : UInt) -> Block? {
-  blocks_by_long_id.get(long_id)
-}
-
-///|
-pub fn get_long_id_by_name(name : String) -> UInt {
-  match get_block_by_name(name) {
-    Some(block) => block.long_id()
-    None => block_air.long_id()
-  }
-}
-
-///|
-pub fn get_air_long_id() -> UInt {
-  block_air.long_id()
 }

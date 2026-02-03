@@ -1,0 +1,5 @@
+{
+  "import": [
+    "kokic/mooncraft/block"
+  ]
+}

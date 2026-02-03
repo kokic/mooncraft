@@ -11,5 +11,4 @@ const logOnce = createLogOnce();
 
 export {
   logOnce,
-  createLogOnce,
 };

@@ -1,18 +1,15 @@
-import { logOnce } from "./logging.js";
+import { drawItemIcon, ICON_DEFAULT_CANVAS_SIZE } from "./item-icons.js";
 
 // Widgets atlas metadata (pixel coords in the 256x256 source image).
 const HOTBAR_BG = { x: 0, y: 0, width: 182, height: 22 };
 const SELECTOR_BG = { x: 0, y: 22, width: 24, height: 24 };
 const WIDGETS_BASE_SIZE = 256;
 // Icon rendering: base geometry is authored for 32x32; canvas can be larger for sharper pixels.
-const ICON_BASE_SIZE = 32;
-const ICON_CANVAS_SIZE = 48;
+const ICON_CANVAS_SIZE = ICON_DEFAULT_CANVAS_SIZE;
 // Visual size in the UI (CSS pixels).
 const ICON_DISPLAY_SIZE = 20;
 // Flat item draw size within the canvas (before CSS scaling).
 const ICON_FLAT_SIZE = 20;
-// Scale factor applied to isometric block geometry.
-const ICON_SCALE = ICON_CANVAS_SIZE / ICON_BASE_SIZE;
 
 // Crop the widgets atlas into a data URL for CSS backgrounds.
 function createCroppedDataUrl(img, crop) {
@@ -34,127 +31,6 @@ function createCroppedDataUrl(img, crop) {
     crop.height,
   );
   return canvas.toDataURL();
-}
-
-// Force nearest-neighbor sampling for crisp pixels.
-function setImageSmoothingEnabled(ctx, value) {
-  ctx.mozImageSmoothingEnabled = value;
-  ctx.webkitImageSmoothingEnabled = value;
-  ctx.msImageSmoothingEnabled = value;
-  ctx.imageSmoothingEnabled = value;
-  ctx.oImageSmoothingEnabled = value;
-};
-
-// Lookup a texture image by name from the texture pack.
-function resolveTextureImage(textures, name) {
-  if (!textures) {
-    logOnce("error", "hotbar:textures-missing", "[hotbar] textures not loaded");
-    return null;
-  }
-  if (!name) {
-    logOnce("warn", "hotbar:texture-name-missing", "[hotbar] texture name missing");
-    return null;
-  }
-  const index = textures.textureIndex?.get(name);
-  if (!Number.isFinite(index)) {
-    logOnce("warn", `hotbar:texture-index-missing:${name}`, "[hotbar] texture not found", name);
-    return null;
-  }
-  const img = textures.images?.[index] ?? null;
-  if (!img) {
-    logOnce("warn", `hotbar:texture-image-missing:${name}`, "[hotbar] texture image missing", name);
-    return null;
-  }
-  return img;
-}
-
-// Draw a textured quad using a custom 2D basis (axisX/axisY) and origin.
-function drawTextureFace(ctx, img, rect, origin, axisX, axisY, alpha = 1, scale = 1) {
-  if (!img) return;
-  const src = rect ?? { x: 0, y: 0, w: img.width, h: img.height };
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.setTransform(
-    (axisX[0] * scale) / src.w,
-    (axisX[1] * scale) / src.w,
-    (axisY[0] * scale) / src.h,
-    (axisY[1] * scale) / src.h,
-    origin[0] * scale,
-    origin[1] * scale,
-  );
-  ctx.drawImage(img, src.x, src.y, src.w, src.h, 0, 0, src.w, src.h);
-  ctx.restore();
-}
-
-// Render a block icon with 3 faces: left, right, top (isometric).
-function drawIsometricBlock(ctx, textures, item) {
-  const resolvedTop = resolveTextureImage(textures, item.top?.name);
-  const resolvedSide = resolveTextureImage(textures, item.side?.name);
-  const topImg = resolvedTop ?? resolvedSide;
-  const sideImg = resolvedSide ?? resolvedTop;
-  const topRect = item.top?.rect ?? item.side?.rect;
-  const sideRect = item.side?.rect ?? item.top?.rect;
-
-  ctx.save();
-  setImageSmoothingEnabled(ctx, false);
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-  // Base anchor in the 32x32 geometry space (scaled by ICON_SCALE during draw).
-  const cx = ICON_BASE_SIZE / 2;
-  const cy = 12;
-
-  // Draw far (left) face first for correct overlap.
-  drawTextureFace(
-    ctx,
-    sideImg,
-    sideRect,
-    [cx - 8, cy - 4],
-    [8, 4],
-    [0, 8],
-    1,
-    ICON_SCALE
-  );
-
-  // Draw right face next.
-  drawTextureFace(
-    ctx,
-    sideImg,
-    sideRect,
-    [cx + 8, cy - 4],
-    [-8, 4],
-    [0, 8],
-    1,
-    ICON_SCALE
-  );
-
-  // Draw top face last (closest).
-  drawTextureFace(
-    ctx,
-    topImg,
-    topRect,
-    [cx, cy - 8],
-    [8, 4],
-    [-8, 4],
-    1,
-    ICON_SCALE
-  );
-
-  ctx.restore();
-}
-
-// Render a flat item sprite centered in the canvas.
-function drawFlatItem(ctx, textures, item) {
-  const img = resolveTextureImage(textures, item.texture?.name);
-  const rect = item.texture?.rect;
-  if (!img) return;
-  const src = rect ?? { x: 0, y: 0, w: img.width, h: img.height };
-  setImageSmoothingEnabled(ctx, false);
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  // Scale to keep the same visual size even if canvas resolution changes.
-  const size = (ICON_CANVAS_SIZE * ICON_FLAT_SIZE) / ICON_BASE_SIZE;
-  const x = (ctx.canvas.width - size) / 2;
-  const y = (ctx.canvas.height - size) / 2;
-  ctx.drawImage(img, src.x, src.y, src.w, src.h, x, y, size, size);
 }
 
 // Fetch and decode the widgets atlas image.
@@ -295,28 +171,25 @@ function createHotbarUI({
   }
 
   // Draw all item slots into their canvases.
+  const renderItemAt = (index, textures) => {
+    const canvas = itemCanvases[index];
+    const ctx = canvas?.getContext("2d");
+    if (!ctx) return;
+    const item = state.items[index];
+    if (!item) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    drawItemIcon(ctx, textures, item, { flatSize: ICON_FLAT_SIZE });
+  };
+
   const renderItems = (textures) => {
     if (!textures) {
       logOnce("warn", "hotbar:render-textures-missing", "[hotbar] render skipped: textures missing");
       return;
     }
     for (let i = 0; i < itemCanvases.length; i += 1) {
-      const canvas = itemCanvases[i];
-      const ctx = canvas.getContext("2d");
-      
-      if (!ctx) continue;
-      const item = state.items[i];
-      if (!item) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        continue;
-      }
-      if (item.kind === "flat") {
-        drawFlatItem(ctx, textures, item);
-      } else if (item.kind === "block") {
-        drawIsometricBlock(ctx, textures, item);
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
+      renderItemAt(i, textures);
     }
   };
 
@@ -395,6 +268,13 @@ function createHotbarUI({
       if (textures) state.textures = textures;
       renderItems(state.textures);
       requestAnimationFrame(() => renderItems(state.textures));
+    },
+    setItem: (index, item, textures) => {
+      if (index < 0 || index >= slotCount) return;
+      if (textures) state.textures = textures;
+      state.items[index] = item ?? null;
+      renderItemAt(index, state.textures);
+      requestAnimationFrame(() => renderItemAt(index, state.textures));
     },
     dispose,
     loadImages,

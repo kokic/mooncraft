@@ -2,20 +2,11 @@ import { loadImage } from "./asset-loader.js";
 
 const BLOCK_IMAGE_ROOT = "./assets/images/blocks";
 
-function collectTextureNames() {
-  if (typeof window.mcCollectTextureNames !== "function") {
-    throw new Error("mcCollectTextureNames not available");
-  }
-  const names = window.mcCollectTextureNames();
-  console.log("mcCollectTextureNames:", names);
-  if (!Array.isArray(names)) {
+async function loadBlockTextures() {
+  const texture_names = window.mcCollectTextureNames();
+  if (!Array.isArray(texture_names)) {
     throw new Error("mcCollectTextureNames returned non-array");
   }
-  return names;
-}
-
-async function loadBlockTextures() {
-  const texture_names = collectTextureNames();
   const images = [];
   const textureIndex = new Map();
 
@@ -34,13 +25,14 @@ async function loadBlockTextures() {
     images.push(img);
   }
 
-  return {
+  const result = {
     images,
     textureIndex,
     singleWidth: base_w,
     singleHeight: base_h,
     layerCount: images.length,
-  };
+  }
+  return result;
 }
 
 export {

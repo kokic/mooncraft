@@ -1,5 +1,5 @@
 ///|
-pub let fallback_texture : String = "missing"
+pub let fallback_texture : String = "missing_tile"
 
 ///|
 pub fn collect_texture_names() -> Array[String] {

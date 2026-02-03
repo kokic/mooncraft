@@ -16,13 +16,17 @@ async function bootstrap() {
 
   window.mcBlocks = blockRegistry;
   window.mcTextures = textures;
-  console.log("blocks ready:", blockRegistry);
-  console.log("textures ready:", textures);
+  
+  // console.log("blocks ready:", blockRegistry);
+  // console.log("textures ready:", textures);
+
   const chunkData = window.mcChunkData;
   const chunkSize = window.mcChunkSize;
   const chunkGenerator = window.mcGenChunk;
-  console.log("mcChunkData type:", chunkData?.constructor?.name, "length:", chunkData?.length);
-  console.log("mcChunkSize:", chunkSize);
+
+  // console.log("mcChunkData type:", chunkData?.constructor?.name, "length:", chunkData?.length);
+  // console.log("mcChunkSize:", chunkSize);
+
   renderTestChunk({
     blockRegistry,
     textures,

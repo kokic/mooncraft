@@ -5,6 +5,8 @@
     "kokic/mooncraft/biome",
     "kokic/mooncraft/util", 
     "kokic/mooncraft/block",
+    "kokic/mooncraft/generation/structure",
+    "kokic/mooncraft/generation/feature",
     "kokic/mooncraft/block/genus",
     "kokic/mooncraft/ffi"
   ]

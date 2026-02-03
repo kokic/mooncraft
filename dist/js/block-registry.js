@@ -1,18 +1,11 @@
-function packLongId(id, state = 0) {
-  return ((state & 0xffff) << 16) | (id & 0xffff);
-}
+const packLongId = (id, state = 0) => window.mcPackLongId(id, state);
 
-function unpackLongId(long_id) {
-  return {
-    id: long_id & 0xffff,
-    state: (long_id >>> 16) & 0xffff,
-  };
-}
+const unpackLongId = (long_id) => {
+  const out = window.mcUnpackLongId(long_id);
+  return { id: out._0, state: out._1 };
+};
 
 function createBlockRegistry(textureIndex) {
-  if (typeof window.mcCreateBlockRegistry !== "function") {
-    throw new Error("mcCreateBlockRegistry not available");
-  }
   const names = [];
   const indices = [];
   for (const [name, index] of textureIndex.entries()) {

@@ -6,6 +6,8 @@
     "kokic/mooncraft/level",
     "kokic/mooncraft/block",
     "kokic/mooncraft/player",
-    "kokic/mooncraft/block/genus"
+    "kokic/mooncraft/block/genus",
+    "kokic/mooncraft/util",
+    "kokic/mooncraft/biome"
   ]
 }

@@ -13,6 +13,34 @@ pub fn Torch::unique_name(base : String, state : UInt) -> String {
 }
 
 ///|
+/// Infer torch placement state from the target block and the previous hit.
+pub fn Torch::torch_state_from_placement(
+  block : Array[Int],
+  prev : Array[Int],
+) -> UInt {
+  if block.length() < 3 || prev.length() < 3 {
+    0
+  } else {
+    let dx = block[0] - prev[0]
+    let dy = block[1] - prev[1]
+    let dz = block[2] - prev[2]
+    if dy == 1 {
+      0
+    } else if dz == -1 {
+      1
+    } else if dz == 1 {
+      2
+    } else if dx == -1 {
+      3
+    } else if dx == 1 {
+      4
+    } else {
+      0
+    }
+  }
+}
+
+///|
 const TORCH_BOUNDS_SIZE : Float = 2.5F
 
 ///|
@@ -112,22 +140,26 @@ pub fn TorchTransform::from(state : Int) -> TorchTransform {
   let mut off_y = 0.0F
   let mut off_z = 0.0F
   match state {
-    1 => { // wall north (z-)
+    // wall north (z-)
+    1 => {
       rot_x = torch_tilt
       off_z = -torch_offset
       off_y = torch_wall_y_offset
     }
-    2 => { // wall south (z+)
+    // wall south (z+)
+    2 => {
       rot_x = -torch_tilt
       off_z = torch_offset
       off_y = torch_wall_y_offset
     }
-    3 => { // wall west (x-)
+    // wall west (x-)
+    3 => {
       rot_z = -torch_tilt
       off_x = -torch_offset
       off_y = torch_wall_y_offset
     }
-    4 => { // wall east (x+)
+    // wall east (x+)
+    4 => {
       rot_z = torch_tilt
       off_x = torch_offset
       off_y = torch_wall_y_offset
@@ -174,18 +206,6 @@ pub fn TorchTransform::apply(
 }
 
 ///|
-fn face_shade_scale(nx : Int, ny : Int, nz : Int) -> Float {
-  if nz != 0 {
-    0.8F
-  } else if nx != 0 {
-    0.6F
-  } else if ny == -1 {
-    0.5F
-  } else {
-    1.0F
-  }
-}
-
 ///|
 let classic_torch_uv_full : (Float, Float, Float, Float) = @util.offset_uv_pixels(
   0, 0, 16, 16,
@@ -227,12 +247,12 @@ pub fn Torch::append_mesh(
   let z0 = torch_min
   let z1 = torch_max
   let transform = TorchTransform::from(state.reinterpret_as_int())
-  let shade_xp = face_shade_scale(1, 0, 0)
-  let shade_xn = face_shade_scale(-1, 0, 0)
-  let shade_yp = face_shade_scale(0, 1, 0)
-  let shade_yn = face_shade_scale(0, -1, 0)
-  let shade_zp = face_shade_scale(0, 0, 1)
-  let shade_zn = face_shade_scale(0, 0, -1)
+  let shade_xp = @util.face_shade_scale(1, 0, 0)
+  let shade_xn = @util.face_shade_scale(-1, 0, 0)
+  let shade_yp = @util.face_shade_scale(0, 1, 0)
+  let shade_yn = @util.face_shade_scale(0, -1, 0)
+  let shade_zp = @util.face_shade_scale(0, 0, 1)
+  let shade_zn = @util.face_shade_scale(0, 0, -1)
   push_face(
     transform.apply((x1, y0, z0), bx, by, bz),
     transform.apply((x1, y0, z1), bx, by, bz),
@@ -338,12 +358,12 @@ pub fn Torch::append_classic_mesh(
   let z0 = torch_min
   let z1 = torch_max
   let transform = TorchTransform::from(state.reinterpret_as_int())
-  let shade_xp = face_shade_scale(1, 0, 0)
-  let shade_xn = face_shade_scale(-1, 0, 0)
-  let shade_yp = face_shade_scale(0, 1, 0)
-  let shade_yn = face_shade_scale(0, -1, 0)
-  let shade_zp = face_shade_scale(0, 0, 1)
-  let shade_zn = face_shade_scale(0, 0, -1)
+  let shade_xp = @util.face_shade_scale(1, 0, 0)
+  let shade_xn = @util.face_shade_scale(-1, 0, 0)
+  let shade_yp = @util.face_shade_scale(0, 1, 0)
+  let shade_yn = @util.face_shade_scale(0, -1, 0)
+  let shade_zp = @util.face_shade_scale(0, 0, 1)
+  let shade_zn = @util.face_shade_scale(0, 0, -1)
   push_face(
     transform.apply((x0, y1, z1), bx, by, bz),
     transform.apply((x0, y1, z0), bx, by, bz),
@@ -464,12 +484,12 @@ pub fn Torch::append_classic_mesh(
 
 ///|
 pub fn Torch::append_colors(push_color : (Int, Float) -> Unit) -> Unit {
-  let shade_xp = face_shade_scale(1, 0, 0)
-  let shade_xn = face_shade_scale(-1, 0, 0)
-  let shade_yp = face_shade_scale(0, 1, 0)
-  let shade_yn = face_shade_scale(0, -1, 0)
-  let shade_zp = face_shade_scale(0, 0, 1)
-  let shade_zn = face_shade_scale(0, 0, -1)
+  let shade_xp = @util.face_shade_scale(1, 0, 0)
+  let shade_xn = @util.face_shade_scale(-1, 0, 0)
+  let shade_yp = @util.face_shade_scale(0, 1, 0)
+  let shade_yn = @util.face_shade_scale(0, -1, 0)
+  let shade_zp = @util.face_shade_scale(0, 0, 1)
+  let shade_zn = @util.face_shade_scale(0, 0, -1)
   push_color(6, shade_xp)
   push_color(6, shade_xn)
   push_color(6, shade_yp)
@@ -499,12 +519,12 @@ pub fn Torch::append_redstone_mesh(
 ) -> Unit {
   Torch::append_mesh(state, layer_f, bx, by, bz, push_face)
   let transform = TorchTransform::from(state.reinterpret_as_int())
-  let shade_xp = face_shade_scale(1, 0, 0)
-  let shade_xn = face_shade_scale(-1, 0, 0)
-  let shade_yp = face_shade_scale(0, 1, 0)
-  let shade_yn = face_shade_scale(0, -1, 0)
-  let shade_zp = face_shade_scale(0, 0, 1)
-  let shade_zn = face_shade_scale(0, 0, -1)
+  let shade_xp = @util.face_shade_scale(1, 0, 0)
+  let shade_xn = @util.face_shade_scale(-1, 0, 0)
+  let shade_yp = @util.face_shade_scale(0, 1, 0)
+  let shade_yn = @util.face_shade_scale(0, -1, 0)
+  let shade_zp = @util.face_shade_scale(0, 0, 1)
+  let shade_zn = @util.face_shade_scale(0, 0, -1)
   let gx0 = redstone_torch_glow_min
   let gx1 = redstone_torch_glow_max
   let gy0 = redstone_torch_glow_y_min
@@ -582,12 +602,12 @@ pub fn Torch::append_redstone_mesh(
 ///|
 pub fn Torch::append_redstone_colors(push_color : (Int, Float) -> Unit) -> Unit {
   Torch::append_colors(push_color)
-  let shade_xp = face_shade_scale(1, 0, 0)
-  let shade_xn = face_shade_scale(-1, 0, 0)
-  let shade_yp = face_shade_scale(0, 1, 0)
-  let shade_yn = face_shade_scale(0, -1, 0)
-  let shade_zp = face_shade_scale(0, 0, 1)
-  let shade_zn = face_shade_scale(0, 0, -1)
+  let shade_xp = @util.face_shade_scale(1, 0, 0)
+  let shade_xn = @util.face_shade_scale(-1, 0, 0)
+  let shade_yp = @util.face_shade_scale(0, 1, 0)
+  let shade_yn = @util.face_shade_scale(0, -1, 0)
+  let shade_zp = @util.face_shade_scale(0, 0, 1)
+  let shade_zn = @util.face_shade_scale(0, 0, -1)
   push_color(6, shade_yp)
   push_color(6, shade_yn)
   push_color(6, shade_zp)
@@ -598,12 +618,12 @@ pub fn Torch::append_redstone_colors(push_color : (Int, Float) -> Unit) -> Unit 
 
 ///|
 pub fn Torch::append_classic_colors(push_color : (Int, Float) -> Unit) -> Unit {
-  let shade_xp = face_shade_scale(1, 0, 0)
-  let shade_xn = face_shade_scale(-1, 0, 0)
-  let shade_yp = face_shade_scale(0, 1, 0)
-  let shade_yn = face_shade_scale(0, -1, 0)
-  let shade_zp = face_shade_scale(0, 0, 1)
-  let shade_zn = face_shade_scale(0, 0, -1)
+  let shade_xp = @util.face_shade_scale(1, 0, 0)
+  let shade_xn = @util.face_shade_scale(-1, 0, 0)
+  let shade_yp = @util.face_shade_scale(0, 1, 0)
+  let shade_yn = @util.face_shade_scale(0, -1, 0)
+  let shade_zp = @util.face_shade_scale(0, 0, 1)
+  let shade_zn = @util.face_shade_scale(0, 0, -1)
   push_color(6, shade_yp)
   push_color(6, shade_yn)
   push_color(6, shade_xp)

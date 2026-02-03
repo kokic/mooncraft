@@ -1,24 +1,4 @@
-import { logOnce } from "./logging.js";
-
-// Player controller: input handling, movement, and camera direction.
-
-function cameraFromYawPitch(position, yaw, pitch) {
-  const cosPitch = Math.cos(pitch);
-  const dir = [
-    Math.cos(yaw) * cosPitch,
-    Math.sin(pitch),
-    Math.sin(yaw) * cosPitch,
-  ];
-  return {
-    position,
-    direction: dir,
-    center: [
-      position[0] + dir[0],
-      position[1] + dir[1],
-      position[2] + dir[2],
-    ],
-  };
-}
+// Player controller: input handling and movement.
 
 function createPlayerController({
   canvas,
@@ -94,24 +74,7 @@ function createPlayerController({
   document.addEventListener("mousemove", onMouseMove);
   canvas.addEventListener("click", onClick);
 
-  const isSolidAt = (x, y, z) => {
-    if (typeof getBlockAt !== "function") {
-      logOnce("error", "player:getBlockAt-missing", "[player] getBlockAt is not a function");
-      return false;
-    }
-    const id = getBlockAt(x, y, z);
-    if (id == null) return false;
-    if (typeof isSolidBlock === "function") {
-      return isSolidBlock(id);
-    }
-    return id !== 0;
-  };
-
   const getBlockAabbAt = (x, y, z) => {
-    if (typeof getBlockAt !== "function") {
-      logOnce("error", "player:getBlockAt-missing-aabb", "[player] getBlockAt is not a function");
-      return null;
-    }
     const id = getBlockAt(x, y, z);
     if (id == null) return null;
     if (typeof getBlockAabb === "function") return getBlockAabb(id);
@@ -119,6 +82,11 @@ function createPlayerController({
       return null;
     }
     return id !== 0 ? { min: [0, 0, 0], max: [1, 1, 1] } : null;
+  };
+
+  const normalizeAabbs = (aabb) => {
+    if (!aabb) return null;
+    return Array.isArray(aabb) ? aabb : [aabb];
   };
 
   const intersects = (
@@ -158,25 +126,28 @@ function createPlayerController({
       for (let by = minY; by <= maxY; by += 1) {
         for (let bz = minZ; bz <= maxZ; bz += 1) {
           const aabb = getBlockAabbAt(blockX, by, bz);
-          if (!aabb) continue;
-          const bMinX = blockX + aabb.min[0];
-          const bMaxX = blockX + aabb.max[0];
-          const bMinY = by + aabb.min[1];
-          const bMaxY = by + aabb.max[1];
-          const bMinZ = bz + aabb.min[2];
-          const bMaxZ = bz + aabb.max[2];
-          if (!intersects(
-            entMinX, entMinY, entMinZ,
-            entMaxX, entMaxY, entMaxZ,
-            bMinX, bMinY, bMinZ,
-            bMaxX, bMaxY, bMaxZ,
-          )) continue;
-          if (dir > 0) {
-            next = bMinX - radius - eps;
-          } else {
-            next = bMaxX + radius + eps;
+          const aabbs = normalizeAabbs(aabb);
+          if (!aabbs) continue;
+          for (const box of aabbs) {
+            const bMinX = blockX + box.min[0];
+            const bMaxX = blockX + box.max[0];
+            const bMinY = by + box.min[1];
+            const bMaxY = by + box.max[1];
+            const bMinZ = bz + box.min[2];
+            const bMaxZ = bz + box.max[2];
+            if (!intersects(
+              entMinX, entMinY, entMinZ,
+              entMaxX, entMaxY, entMaxZ,
+              bMinX, bMinY, bMinZ,
+              bMaxX, bMaxY, bMaxZ,
+            )) continue;
+            if (dir > 0) {
+              next = bMinX - radius - eps;
+            } else {
+              next = bMaxX + radius + eps;
+            }
+            return next;
           }
-          return next;
         }
       }
       return next;
@@ -197,25 +168,28 @@ function createPlayerController({
       for (let by = minY; by <= maxY; by += 1) {
         for (let bx = minX; bx <= maxX; bx += 1) {
           const aabb = getBlockAabbAt(bx, by, blockZ);
-          if (!aabb) continue;
-          const bMinX = bx + aabb.min[0];
-          const bMaxX = bx + aabb.max[0];
-          const bMinY = by + aabb.min[1];
-          const bMaxY = by + aabb.max[1];
-          const bMinZ = blockZ + aabb.min[2];
-          const bMaxZ = blockZ + aabb.max[2];
-          if (!intersects(
-            entMinX, entMinY, entMinZ,
-            entMaxX, entMaxY, entMaxZ,
-            bMinX, bMinY, bMinZ,
-            bMaxX, bMaxY, bMaxZ,
-          )) continue;
-          if (dir > 0) {
-            next = bMinZ - radius - eps;
-          } else {
-            next = bMaxZ + radius + eps;
+          const aabbs = normalizeAabbs(aabb);
+          if (!aabbs) continue;
+          for (const box of aabbs) {
+            const bMinX = bx + box.min[0];
+            const bMaxX = bx + box.max[0];
+            const bMinY = by + box.min[1];
+            const bMaxY = by + box.max[1];
+            const bMinZ = blockZ + box.min[2];
+            const bMaxZ = blockZ + box.max[2];
+            if (!intersects(
+              entMinX, entMinY, entMinZ,
+              entMaxX, entMaxY, entMaxZ,
+              bMinX, bMinY, bMinZ,
+              bMaxX, bMaxY, bMaxZ,
+            )) continue;
+            if (dir > 0) {
+              next = bMinZ - radius - eps;
+            } else {
+              next = bMaxZ + radius + eps;
+            }
+            return next;
           }
-          return next;
         }
       }
       return next;
@@ -236,25 +210,28 @@ function createPlayerController({
       for (let bx = minX; bx <= maxX; bx += 1) {
         for (let bz = minZ; bz <= maxZ; bz += 1) {
           const aabb = getBlockAabbAt(bx, blockY, bz);
-          if (!aabb) continue;
-          const bMinX = bx + aabb.min[0];
-          const bMaxX = bx + aabb.max[0];
-          const bMinY = blockY + aabb.min[1];
-          const bMaxY = blockY + aabb.max[1];
-          const bMinZ = bz + aabb.min[2];
-          const bMaxZ = bz + aabb.max[2];
-          if (!intersects(
-            entMinX, entMinY, entMinZ,
-            entMaxX, entMaxY, entMaxZ,
-            bMinX, bMinY, bMinZ,
-            bMaxX, bMaxY, bMaxZ,
-          )) continue;
-          if (dir > 0) {
-            next = bMinY - height - eps;
-          } else {
-            next = bMaxY + eps;
+          const aabbs = normalizeAabbs(aabb);
+          if (!aabbs) continue;
+          for (const box of aabbs) {
+            const bMinX = bx + box.min[0];
+            const bMaxX = bx + box.max[0];
+            const bMinY = blockY + box.min[1];
+            const bMaxY = blockY + box.max[1];
+            const bMinZ = bz + box.min[2];
+            const bMaxZ = bz + box.max[2];
+            if (!intersects(
+              entMinX, entMinY, entMinZ,
+              entMaxX, entMaxY, entMaxZ,
+              bMinX, bMinY, bMinZ,
+              bMaxX, bMaxY, bMaxZ,
+            )) continue;
+            if (dir > 0) {
+              next = bMinY - height - eps;
+            } else {
+              next = bMaxY + eps;
+            }
+            return next;
           }
-          return next;
         }
       }
       return next;
@@ -300,7 +277,7 @@ function createPlayerController({
       dy -= velocity;
     }
 
-    if (state.gameMode === "spectator" || typeof getBlockAt !== "function") {
+    if (state.gameMode === "spectator") {
       state.position[0] += dx;
       state.position[1] += dy;
       state.position[2] += dz;
@@ -330,6 +307,5 @@ function createPlayerController({
 }
 
 export {
-  cameraFromYawPitch,
   createPlayerController,
 };

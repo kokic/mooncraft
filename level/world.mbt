@@ -6,10 +6,6 @@ pub struct World {
 }
 
 ///|
-/// Pre-classic bottom layer Y (bedrock).
-pub const PRECLASSIC_MIN_Y : Int = -32
-
-///|
 /// Highest world Y (fixed for now).
 pub const WORLD_MAX_Y : Int = 32
 
@@ -247,6 +243,35 @@ pub fn World::new(
 }
 
 ///|
+pub fn World::min_y(self : World) -> Int {
+  match self.world_type {
+    WorldType::Finite => FINITE_MIN_Y
+    _ => WORLD_MIN_Y
+  }
+}
+
+///|
+pub fn World::max_y(self : World) -> Int {
+  match self.world_type {
+    WorldType::Finite => FINITE_MAX_Y
+    _ => WORLD_MAX_Y
+  }
+}
+
+///|
+fn fill_air(chunk : Chunk) -> Chunk {
+  let air = @block.AIR_LONG_ID
+  for rx in 0..<CHUNK_X_SIZE {
+    for rz in 0..<CHUNK_Z_SIZE {
+      for ry in 0..<CHUNK_Y_SIZE {
+        chunk.set_tile(rx, ry, rz, air)
+      }
+    }
+  }
+  chunk
+}
+
+///|
 /// Generate a chunk based on the configured world type.
 pub fn World::generate_chunk(
   self : World,
@@ -258,5 +283,11 @@ pub fn World::generate_chunk(
   match self.world_type {
     WorldType::Flat => fill_flat(chunk)
     WorldType::PreClassic => fill_pre_classic(self, chunk)
+    WorldType::Finite =>
+      if is_chunk_in_finite_world(chunk_x, chunk_y, chunk_z) {
+        fill_finite(self, chunk)
+      } else {
+        fill_air(chunk)
+      }
   }
 }

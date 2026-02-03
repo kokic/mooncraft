@@ -1,8 +1,13 @@
 ///|
 pub(all) enum Biome {
   Plains
+  Forest
   Mountains
   Desert
+  DesertLakes
+  Beach
+  River
+  FrozenRiver
 }
 
 ///|
@@ -43,7 +48,7 @@ const MOUNTAIN_BASE_OFFSET : Double = 8.0
 
 ///|
 /// Desert base height offset; higher => deserts start higher.
-const DESERT_BASE_OFFSET : Double = -2.0
+const DESERT_BASE_OFFSET : Double = 0
 
 ///|
 /// Plains peak amplitude; higher => more pronounced plains hills.
@@ -158,5 +163,20 @@ pub fn params(biome : Biome) -> BiomeParams {
         mountain_amp: DESERT_MOUNTAIN_AMP,
         max_height: DESERT_MAX_HEIGHT,
       }
+    _ => BiomeParams::{ base_offset: 0, mountain_amp: 16, max_height: 16 }
+  }
+}
+
+///|
+pub fn name(biome : Biome) -> String {
+  match biome {
+    Plains => "Plains"
+    Forest => "Forest"
+    Mountains => "Mountains"
+    Desert => "Desert"
+    DesertLakes => "Desert Lakes"
+    Beach => "Beach"
+    River => "River"
+    FrozenRiver => "Frozen River"
   }
 }

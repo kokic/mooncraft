@@ -6,7 +6,7 @@ pub struct RenderBlock {
 }
 
 ///|
-/// Per-face texture layer indices resolved from FaceMaterialNames.
+/// Per-face texture layer indices.
 pub struct FaceLayerIndices {
   pos_x : Int
   neg_x : Int
@@ -61,7 +61,7 @@ pub fn BlockRegistry::create(
       pos_z: resolve_layer(def.faces.pos_z),
       neg_z: resolve_layer(def.faces.neg_z),
     }
-    let long_id = pack_long_id(def.id, def.state)
+    let long_id = def.long_id()
     let block = RenderBlock::{ block: def, faces, long_id }
     blocks_by_name[def.name] = block
     blocks_by_long_id[long_id] = block

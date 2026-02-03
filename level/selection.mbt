@@ -73,28 +73,6 @@ fn torch_bounds_by_state(state : UInt) -> (Array[Float], Array[Float]) {
 }
 
 ///|
-fn floor_div(n : Int, d : Int) -> Int {
-  let q = n / d
-  let r = n % d
-  if r == 0 {
-    q
-  } else if (r > 0) == (d > 0) {
-    q
-  } else {
-    q - 1
-  }
-}
-
-///|
-fn get_chunk_data(chunk_map : @ffi.JsValue, key : String) -> Array[UInt]? {
-  let value = @ffi.js_map_get(chunk_map, key)
-  if value.is_undefined() || value.is_null() {
-    None
-  } else {
-    Some(value.cast_to())
-  }
-}
-
 ///|
 fn get_block_at(
   chunk_map : @ffi.JsValue,
@@ -103,24 +81,7 @@ fn get_block_at(
   wy : Int,
   wz : Int,
 ) -> UInt? {
-  let cx = floor_div(wx, size)
-  let cy = floor_div(wy, size)
-  let cz = floor_div(wz, size)
-  let key = chunk_key_by_chunk_xyz(cx, cy, cz)
-  match get_chunk_data(chunk_map, key) {
-    None => None
-    Some(data) => {
-      let lx = wx - cx * size
-      let ly = wy - cy * size
-      let lz = wz - cz * size
-      if lx < 0 || lx >= size || ly < 0 || ly >= size || lz < 0 || lz >= size {
-        None
-      } else {
-        let idx = (ly * size + lz) * size + lx
-        Some(data[idx])
-      }
-    }
-  }
+  get_block_id(chunk_map, size, wx, wy, wz)
 }
 
 ///|
@@ -219,7 +180,7 @@ pub fn raycast_blocks(
         match hit {
           Some(id) if id != air_id => {
             let mut allow_hit = true
-            match @block.get_block_by_long_id(id) {
+            match @block.lookup_by_long_id(id) {
               Some(block) =>
                 match block.shape {
                   @block.Shape::Torch

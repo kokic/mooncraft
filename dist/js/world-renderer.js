@@ -5,79 +5,6 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { packLongId, unpackLongId } from "./block-registry.js";
 
-function collectTorchBounds() {
-  const data = window.mcCollectTorchBounds();
-  if (!Array.isArray(data) || data.length < 10) {
-    throw new Error("mcCollectTorchBounds returned invalid data");
-  }
-  return data;
-}
-
-function getTorchOutlinePad() {
-  return window.mcGetTorchOutlinePad();
-}
-
-function createTorchBounds() {
-  const data = collectTorchBounds();
-  if (!data) {
-    throw new Error("torch bounds unavailable from MoonBit");
-  }
-  const floor = { min: data[0], max: data[1] };
-  const wall = {
-    north: { min: data[2], max: data[3] },
-    south: { min: data[4], max: data[5] },
-    west: { min: data[6], max: data[7] },
-    east: { min: data[8], max: data[9] },
-  };
-  return { floor, wall };
-}
-
-function createTorchOutlines(gl) {
-  const bounds = createTorchBounds();
-  const pad = getTorchOutlinePad();
-  if (!pad) {
-    throw new Error("torch outline pad unavailable from MoonBit");
-  }
-  const outlines = {
-    floor: createOutlineBuffer(gl, bounds.floor, pad),
-    north: createOutlineBuffer(gl, bounds.wall.north, pad),
-    south: createOutlineBuffer(gl, bounds.wall.south, pad),
-    west: createOutlineBuffer(gl, bounds.wall.west, pad),
-    east: createOutlineBuffer(gl, bounds.wall.east, pad),
-  };
-  return { bounds, outlines };
-}
-
-function torchBoundsByState(bounds, state) {
-  switch (state) {
-    case 1:
-      return bounds.wall.north;
-    case 2:
-      return bounds.wall.south;
-    case 3:
-      return bounds.wall.west;
-    case 4:
-      return bounds.wall.east;
-    default:
-      return bounds.floor;
-  }
-}
-
-function torchOutlineByState(outlines, state) {
-  switch (state) {
-    case 1:
-      return outlines.north;
-    case 2:
-      return outlines.south;
-    case 3:
-      return outlines.west;
-    case 4:
-      return outlines.east;
-    default:
-      return outlines.floor;
-  }
-}
-
 function torchStateFromPlacement(block, prev) {
   const value = window.mcTorchStateFromPlacement(block, prev);
   const num = Number(value);
@@ -92,6 +19,14 @@ function getBlockShapeDesc(longId) {
   return value ?? null;
 }
 
+function getTorchShapeBoxByState(state) {
+  const value = window.mcTorchShapeBoxByState?.(state);
+  if (!value || !Array.isArray(value.min) || !Array.isArray(value.max)) {
+    return null;
+  }
+  return value;
+}
+
 function computePlacementState(longId, block, prev) {
   const value = window.mcComputePlacementState(longId, block, prev);
   const num = Number(value);
@@ -100,83 +35,14 @@ function computePlacementState(longId, block, prev) {
 
 window.mcGameMode = "creative" // "spectator"
 
-function mat4Multiply(a, b) {
-  const out = new Array(16);
-  const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-  const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-  const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-  const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-
-  let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-  b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
-  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-  b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
-  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-  b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
-  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-  return out;
-}
-
-function mat4Perspective(fovy, aspect, near, far) {
-  const f = 1.0 / Math.tan(fovy / 2.0);
-  const nf = 1 / (near - far);
-  return [
-    f / aspect, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (far + near) * nf, -1,
-    0, 0, (2 * far * near) * nf, 0,
-  ];
-}
-
-function vec3Subtract(a, b) {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-}
-
-function vec3Normalize(v) {
-  const len = Math.hypot(v[0], v[1], v[2]);
-  if (len === 0) return [0, 0, 0];
-  return [v[0] / len, v[1] / len, v[2] / len];
-}
-
-function vec3Cross(a, b) {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
-}
-
-function vec3Dot(a, b) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-function mat4LookAt(eye, center, up) {
-  const zAxis = vec3Normalize(vec3Subtract(eye, center));
-  const xAxis = vec3Normalize(vec3Cross(up, zAxis));
-  const yAxis = vec3Cross(zAxis, xAxis);
-  return [
-    xAxis[0], yAxis[0], zAxis[0], 0,
-    xAxis[1], yAxis[1], zAxis[1], 0,
-    xAxis[2], yAxis[2], zAxis[2], 0,
-    -vec3Dot(xAxis, eye), -vec3Dot(yAxis, eye), -vec3Dot(zAxis, eye), 1,
-  ];
+function getMat4Api() {
+  const mul = window.mcMat4Mul;
+  const perspective = window.mcMat4Perspective;
+  const lookAt = window.mcMat4LookAt;
+  if (typeof mul !== "function" || typeof perspective !== "function" || typeof lookAt !== "function") {
+    throw new Error("mat4 api unavailable from MoonBit");
+  }
+  return { mul, perspective, lookAt };
 }
 
 function createShader(gl, type, source) {
@@ -659,28 +525,14 @@ function renderTestChunk({
   gl.uniform1i(leafTex, 0);
   gl.uniform1f(leafDebugSolid, window.mcDebugSolid ? 1.0 : 0.0);
 
-  const hotbarDefs = mcCollectHotbarDefs();
   const getBlockId = (wx, wy, wz) => getBlockIdAt(chunkDatas, size, wx, wy, wz);
-  const isSolidBlock = (id) => window.mcBlockIsSelectable(blockRegistry, id);
-  const getBlockAabb = (id) => {
-    if (id === mcAirLongId) return null;
-    if (!isSolidBlock(id)) {
-      return null;
-    }
-    const desc = getBlockShapeDesc(id);
-    if (!desc) {
-      throw new Error(`ShapeDesc missing for longId=${id}`);
-    }
-    return desc.boxes;
-  };
   const player = createPlayerController({
     canvas,
     worldMinY,
     spawnPosition: spawn.position,
     gameMode: window.mcGameMode,
-    getBlockAt: getBlockId,
-    isSolidBlock,
-    getBlockAabb,
+    chunkMap: chunkDatas,
+    chunkSize: size,
   });
 
   const debugHud = document.createElement("div");
@@ -718,6 +570,23 @@ function renderTestChunk({
   });
   window.mcHotbar = hotbar;
 
+  const collectDesiredKeys = (cx, cz, renderDistance) => {
+    const collectKeys = window.mcCollectRenderChunkKeys;
+    if (typeof collectKeys === "function") {
+      const keys = collectKeys(cx, cz, renderDistance, chunkMinY, chunkMaxY);
+      if (Array.isArray(keys)) return keys;
+    }
+    const keys = [];
+    for (let dx = -renderDistance; dx <= renderDistance; dx += 1) {
+      for (let dz = -renderDistance; dz <= renderDistance; dz += 1) {
+        for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
+          keys.push(`${cx + dx},${cy},${cz + dz}`);
+        }
+      }
+    }
+    return keys;
+  };
+
   const rebuildMeshIfNeeded = () => {
     processChunkQueue();
     const cx = Math.floor(player.state.position[0] / size);
@@ -726,15 +595,14 @@ function renderTestChunk({
     const nextCenterKey = `${cx},0,${cz}`;
     let missing = false;
     const desiredKeys = new Set();
-    for (let dx = -renderDistance; dx <= renderDistance; dx += 1) {
-      for (let dz = -renderDistance; dz <= renderDistance; dz += 1) {
-        for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
-          const key = `${cx + dx},${cy},${cz + dz}`;
-          desiredKeys.add(key);
-          if (!chunkDatas.has(key)) {
-            enqueueChunk(cx + dx, cy, cz + dz);
-            missing = true;
-          }
+    const keys = collectDesiredKeys(cx, cz, renderDistance);
+    for (const key of keys) {
+      desiredKeys.add(key);
+      if (!chunkDatas.has(key)) {
+        const xyz = chunkXyzByKey(key);
+        if (xyz) {
+          enqueueChunk(xyz.x, xyz.y, xyz.z);
+          missing = true;
         }
       }
     }
@@ -767,49 +635,14 @@ function renderTestChunk({
     }
   };
 
-  const placedBlockIds = hotbarDefs
-    .map((def) => {
-      const id = getLongIdByName(def.name);
-      return Number.isFinite(id) ? id : mcAirLongId;
-    });
-  window.mcPlacedBlockIds = placedBlockIds;
-
-  const getPlacedBlockId = (index) => {
-    const id = placedBlockIds[index];
-    return Number.isFinite(id) ? id : mcAirLongId;
-  };
-  const getActivePlacedId = (index) => (
-    Number.isFinite(heldLongId) ? heldLongId : getPlacedBlockId(index)
-  );
-
-  const buildItemsFromDefs = (defs, limit) => {
-    const items = [];
-    const count = typeof limit === "number" ? limit : defs.length;
-    for (let i = 0; i < count; i += 1) {
-      const def = defs[i];
-      if (!def) {
-        items.push(null);
-        continue;
-      }
-      if (def.kind === "flat") {
-        items.push({
-          name: def.name,
-          kind: "flat",
-          shape: def.shape,
-          texture: { name: def.texture || "missing_tile" },
-        });
-      } else {
-        items.push({
-          name: def.name,
-          kind: def.kind || "block",
-          shape: def.shape,
-          top: { name: def.top || "missing_tile" },
-          side: { name: def.side || def.top || "missing_tile" },
-          bottom: { name: def.bottom || "missing_tile" },
-        });
-      }
+  const padItems = (items, limit) => {
+    const out = Array.isArray(items)
+      ? items.slice(0, typeof limit === "number" ? limit : items.length)
+      : [];
+    if (typeof limit === "number") {
+      while (out.length < limit) out.push(null);
     }
-    return items;
+    return out;
   };
 
   const reportMissingTextures = (items, scope) => {
@@ -836,29 +669,50 @@ function renderTestChunk({
     }
   };
 
-  const hotbarItems = buildItemsFromDefs(hotbarDefs, 9);
+  const hotbarItems = padItems(window.mcCollectHotbarItems?.() ?? [], 9);
   reportMissingTextures(hotbarItems, "hotbar");
   if (typeof hotbar.setItems === "function") {
     hotbar.setItems(hotbarItems, textures);
   }
 
-  const inventoryDefs = mcCollectInventoryDefs();
+  const placedBlockIds = hotbarItems
+    .map((item) => {
+      if (!item) return mcAirLongId;
+      const id = getLongIdByName(item.name);
+      return Number.isFinite(id) ? id : mcAirLongId;
+    });
+  window.mcPlacedBlockIds = placedBlockIds;
+
   let heldLongId = null;
   const setHeldLongId = (id) => {
     heldLongId = Number.isFinite(id) ? id : null;
   };
+
+  const getPlacedBlockId = (index) => {
+    const id = placedBlockIds[index];
+    return Number.isFinite(id) ? id : mcAirLongId;
+  };
+  const getActivePlacedId = (index) => (
+    Number.isFinite(heldLongId) ? heldLongId : getPlacedBlockId(index)
+  );
+
+  const inventoryColumns = window.mcInventoryGridX ?? 9;
+  const inventoryRows = window.mcInventoryGridY ?? 6;
+  const inventoryItems = padItems(
+    window.mcCollectInventoryItems?.() ?? [],
+    inventoryColumns * inventoryRows,
+  );
   let inventoryOpen = false;
   let setInventoryOpen = (open) => {
     inventoryOpen = open;
   };
-  const inventoryItems = buildItemsFromDefs(inventoryDefs);
   reportMissingTextures(inventoryItems, "inventory");
   const inventory = createInventoryUI({
     parent: document.body,
     textures,
     items: inventoryItems,
-    columns: window.mcInventoryGridX ?? 9,
-    rows: window.mcInventoryGridY ?? 6,
+    columns: inventoryColumns,
+    rows: inventoryRows,
     onSelect: (item) => {
       const id = getLongIdByName(item.name);
       if (Number.isFinite(id)) {
@@ -885,6 +739,7 @@ function renderTestChunk({
   });
   setInventoryOpen = (open) => {
     inventoryOpen = open;
+    window.mcInventoryOpen = open;
     inventory.setOpen(open);
     if (open) {
       if (document.pointerLockElement) document.exitPointerLock();
@@ -960,15 +815,24 @@ function renderTestChunk({
         if (placedId !== mcAirLongId) {
           const placedDecoded = unpackLongId(placedId);
           const placementState = computePlacementState(placedId, hit.block, hit.prev);
-          if (Number.isFinite(placementState) && placementState !== placedDecoded.state) {
-            setBlock(
+          const toPlaceId = Number.isFinite(placementState)
+            ? (placementState !== placedDecoded.state
+              ? packLongId(placedDecoded.id, placementState)
+              : placedId)
+            : placedId;
+          const canPlace = typeof window.mcCanPlaceBlock === "function"
+            ? window.mcCanPlaceBlock(
+              toPlaceId,
+              player.state.position,
+              player.state.entityHeight,
+              player.state.entityRadius,
               hit.prev[0],
               hit.prev[1],
               hit.prev[2],
-              packLongId(placedDecoded.id, placementState),
-            );
-          } else {
-            setBlock(hit.prev[0], hit.prev[1], hit.prev[2], placedId);
+            )
+            : true;
+          if (canPlace) {
+            setBlock(hit.prev[0], hit.prev[1], hit.prev[2], toPlaceId);
           }
         }
       }
@@ -1031,9 +895,10 @@ function renderTestChunk({
     const outlineBlock = updateOutline(camera);
     const aspect = canvasSize.width / canvasSize.height;
     const fov = (window.mcFov ?? 60) * (Math.PI / 180);
-    const proj = mat4Perspective(fov, aspect, 0.1, 200.0);
-    const view = mat4LookAt(camera.position, camera.center, [0, 1, 0]);
-    const mvp = mat4Multiply(proj, view);
+    const mat4 = getMat4Api();
+    const proj = mat4.perspective(fov, aspect, 0.1, 200.0);
+    const view = mat4.lookAt(camera.position, camera.center, [0, 1, 0]);
+    const mvp = mat4.mul(proj, view);
     gl.useProgram(program);
     assertCurrentProgram("world mvp", program);
     gl.uniformMatrix4fv(uMvp, false, new Float32Array(mvp));
@@ -1109,7 +974,13 @@ function renderTestChunk({
       assertCurrentProgram("outline mvp", outlineProgram);
       gl.uniformMatrix4fv(outlineMvp, false, new Float32Array(mvp));
       const desc = getBlockShapeDesc(outlineBlock.longId);
-      const boxes = desc?.boxes;
+      let boxes = desc?.boxes;
+      if (desc && Number.isFinite(desc.facing) && desc.facing >= 0) {
+        const torchBox = getTorchShapeBoxByState(desc.facing);
+        if (torchBox) {
+          boxes = [torchBox];
+        }
+      }
       const outlineBias = 0.006;
       gl.uniform3f(
         outlineViewOffset,

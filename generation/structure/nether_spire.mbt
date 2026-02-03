@@ -1,4 +1,4 @@
-﻿///|
+///|
 pub const NETHER_SPIRE_SIZE : Int = 17
 
 ///|

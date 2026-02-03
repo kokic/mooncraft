@@ -1,9 +1,20 @@
 ///|
 pub let blocks : Array[Block] = [
+  // Basic
   Block::create("air", opacity=0, shape=Shape::Air, [], category=@item.None),
   Block::create("stone", ["stone"]),
+  Block::create("bedrock", ["bedrock"]),
+
+  // Land
   Block::create("dirt", ["dirt"]),
   Block::create("grass", ["grass_carried", "dirt", "grass_side_carried"]),
+  Block::create("pre-classic.grass", [
+    "pre-classic/grass_carried", "dirt", "grass_side_carried",
+  ]),
+  Block::create("cobblestone", ["cobblestone"]),
+  Block::create("pre-classic.cobblestone", ["pre-classic/cobblestone"]),
+
+  // Desert
   Block::create("sand", ["sand"]),
   Block::create("sandstone", [
     "sandstone_top", "sandstone_bottom", "sandstone_normal",
@@ -14,11 +25,22 @@ pub let blocks : Array[Block] = [
   Block::create("sandstone_smooth", [
     "sandstone_top", "sandstone_bottom", "sandstone_smooth",
   ]),
-  Block::create("bedrock", ["bedrock"]),
-  Block::create("netherrack", ["netherrack"]),
+  Block::create("glass", ["glass"]),
   Block::create("tnt", ["tnt_top", "tnt_bottom", "tnt_side"]),
-  Block::create("oak_log", ["oak_log_top", "oak_log"]),
+
+  // Trees
+  ..create_log_group("oak_log", ["oak_log_top", "oak_log"]),
   Block::create("oak_leaves", ["oak_leaves"], material=Material::TintedLeaf),
+  Block::create(
+    "classic.oak_leaves",
+    ["classic/oak_leaves"],
+    material=Material::TintedLeaf,
+  ),
+
+  // Nether
+  Block::create("netherrack", ["netherrack"]),
+
+  // Miscellaneous
   ..create_torch_group("torch", ["torch"], Shape::Torch),
   ..create_torch_group(
     "redstone_torch",
@@ -26,8 +48,8 @@ pub let blocks : Array[Block] = [
     Shape::RedstoneTorch,
   ),
   ..create_torch_group(
-    "redstone_torch_classic",
-    ["redstone_torch_classic"],
+    "classic.redstone_torch",
+    ["classic/redstone_torch"],
     Shape::RedstoneTorchClassic,
   ),
   ..create_torch_group("soul_torch", ["soul_torch"], Shape::Torch),
@@ -75,5 +97,36 @@ fn create_torch_group(
     create_torch(base, id, 2, faces, shape, category=@item.None),
     create_torch(base, id, 3, faces, shape, category=@item.None),
     create_torch(base, id, 4, faces, shape, category=@item.None),
+  ]
+}
+
+///|
+fn create_log(
+  base : String,
+  id : UInt,
+  state : UInt,
+  faces : FixedArray[String],
+  category? : @item.Category = @item.Item,
+) -> Block {
+  Block::create(
+    @genus.Log::unique_name(base, state),
+    id~,
+    state~,
+    shape=Shape::Log,
+    category~,
+    faces,
+  )
+}
+
+///|
+fn create_log_group(
+  base : String,
+  id? : UInt = alloc_id(),
+  faces : FixedArray[String],
+) -> Array[Block] {
+  [
+    create_log(base, id, 0, faces),
+    create_log(base, id, 1, faces, category=@item.None),
+    create_log(base, id, 2, faces, category=@item.None),
   ]
 }

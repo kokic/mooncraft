@@ -9,6 +9,7 @@ pub fn compute_placement_state(
       match def.shape {
         shape if shape.is_torch_genus() =>
           @genus.Torch::torch_state_from_placement(block, prev)
+        Shape::Log => @genus.Log::log_state_from_placement(block, prev)
         _ => def.state
       }
     None => 0

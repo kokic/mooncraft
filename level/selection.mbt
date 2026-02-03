@@ -60,19 +60,7 @@ fn ray_intersects_aabb(
 }
 
 ///|
-fn torch_bounds_by_state(state : UInt) -> (Array[Float], Array[Float]) {
-  let bounds = @genus.Torch::collect_bounds()
-  let idx = match state.reinterpret_as_int() {
-    1 => 2 // north
-    2 => 4 // south
-    3 => 6 // west
-    4 => 8 // east
-    _ => 0 // floor
-  }
-  (bounds[idx], bounds[idx + 1])
-}
 
-///|
 ///|
 fn get_block_at(
   chunk_map : @ffi.JsValue,
@@ -186,7 +174,9 @@ pub fn raycast_blocks(
                   @block.Shape::Torch
                   | @block.Shape::RedstoneTorch
                   | @block.Shape::RedstoneTorchClassic => {
-                    let (bmin_f, bmax_f) = torch_bounds_by_state(block.state)
+                    let box = @block.torch_shape_box_by_state(block.state)
+                    let bmin_f = box.min
+                    let bmax_f = box.max
                     let min = [
                       bx.to_double() + bmin_f[0].to_double(),
                       by.to_double() + bmin_f[1].to_double(),

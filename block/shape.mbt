@@ -2,6 +2,7 @@
 pub enum Shape {
   Air
   Normal
+  Log
   Torch
   RedstoneTorch
   RedstoneTorchClassic
@@ -14,10 +15,8 @@ pub fn Shape::occludes_faces(shape : Shape, material : Material) -> Bool {
   } else {
     match shape {
       Shape::Air => false
-      Shape::Normal => true
-      Shape::Torch
-      | Shape::RedstoneTorch
-      | Shape::RedstoneTorchClassic => false
+      Shape::Normal | Shape::Log => true
+      Shape::Torch | Shape::RedstoneTorch | Shape::RedstoneTorchClassic => false
     }
   }
 }

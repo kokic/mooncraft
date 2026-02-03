@@ -35,10 +35,20 @@ fn Block::create(
     3 => TextureNames::top_bottom(faces[0], faces[1], faces[2])
     _ => panic()
   }
-  Block::{ name, id, state, opacity, luminance, shape, material, category, faces }
+  Block::{
+    name,
+    id,
+    state,
+    opacity,
+    luminance,
+    shape,
+    material,
+    category,
+    faces,
+  }
 }
 
 ///|
-pub fn Block::long_id(block : Block) -> UInt {
-  @util.pack_long_id(block.id, block.state)
+pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
+  @util.pack_long_id(block.id, state)
 }

@@ -29,79 +29,12 @@ function resolveTextureLayer(textures, name) {
   return index;
 }
 
-function mat4Multiply(a, b) {
-  const out = new Array(16);
-  const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-  const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-  const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-  const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-  let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
-  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
-  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
-  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  return out;
-}
-
-function mat4Ortho(l, r, b, t, n, f) {
-  const lr = 1 / (l - r);
-  const bt = 1 / (b - t);
-  const nf = 1 / (n - f);
-  return [
-    -2 * lr, 0, 0, 0,
-    0, -2 * bt, 0, 0,
-    0, 0, 2 * nf, 0,
-    (l + r) * lr, (t + b) * bt, (f + n) * nf, 1,
-  ];
-}
-
-function vec3Normalize(v) {
-  const len = Math.hypot(v[0], v[1], v[2]);
-  if (len === 0) return [0, 0, 0];
-  return [v[0] / len, v[1] / len, v[2] / len];
-}
-
-function vec3Cross(a, b) {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
-}
-
-function vec3Dot(a, b) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-function vec3Subtract(a, b) {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-}
-
-function mat4LookAt(eye, center, up) {
-  const zAxis = vec3Normalize(vec3Subtract(eye, center));
-  const xAxis = vec3Normalize(vec3Cross(up, zAxis));
-  const yAxis = vec3Cross(zAxis, xAxis);
-  return [
-    xAxis[0], yAxis[0], zAxis[0], 0,
-    xAxis[1], yAxis[1], zAxis[1], 0,
-    xAxis[2], yAxis[2], zAxis[2], 0,
-    -vec3Dot(xAxis, eye), -vec3Dot(yAxis, eye), -vec3Dot(zAxis, eye), 1,
-  ];
+function getMat4Api() {
+  return {
+    mul: window.mcMat4Mul,
+    ortho: window.mcMat4Ortho,
+    lookAt: window.mcMat4LookAt,
+  };
 }
 
 function createShader(gl, type, source) {
@@ -229,10 +162,42 @@ class ItemIconRenderer {
     this.uLightColor = this.gl.getUniformLocation(this.program, "diffuseLightColor");
     this.uAmbientColor = this.gl.getUniformLocation(this.program, "ambientLightColor");
     this.uTex = this.gl.getUniformLocation(this.program, "blockTex");
+
+    const leafVertexSource = window.mcOakLeavesVertexShader;
+    const leafFragmentSource = window.mcOakLeavesFragmentShader;
+    this.leafProgram = null;
+    this.leafPosition = null;
+    this.leafColor = null;
+    this.leafUv = null;
+    this.leafLayer = null;
+    this.leafMvp = null;
+    this.leafView = null;
+    this.leafTex = null;
+    this.leafTint = null;
+    this.leafDebugSolid = null;
+    this.leafFogColor = null;
+    this.leafFogNear = null;
+    this.leafFogFar = null;
+    if (typeof leafVertexSource === "string" && typeof leafFragmentSource === "string") {
+      this.leafProgram = createProgram(this.gl, leafVertexSource, leafFragmentSource);
+      this.leafPosition = this.gl.getAttribLocation(this.leafProgram, "aPosition");
+      this.leafColor = this.gl.getAttribLocation(this.leafProgram, "aColor");
+      this.leafUv = this.gl.getAttribLocation(this.leafProgram, "aUv");
+      this.leafLayer = this.gl.getAttribLocation(this.leafProgram, "aLayer");
+      this.leafMvp = this.gl.getUniformLocation(this.leafProgram, "uMvp");
+      this.leafView = this.gl.getUniformLocation(this.leafProgram, "uView");
+      this.leafTex = this.gl.getUniformLocation(this.leafProgram, "uTex");
+      this.leafTint = this.gl.getUniformLocation(this.leafProgram, "uLeafTint");
+      this.leafDebugSolid = this.gl.getUniformLocation(this.leafProgram, "uDebugSolid");
+      this.leafFogColor = this.gl.getUniformLocation(this.leafProgram, "uFogColor");
+      this.leafFogNear = this.gl.getUniformLocation(this.leafProgram, "uFogNear");
+      this.leafFogFar = this.gl.getUniformLocation(this.leafProgram, "uFogFar");
+    }
     this.positionBuffer = this.gl.createBuffer();
     this.normalBuffer = this.gl.createBuffer();
     this.colorBuffer = this.gl.createBuffer();
     this.uvBuffer = this.gl.createBuffer();
+    this.layerBuffer = this.gl.createBuffer();
     this.textureArray = null;
     this.texturesRef = null;
   }
@@ -260,26 +225,14 @@ class ItemIconRenderer {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
-    gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.textureArray);
-    gl.uniform1i(this.uTex, 0);
 
     const wsize = 0.425 + Math.SQRT2 / 4;
-    const proj = mat4Ortho(-wsize, wsize, -wsize, wsize, -1, 5);
-    const view = mat4LookAt([1, 12 / 16, 1], [0, 0, 0], [0, 1, 0]);
-    const model = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      -0.5, -0.5, -0.5, 1,
-    ];
-    const mvp = mat4Multiply(proj, mat4Multiply(view, model));
-    gl.uniformMatrix4fv(this.uMvp, false, new Float32Array(mvp));
-    gl.uniformMatrix4fv(this.uNormalMatrix, false, new Float32Array(model));
-    gl.uniform3f(this.uLightDir, 0.4, 1.0, 0.7);
-    gl.uniform3f(this.uLightColor, 1.0, 1.0, 1.0);
-    gl.uniform3f(this.uAmbientColor, 0.2, 0.2, 0.2);
+    const mat4 = getMat4Api();
+    const proj = mat4.ortho(-wsize, wsize, -wsize, wsize, -1, 5);
+    const view = mat4.lookAt([1, 12 / 16, 1], [0, 0, 0], [0, 1, 0]);
+    const mvp = mat4.mul(proj, view);
 
     const longId = window.mcGetLongIdByName?.(item.name);
     if (!Number.isFinite(longId)) {
@@ -296,8 +249,8 @@ class ItemIconRenderer {
     const positions = Float32Array.from(mesh.positions ?? []);
     const colors = Float32Array.from(mesh.colors ?? []);
     const normals = Array.from(mesh.normals ?? []);
-    const uvs = Array.from(mesh.uvs ?? []);
-    const layers = Array.from(mesh.layers ?? []);
+    const uvs = Float32Array.from(mesh.uvs ?? []);
+    const layers = Float32Array.from(mesh.layers ?? []);
     const count = Number(mesh.count) || 0;
     const normals4 = new Float32Array((normals.length / 3) * 4);
     for (let i = 0, j = 0; i < normals.length; i += 3, j += 4) {
@@ -313,25 +266,80 @@ class ItemIconRenderer {
       texcoords[i * 3 + 2] = layers[i];
     }
 
+    const useLeaf = item.material === "tinted_leaf";
+    if (useLeaf) {
+      if (!this.leafProgram) {
+        throw new Error("leaf shader program unavailable for tinted items");
+      }
+      const tint = window.mcOakLeavesDefaultTint;
+      if (!Array.isArray(tint) || tint.length < 3) {
+        throw new Error("mcOakLeavesDefaultTint unavailable for tinted items");
+      }
+      gl.useProgram(this.leafProgram);
+      gl.uniform1i(this.leafTex, 0);
+      gl.uniformMatrix4fv(this.leafMvp, false, new Float32Array(mvp));
+      gl.uniformMatrix4fv(this.leafView, false, new Float32Array(view));
+      gl.uniform1f(this.leafDebugSolid, 0.0);
+      gl.uniform3f(this.leafFogColor, 0.0, 0.0, 0.0);
+      gl.uniform1f(this.leafFogNear, 1000.0);
+      gl.uniform1f(this.leafFogFar, 2000.0);
+      gl.uniform3f(this.leafTint, tint[0], tint[1], tint[2]);
+    } else {
+      gl.useProgram(this.program);
+      gl.uniform1i(this.uTex, 0);
+      gl.uniformMatrix4fv(this.uMvp, false, new Float32Array(mvp));
+      gl.uniformMatrix4fv(this.uNormalMatrix, false, new Float32Array([
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+      ]));
+      gl.uniform3f(this.uLightDir, 0.4, 1.0, 0.7);
+      gl.uniform3f(this.uLightColor, 1.0, 1.0, 1.0);
+      gl.uniform3f(this.uAmbientColor, 0.2, 0.2, 0.2);
+    }
+
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(this.aPosition);
-    gl.vertexAttribPointer(this.aPosition, 3, gl.FLOAT, false, 0, 0);
+    if (useLeaf) {
+      gl.enableVertexAttribArray(this.leafPosition);
+      gl.vertexAttribPointer(this.leafPosition, 3, gl.FLOAT, false, 0, 0);
+    } else {
+      gl.enableVertexAttribArray(this.aPosition);
+      gl.vertexAttribPointer(this.aPosition, 3, gl.FLOAT, false, 0, 0);
+    }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, normals4, gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(this.aNormal);
-    gl.vertexAttribPointer(this.aNormal, 4, gl.FLOAT, false, 0, 0);
+    if (!useLeaf) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, normals4, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(this.aNormal);
+      gl.vertexAttribPointer(this.aNormal, 4, gl.FLOAT, false, 0, 0);
+    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(this.aColor);
-    gl.vertexAttribPointer(this.aColor, 4, gl.FLOAT, false, 0, 0);
+    if (useLeaf) {
+      gl.enableVertexAttribArray(this.leafColor);
+      gl.vertexAttribPointer(this.leafColor, 4, gl.FLOAT, false, 0, 0);
+    } else {
+      gl.enableVertexAttribArray(this.aColor);
+      gl.vertexAttribPointer(this.aColor, 4, gl.FLOAT, false, 0, 0);
+    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, texcoords, gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(this.aTex);
-    gl.vertexAttribPointer(this.aTex, 3, gl.FLOAT, false, 0, 0);
+    if (useLeaf) {
+      gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(this.leafUv);
+      gl.vertexAttribPointer(this.leafUv, 2, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.layerBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, layers, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(this.leafLayer);
+      gl.vertexAttribPointer(this.leafLayer, 1, gl.FLOAT, false, 0, 0);
+    } else {
+      gl.bufferData(gl.ARRAY_BUFFER, texcoords, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(this.aTex);
+      gl.vertexAttribPointer(this.aTex, 3, gl.FLOAT, false, 0, 0);
+    }
 
     gl.drawArrays(gl.TRIANGLES, 0, count);
   }

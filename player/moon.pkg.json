@@ -2,6 +2,8 @@
   "import": [
     "moonbitlang/core/math",
     "kokic/mooncraft/block",
+    "kokic/mooncraft/ffi",
+    "kokic/mooncraft/level",
     "kokic/mooncraft/util",
     "kokic/mooncraft/item"
   ]

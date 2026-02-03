@@ -24,6 +24,93 @@ pub struct MeshSplit {
 }
 
 ///|
+fn log_axis_for_state(state : UInt) -> Int {
+  match state.reinterpret_as_int() {
+    1 => 1
+    2 => 2
+    _ => 0
+  }
+}
+
+///|
+fn axis_from_dir(dx : Int, dy : Int, dz : Int) -> Int {
+  if dx != 0 {
+    1
+  } else if dy != 0 {
+    0
+  } else if dz != 0 {
+    2
+  } else {
+    -1
+  }
+}
+
+///|
+fn log_rotate_uv(block : RenderBlock, face : FaceGeom) -> Bool {
+  if block.block.shape is Shape::Log {
+    let axis = log_axis_for_state(block.block.state)
+    let is_end_face = match axis {
+      1 => face.name is FaceName::PosX || face.name is FaceName::NegX
+      2 => face.name is FaceName::PosZ || face.name is FaceName::NegZ
+      _ => face.name is FaceName::PosY || face.name is FaceName::NegY
+    }
+    if is_end_face {
+      false
+    } else if face.corners.length() < 4 {
+      false
+    } else {
+      let (ax, ay, az) = face.corners[0]
+      let (bx, by, bz) = face.corners[1]
+      let (dx, dy, dz) = face.corners[3]
+      let u_axis = axis_from_dir(bx - ax, by - ay, bz - az)
+      let v_axis = axis_from_dir(dx - ax, dy - ay, dz - az)
+      if v_axis == axis {
+        false
+      } else {
+        u_axis == axis
+      }
+    }
+  } else {
+    false
+  }
+}
+
+///|
+fn face_layer_for_block(block : RenderBlock, face : FaceName) -> Int {
+  if block.block.shape is Shape::Log {
+    let end_layer = block.faces.pos_y
+    let side_layer = block.faces.pos_x
+    let axis = log_axis_for_state(block.block.state)
+    match axis {
+      1 =>
+        match face {
+          FaceName::PosX | FaceName::NegX => end_layer
+          _ => side_layer
+        }
+      2 =>
+        match face {
+          FaceName::PosZ | FaceName::NegZ => end_layer
+          _ => side_layer
+        }
+      _ =>
+        match face {
+          FaceName::PosY | FaceName::NegY => end_layer
+          _ => side_layer
+        }
+    }
+  } else {
+    match face {
+      FaceName::PosX => block.faces.pos_x
+      FaceName::NegX => block.faces.neg_x
+      FaceName::PosY => block.faces.pos_y
+      FaceName::NegY => block.faces.neg_y
+      FaceName::PosZ => block.faces.pos_z
+      FaceName::NegZ => block.faces.neg_z
+    }
+  }
+}
+
+///|
 
 ///|
 pub fn build_chunk_mesh(
@@ -45,6 +132,10 @@ pub fn build_chunk_mesh(
     (1, 1),
     (0, 1),
   ]
+  let base_uvs_rot90 : Array[(Float, Float)] = base_uvs.map(fn(uv) {
+    let (u, v) = uv
+    (v, 1.0F - u)
+  })
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
     None =>
@@ -150,6 +241,43 @@ pub fn build_chunk_mesh(
       layers.push(layer_f)
     }
   }
+  let push_face_cube = fn(
+    rotate_uv : Bool,
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+  ) -> Unit {
+    let (nx, ny, nz) = normal
+    let (u0, v0, u1, v1) = uv_rect
+    let verts : Array[(Float, Float, Float)] = [a, b, c, a, c, d]
+    let uvs_base = if rotate_uv { base_uvs_rot90 } else { base_uvs }
+    for i in 0..<6 {
+      let (vx, vy, vz) = verts[i]
+      positions.push(vx)
+      positions.push(vy)
+      positions.push(vz)
+      colors.push(color_scale)
+      colors.push(color_scale)
+      colors.push(color_scale)
+      colors.push(1.0F)
+      normals.push(Float::from_int(nx))
+      normals.push(Float::from_int(ny))
+      normals.push(Float::from_int(nz))
+      let (bu, bv) = uvs_base[i]
+      let v = if flip_v { 1.0F - bv } else { bv }
+      let u = u0 + bu * (u1 - u0)
+      let v2 = v0 + v * (v1 - v0)
+      uvs.push(u)
+      uvs.push(v2)
+      layers.push(layer_f)
+    }
+  }
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
@@ -212,14 +340,7 @@ pub fn build_chunk_mesh(
                 ) {
                 let shade = @util.face_shade_scale(nx, ny, nz)
                 let color_scale = shade
-                let layer = match face.name {
-                  FaceName::PosX => block.faces.pos_x
-                  FaceName::NegX => block.faces.neg_x
-                  FaceName::PosY => block.faces.pos_y
-                  FaceName::NegY => block.faces.neg_y
-                  FaceName::PosZ => block.faces.pos_z
-                  FaceName::NegZ => block.faces.neg_z
-                }
+                let layer = face_layer_for_block(block, face.name)
                 let layer_f = Float::from_int(layer)
                 let flip_uv = match face.name {
                   FaceName::PosX
@@ -256,7 +377,9 @@ pub fn build_chunk_mesh(
                   Float::from_int(dy + y),
                   Float::from_int(dz + z),
                 )
-                push_face(
+                let rotate_uv = log_rotate_uv(block, face)
+                push_face_cube(
+                  rotate_uv,
                   a,
                   b,
                   c,
@@ -308,6 +431,10 @@ pub fn build_chunk_mesh_split(
     (1, 1),
     (0, 1),
   ]
+  let base_uvs_rot90 : Array[(Float, Float)] = base_uvs.map(fn(uv) {
+    let (u, v) = uv
+    (v, 1.0F - u)
+  })
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
     None =>
@@ -481,6 +608,50 @@ pub fn build_chunk_mesh_split(
       )
     }
   }
+  let push_face_cube = fn(
+    block : RenderBlock,
+    rotate_uv : Bool,
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+  ) -> Unit {
+    let (nx, ny, nz) = normal
+    let (u0, v0, u1, v1) = uv_rect
+    let verts : Array[(Float, Float, Float)] = [a, b, c, a, c, d]
+    let uvs_base = if rotate_uv { base_uvs_rot90 } else { base_uvs }
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = if block.block.material
+      is Material::TintedLeaf {
+      (leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals)
+    } else {
+      (positions, uvs, layers, colors, normals)
+    }
+    for i in 0..<6 {
+      let (vx, vy, vz) = verts[i]
+      positions_ref.push(vx)
+      positions_ref.push(vy)
+      positions_ref.push(vz)
+      colors_ref.push(color_scale)
+      colors_ref.push(color_scale)
+      colors_ref.push(color_scale)
+      colors_ref.push(1.0F)
+      normals_ref.push(Float::from_int(nx))
+      normals_ref.push(Float::from_int(ny))
+      normals_ref.push(Float::from_int(nz))
+      let (bu, bv) = uvs_base[i]
+      let v = if flip_v { 1.0F - bv } else { bv }
+      let u = u0 + bu * (u1 - u0)
+      let v2 = v0 + v * (v1 - v0)
+      uvs_ref.push(u)
+      uvs_ref.push(v2)
+      layers_ref.push(layer_f)
+    }
+  }
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
@@ -562,14 +733,7 @@ pub fn build_chunk_mesh_split(
                 ) {
                 let shade = @util.face_shade_scale(nx, ny, nz)
                 let color_scale = shade
-                let layer = match face.name {
-                  FaceName::PosX => block.faces.pos_x
-                  FaceName::NegX => block.faces.neg_x
-                  FaceName::PosY => block.faces.pos_y
-                  FaceName::NegY => block.faces.neg_y
-                  FaceName::PosZ => block.faces.pos_z
-                  FaceName::NegZ => block.faces.neg_z
-                }
+                let layer = face_layer_for_block(block, face.name)
                 let layer_f = Float::from_int(layer)
                 let flip_uv = match face.name {
                   FaceName::PosX
@@ -606,8 +770,10 @@ pub fn build_chunk_mesh_split(
                   Float::from_int(dy + y),
                   Float::from_int(dz + z),
                 )
-                push_face(
+                let rotate_uv = log_rotate_uv(block, face)
+                push_face_cube(
                   block,
+                  rotate_uv,
                   a,
                   b,
                   c,

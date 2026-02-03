@@ -213,9 +213,12 @@ function createHotbarUI({
   const selectPrev = () => select(state.index - 1);
 
   const onWheel = (event) => {
-    if (canvas && document.pointerLockElement && document.pointerLockElement !== canvas) return;
-    if (canvas && !document.pointerLockElement && event.target !== canvas && event.target !== document.body) {
-      return;
+    const inventoryOpen = window.mcInventoryOpen === true;
+    if (!inventoryOpen) {
+      if (canvas && document.pointerLockElement && document.pointerLockElement !== canvas) return;
+      if (canvas && !document.pointerLockElement && event.target !== canvas && event.target !== document.body) {
+        return;
+      }
     }
     event.preventDefault();
     if (event.deltaY > 0) {

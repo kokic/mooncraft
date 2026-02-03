@@ -1,12 +1,22 @@
 ///|
-pub struct UiItem {
+
+///|
+/// JS-facing texture payload for UI rendering.
+pub struct UiTexture {
+  name : String
+}
+
+///|
+/// JS-facing UI item payload (normalized for item-icons.js).
+pub struct UiItemView {
   name : @util.UniqueName
-  shape : String
   kind : String
-  top : String
-  side : String
-  bottom : String
-  texture : String
+  shape : String
+  material : String
+  top : UiTexture
+  side : UiTexture
+  bottom : UiTexture
+  texture : UiTexture
 }
 
 ///|
@@ -39,28 +49,42 @@ fn pick_side(faces : @block.TextureNames) -> String {
 }
 
 ///|
-pub fn block_to_ui_def(block : @block.Block) -> UiItem {
+fn texture_or_fallback(name : String) -> UiTexture {
+  let tex = if name.length() > 0 { name } else { @block.fallback_texture }
+  UiTexture::{ name: tex }
+}
+
+///|
+pub fn block_to_ui_item(block : @block.Block) -> UiItemView {
+  let material_tag = if block.material is @block.Material::TintedLeaf {
+    "tinted_leaf"
+  } else {
+    "normal"
+  }
+  let missing = texture_or_fallback("")
   if is_torch_shape(block.shape) {
-    let tex = block.faces.pos_x.unwrap_or("")
-    UiItem::{
+    let tex = texture_or_fallback(block.faces.pos_x.unwrap_or(""))
+    UiItemView::{
       name: block.name,
       shape: "torch",
       kind: "flat",
-      top: "",
-      side: "",
-      bottom: "",
+      material: material_tag,
+      top: missing,
+      side: missing,
+      bottom: missing,
       texture: tex,
     }
   } else {
     let faces = block.faces
-    UiItem::{
+    UiItemView::{
       name: block.name,
       shape: shape_tag(block.shape),
       kind: "block",
-      top: faces.pos_y.unwrap_or(""),
-      side: pick_side(faces),
-      bottom: faces.neg_y.unwrap_or(""),
-      texture: "",
+      material: material_tag,
+      top: texture_or_fallback(faces.pos_y.unwrap_or("")),
+      side: texture_or_fallback(pick_side(faces)),
+      bottom: texture_or_fallback(faces.neg_y.unwrap_or("")),
+      texture: missing,
     }
   }
 }

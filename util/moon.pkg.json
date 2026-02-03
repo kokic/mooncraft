@@ -3,6 +3,7 @@
         "moonbitlang/core/env",
         "moonbitlang/core/cmp",
         "moonbitlang/core/math",
+        "moonbitlang/core/random", 
         "moonbitlang/core/strconv"
     ]
 }

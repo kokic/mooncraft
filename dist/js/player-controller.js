@@ -7,9 +7,8 @@ function createPlayerController({
   speed = 8,
   sensitivity = 0.0014,
   gameMode,
-  getBlockAt = null,
-  isSolidBlock = null,
-  getBlockAabb = null,
+  chunkMap = null,
+  chunkSize = 0,
   entityHeight = 1.8,
   entityRadius = 0.3,
 }) {
@@ -74,219 +73,76 @@ function createPlayerController({
   document.addEventListener("mousemove", onMouseMove);
   canvas.addEventListener("click", onClick);
 
-  const getBlockAabbAt = (x, y, z) => {
-    const id = getBlockAt(x, y, z);
-    if (id == null) return null;
-    if (typeof getBlockAabb === "function") return getBlockAabb(id);
-    if (typeof isSolidBlock === "function" && !isSolidBlock(id)) {
-      return null;
-    }
-    return id !== 0 ? { min: [0, 0, 0], max: [1, 1, 1] } : null;
-  };
+  const buildMoveInput = () => ({
+    forward: state.keys.has("KeyW"),
+    back: state.keys.has("KeyS"),
+    left: state.keys.has("KeyA"),
+    right: state.keys.has("KeyD"),
+    up: state.keys.has("Space"),
+    down: state.keys.has("ShiftLeft") || state.keys.has("ShiftRight"),
+    sprint: state.isRun && state.keys.has("KeyW"),
+    fast: state.keys.has("ControlLeft") || state.keys.has("ControlRight"),
+  });
 
-  const normalizeAabbs = (aabb) => {
-    if (!aabb) return null;
-    return Array.isArray(aabb) ? aabb : [aabb];
-  };
-
-  const intersects = (
-    aMinX, aMinY, aMinZ,
-    aMaxX, aMaxY, aMaxZ,
-    bMinX, bMinY, bMinZ,
-    bMaxX, bMaxY, bMaxZ,
-  ) => (
-    aMaxX > bMinX &&
-    aMinX < bMaxX &&
-    aMaxY > bMinY &&
-    aMinY < bMaxY &&
-    aMaxZ > bMinZ &&
-    aMinZ < bMaxZ
-  );
-
-  const moveAxis = (pos, axis, delta) => {
-    if (delta === 0) return pos[axis];
-    const radius = state.entityRadius;
-    const height = state.entityHeight;
-    const dir = Math.sign(delta);
-    let next = pos[axis] + delta;
-    const eps = 1e-4;
-    if (axis === 0) {
-      const targetX = next + dir * radius;
-      const blockX = Math.floor(targetX);
-      const minY = Math.floor(pos[1]);
-      const maxY = Math.floor(pos[1] + height);
-      const minZ = Math.floor(pos[2] - radius);
-      const maxZ = Math.floor(pos[2] + radius);
-      const entMinX = next - radius;
-      const entMaxX = next + radius;
-      const entMinY = pos[1];
-      const entMaxY = pos[1] + height;
-      const entMinZ = pos[2] - radius;
-      const entMaxZ = pos[2] + radius;
-      for (let by = minY; by <= maxY; by += 1) {
-        for (let bz = minZ; bz <= maxZ; bz += 1) {
-          const aabb = getBlockAabbAt(blockX, by, bz);
-          const aabbs = normalizeAabbs(aabb);
-          if (!aabbs) continue;
-          for (const box of aabbs) {
-            const bMinX = blockX + box.min[0];
-            const bMaxX = blockX + box.max[0];
-            const bMinY = by + box.min[1];
-            const bMaxY = by + box.max[1];
-            const bMinZ = bz + box.min[2];
-            const bMaxZ = bz + box.max[2];
-            if (!intersects(
-              entMinX, entMinY, entMinZ,
-              entMaxX, entMaxY, entMaxZ,
-              bMinX, bMinY, bMinZ,
-              bMaxX, bMaxY, bMaxZ,
-            )) continue;
-            if (dir > 0) {
-              next = bMinX - radius - eps;
-            } else {
-              next = bMaxX + radius + eps;
-            }
-            return next;
-          }
-        }
-      }
-      return next;
-    }
-    if (axis === 2) {
-      const targetZ = next + dir * radius;
-      const blockZ = Math.floor(targetZ);
-      const minY = Math.floor(pos[1]);
-      const maxY = Math.floor(pos[1] + height);
-      const minX = Math.floor(pos[0] - radius);
-      const maxX = Math.floor(pos[0] + radius);
-      const entMinX = pos[0] - radius;
-      const entMaxX = pos[0] + radius;
-      const entMinY = pos[1];
-      const entMaxY = pos[1] + height;
-      const entMinZ = next - radius;
-      const entMaxZ = next + radius;
-      for (let by = minY; by <= maxY; by += 1) {
-        for (let bx = minX; bx <= maxX; bx += 1) {
-          const aabb = getBlockAabbAt(bx, by, blockZ);
-          const aabbs = normalizeAabbs(aabb);
-          if (!aabbs) continue;
-          for (const box of aabbs) {
-            const bMinX = bx + box.min[0];
-            const bMaxX = bx + box.max[0];
-            const bMinY = by + box.min[1];
-            const bMaxY = by + box.max[1];
-            const bMinZ = blockZ + box.min[2];
-            const bMaxZ = blockZ + box.max[2];
-            if (!intersects(
-              entMinX, entMinY, entMinZ,
-              entMaxX, entMaxY, entMaxZ,
-              bMinX, bMinY, bMinZ,
-              bMaxX, bMaxY, bMaxZ,
-            )) continue;
-            if (dir > 0) {
-              next = bMinZ - radius - eps;
-            } else {
-              next = bMaxZ + radius + eps;
-            }
-            return next;
-          }
-        }
-      }
-      return next;
-    }
-    if (axis === 1) {
-      const targetY = dir > 0 ? next + height : next;
-      const blockY = Math.floor(targetY);
-      const minX = Math.floor(pos[0] - radius);
-      const maxX = Math.floor(pos[0] + radius);
-      const minZ = Math.floor(pos[2] - radius);
-      const maxZ = Math.floor(pos[2] + radius);
-      const entMinX = pos[0] - radius;
-      const entMaxX = pos[0] + radius;
-      const entMinY = next;
-      const entMaxY = next + height;
-      const entMinZ = pos[2] - radius;
-      const entMaxZ = pos[2] + radius;
-      for (let bx = minX; bx <= maxX; bx += 1) {
-        for (let bz = minZ; bz <= maxZ; bz += 1) {
-          const aabb = getBlockAabbAt(bx, blockY, bz);
-          const aabbs = normalizeAabbs(aabb);
-          if (!aabbs) continue;
-          for (const box of aabbs) {
-            const bMinX = bx + box.min[0];
-            const bMaxX = bx + box.max[0];
-            const bMinY = blockY + box.min[1];
-            const bMaxY = blockY + box.max[1];
-            const bMinZ = bz + box.min[2];
-            const bMaxZ = bz + box.max[2];
-            if (!intersects(
-              entMinX, entMinY, entMinZ,
-              entMaxX, entMaxY, entMaxZ,
-              bMinX, bMinY, bMinZ,
-              bMaxX, bMaxY, bMaxZ,
-            )) continue;
-            if (dir > 0) {
-              next = bMinY - height - eps;
-            } else {
-              next = bMaxY + eps;
-            }
-            return next;
-          }
-        }
-      }
-      return next;
-    }
-    return next;
-  };
-
-  const update = (delta) => {
+  const applyFallbackMove = (input, delta) => {
     const forward = [Math.cos(state.yaw), 0, Math.sin(state.yaw)];
     const right = [-forward[2], 0, forward[0]];
-
     let velocity = state.speed * delta;
-    if (state.keys.has("ControlLeft") || state.keys.has("ControlRight")) {
-      velocity *= 2.0;
-    }
-    if (state.isRun && state.keys.has("KeyW")) {
-      velocity *= 2.0;
-    }
-
+    if (input.fast) velocity *= 2.0;
+    if (input.sprint && input.forward) velocity *= 2.0;
     let dx = 0;
     let dy = 0;
     let dz = 0;
-    if (state.keys.has("KeyW")) {
+    if (input.forward) {
       dx += forward[0] * velocity;
       dz += forward[2] * velocity;
     }
-    if (state.keys.has("KeyS")) {
+    if (input.back) {
       dx -= forward[0] * velocity;
       dz -= forward[2] * velocity;
     }
-    if (state.keys.has("KeyA")) {
+    if (input.left) {
       dx -= right[0] * velocity;
       dz -= right[2] * velocity;
     }
-    if (state.keys.has("KeyD")) {
+    if (input.right) {
       dx += right[0] * velocity;
       dz += right[2] * velocity;
     }
-    if (state.keys.has("Space")) {
-      dy += velocity;
-    }
-    if (state.keys.has("ShiftLeft") || state.keys.has("ShiftRight")) {
-      dy -= velocity;
-    }
+    if (input.up) dy += velocity;
+    if (input.down) dy -= velocity;
+    state.position[0] += dx;
+    state.position[1] += dy;
+    state.position[2] += dz;
+  };
 
-    if (state.gameMode === "spectator") {
-      state.position[0] += dx;
-      state.position[1] += dy;
-      state.position[2] += dz;
+  const update = (delta) => {
+    const input = buildMoveInput();
+    const mover = window.mcMovePlayer;
+    if (typeof mover === "function" && chunkMap && chunkSize) {
+      const next = mover(
+        chunkMap,
+        chunkSize,
+        state.position,
+        state.yaw,
+        input,
+        state.speed,
+        delta,
+        state.entityHeight,
+        state.entityRadius,
+        worldMinY,
+        state.gameMode,
+      );
+      if (Array.isArray(next) && next.length >= 3) {
+        state.position[0] = next[0];
+        state.position[1] = next[1];
+        state.position[2] = next[2];
+      } else {
+        applyFallbackMove(input, delta);
+      }
     } else {
-      state.position[0] = moveAxis(state.position, 0, dx);
-      state.position[2] = moveAxis(state.position, 2, dz);
-      state.position[1] = moveAxis(state.position, 1, dy);
+      applyFallbackMove(input, delta);
     }
-
     const minY = worldMinY - 1;
     state.position[1] = Math.max(minY, state.position[1]);
   };

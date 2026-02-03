@@ -20,7 +20,7 @@ pub fn get_block_id(
   wy : Int,
   wz : Int,
 ) -> UInt? {
-  let cx =  @util.floor_div(wx, size)
+  let cx = @util.floor_div(wx, size)
   let cy = @util.floor_div(wy, size)
   let cz = @util.floor_div(wz, size)
   let key = chunk_key_by_chunk_xyz(cx, cy, cz)

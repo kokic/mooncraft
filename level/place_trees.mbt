@@ -98,7 +98,7 @@ pub fn place_oak_trees_in_chunk(
             let setter = fn(x : Int, y : Int, z : Int, id : UInt) -> Unit {
               region.set_block(x, y, z, id)
             }
-            @feature.place_oak_tree(setter, wx, surface + 1, wz)
+            @feature.place_oak_tree_genus(setter, wx, surface + 1, wz)
           }
         }
       }

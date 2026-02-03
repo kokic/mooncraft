@@ -16,7 +16,7 @@ let pending_block_placements : Map[String, Array[BlockPlacement]] = {}
 
 ///|
 pub fn ChunkRegion::new(chunk : Chunk) -> ChunkRegion {
-  ChunkRegion::{ chunk }
+  ChunkRegion::{ chunk, }
 }
 
 ///|

@@ -25,7 +25,8 @@ pub fn[U, V] cast_object_set(object : U, key : String, value : V) -> Unit {
 }
 
 ///|
-pub extern "js" fn js_console_err(v : JsValue) -> Unit = "(v) => console.err(v)"
+pub extern "js" fn js_console_err(v : JsValue) -> Unit =
+  #| (v) => console.error(v)
 
 ///|
 pub fn[T] console_err(v : T) -> Unit {

@@ -10,6 +10,10 @@ pub let blocks : Array[Block] = [
   ),
   Block::create("stone", ["stone"]),
   Block::create("bedrock", ["bedrock"]),
+  Block::create("obsidian", ["obsidian"]),
+  Block::create("classic.obsidian", ["classic/obsidian"]),
+  Block::create("crying_obsidian", ["crying_obsidian"]),
+  Block::create("glowing_obsidian", ["pre-classic/glowing_obsidian"]),
 
   // Land
   Block::create("dirt", ["dirt"]),
@@ -28,6 +32,7 @@ pub let blocks : Array[Block] = [
 
   // Artifact
   Block::create("bricks", ["bricks"]),
+  ..Block::create_with_classic("gold_block", ["gold_block"]),
 
   // Desert
   Block::create("sand", ["sand"]),
@@ -40,7 +45,7 @@ pub let blocks : Array[Block] = [
   Block::create("sandstone_smooth", [
     "sandstone_top", "sandstone_bottom", "sandstone_smooth",
   ]),
-  Block::create(
+  ..Block::create_with_classic(
     "cactus",
     ["cactus_top", "cactus_bottom", "cactus_side"],
     shape=Shape::Cactus,
@@ -51,15 +56,9 @@ pub let blocks : Array[Block] = [
 
   // Trees
   ..create_log_group("oak_log", ["oak_log_top", "oak_log"]),
-  Block::create(
+  ..Block::create_with_classic(
     "oak_leaves",
     ["oak_leaves"],
-    material=Material::TintedLeaf,
-    opacity=Cutout,
-  ),
-  Block::create(
-    "classic.oak_leaves",
-    ["classic/oak_leaves"],
     material=Material::TintedLeaf,
     opacity=Cutout,
   ),
@@ -157,5 +156,42 @@ fn create_log_group(
     create_log(base, id, 0, faces),
     create_log(base, id, 1, faces, category=@item.None),
     create_log(base, id, 2, faces, category=@item.None),
+  ]
+}
+
+///|
+fn Block::create_with_classic(
+  name : @util.UniqueName,
+  state? : UInt = 0,
+  opacity? : Opacity = Opacity::Solid,
+  luminance? : Int = 0,
+  shape? : Shape = Shape::Cube,
+  material? : Material = Material::Normal,
+  category? : @item.Category = @item.Block,
+  faces : FixedArray[String],
+) -> Array[Block] {
+  [
+    Block::create(
+      id=alloc_id(),
+      name,
+      state~,
+      opacity~,
+      luminance~,
+      shape~,
+      material~,
+      category~,
+      faces,
+    ),
+    Block::create(
+      id=alloc_id(),
+      "classic." + name,
+      state~,
+      opacity~,
+      luminance~,
+      shape~,
+      material~,
+      category~,
+      faces.map(s => "classic/" + s),
+    ),
   ]
 }

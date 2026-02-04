@@ -1016,7 +1016,7 @@ function renderTestChunk({
       `| Biome: ${biomeName} ` +
       `| Loaded: ${chunkDatas.size} ` +
       `| Meshes: ${chunkMeshes.size} ` +
-      ` (8:48)`;
+      ` (11:56)`;
     requestAnimationFrame(draw);
   }
 

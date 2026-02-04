@@ -1,5 +1,5 @@
 ///|
-pub struct TreePlacementParams {
+pub struct PlacementParams {
   /// Noise frequency controlling density variation scale. 
   /// higher => faster changes over space.
   freq : Double
@@ -11,7 +11,7 @@ pub struct TreePlacementParams {
 
 ///|
 /// Default oak tree density for plains.
-pub let plains_oak_params : TreePlacementParams = TreePlacementParams::{
+pub let plains_oak_params : PlacementParams = PlacementParams::{
   freq: 0.09, // 0.8 ~ 1
   threshold: 0.4, // 0.3 ~ 0.5
   min_spacing: 6,
@@ -40,7 +40,7 @@ pub fn should_place_oak(
   noise : @util.PerlinNoise,
   wx : Int,
   wz : Int,
-  params : TreePlacementParams,
+  params : PlacementParams,
 ) -> Bool {
   if params.min_spacing <= 1 {
     noise.gen2d(wx.to_double() * params.freq, wz.to_double() * params.freq) >
@@ -73,7 +73,7 @@ pub fn should_place_oak(
 pub fn place_oak_trees_in_chunk(
   world : World,
   chunk : Chunk,
-  params? : TreePlacementParams = plains_oak_params,
+  params? : PlacementParams = plains_oak_params,
   is_grass? : (UInt) -> Bool = long_id => long_id ==
     @block.lookup_by_name("grass").unwrap().id,
 ) -> Unit {
@@ -99,7 +99,7 @@ pub fn place_oak_trees_in_chunk(
             let setter = fn(x : Int, y : Int, z : Int, id : UInt) -> Unit {
               region.set_block(x, y, z, id)
             }
-            @feature.place_oak_tree_genus(setter, wx, surface + 1, wz)
+            @feature.place_oak_tree_genus(setter, wx, surface, wz)
           }
         }
       }

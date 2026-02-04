@@ -23,7 +23,7 @@ fn Block::create(
   state? : UInt = 0,
   opacity? : Opacity = Opacity::Solid,
   luminance? : Int = 0,
-  shape? : Shape = Shape::Normal,
+  shape? : Shape = Shape::Cube,
   material? : Material = Material::Normal,
   category? : @item.Category = @item.Block,
   faces : FixedArray[String],

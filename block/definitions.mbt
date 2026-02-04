@@ -14,6 +14,12 @@ pub let blocks : Array[Block] = [
   // Land
   Block::create("dirt", ["dirt"]),
   Block::create("grass", ["grass_carried", "dirt", "grass_side_carried"]),
+  Block::create(
+    "grass_path",
+    ["grass_path_top", "dirt", "grass_path_side"],
+    shape=Shape::GrassPath,
+    opacity=Cutout,
+  ),
   Block::create("pre-classic.grass", [
     "pre-classic/grass_carried", "dirt", "grass_side_carried",
   ]),
@@ -34,6 +40,12 @@ pub let blocks : Array[Block] = [
   Block::create("sandstone_smooth", [
     "sandstone_top", "sandstone_bottom", "sandstone_smooth",
   ]),
+  Block::create(
+    "cactus",
+    ["cactus_top", "cactus_bottom", "cactus_side"],
+    shape=Shape::Cactus,
+    opacity=Cutout,
+  ),
   Block::create("glass", ["glass"], opacity=Cutout),
   Block::create("tnt", ["tnt_top", "tnt_bottom", "tnt_side"]),
 

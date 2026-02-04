@@ -35,6 +35,26 @@ fn shape_desc_by_block(block : Block) -> ShapeDesc {
       let box = torch_shape_box_by_state(block.state)
       ShapeDesc::{ boxes: [box], facing: block.state.reinterpret_as_int() }
     }
+    Shape::GrassPath =>
+      ShapeDesc::{
+        boxes: [
+          ShapeBox::{
+            min: [0.0F, 0.0F, 0.0F],
+            max: [1.0F, @genus.GRASS_PATH_MAX_Y, 1.0F],
+          },
+        ],
+        facing: -1,
+      }
+    Shape::Cactus =>
+      ShapeDesc::{
+        boxes: [
+          ShapeBox::{
+            min: [@genus.CACTUS_MIN, 0.0F, @genus.CACTUS_MIN],
+            max: [@genus.CACTUS_MAX, 1.0F, @genus.CACTUS_MAX],
+          },
+        ],
+        facing: -1,
+      }
     _ =>
       ShapeDesc::{
         boxes: [ShapeBox::{ min: [0.0F, 0.0F, 0.0F], max: [1.0F, 1.0F, 1.0F] }],

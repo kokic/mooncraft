@@ -111,6 +111,112 @@ fn face_layer_for_block(block : RenderBlock, face : FaceName) -> Int {
 }
 
 ///|
+fn uv_rect_for_shape_face(
+  shape : Shape,
+  face : FaceName,
+) -> (Float, Float, Float, Float) {
+  match shape {
+    Shape::GrassPath => {
+      let v0 = 1.0F - @genus.GRASS_PATH_MAX_Y
+      match face {
+        FaceName::PosX
+        | FaceName::NegX
+        | FaceName::PosZ
+        | FaceName::NegZ => (0.0F, v0, 1.0F, 1.0F)
+        _ => (0.0F, 0.0F, 1.0F, 1.0F)
+      }
+    }
+    Shape::Cactus => {
+      let u0 = @genus.CACTUS_MIN
+      let u1 = @genus.CACTUS_MAX
+      match face {
+        FaceName::PosY | FaceName::NegY => (u0, u0, u1, u1)
+        _ => (0.0F, 0.0F, 1.0F, 1.0F)
+      }
+    }
+    _ => (0.0F, 0.0F, 1.0F, 1.0F)
+  }
+}
+
+///|
+fn box_face_corners(
+  face : FaceName,
+  min : (Float, Float, Float),
+  max : (Float, Float, Float),
+) -> ((Float, Float, Float), (Float, Float, Float), (Float, Float, Float), (Float, Float, Float)) {
+  let (x0, y0, z0) = min
+  let (x1, y1, z1) = max
+  match face {
+    FaceName::PosX => ((x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0))
+    FaceName::NegX => ((x0, y0, z1), (x0, y0, z0), (x0, y1, z0), (x0, y1, z1))
+    FaceName::PosY => ((x0, y1, z1), (x0, y1, z0), (x1, y1, z0), (x1, y1, z1))
+    FaceName::NegY => ((x0, y0, z0), (x0, y0, z1), (x1, y0, z1), (x1, y0, z0))
+    FaceName::PosZ => ((x1, y0, z1), (x0, y0, z1), (x0, y1, z1), (x1, y1, z1))
+    FaceName::NegZ => ((x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0))
+  }
+}
+
+///|
+fn face_corners_world(
+  face : FaceGeom,
+  x : Int,
+  y : Int,
+  z : Int,
+  custom_box : ((Float, Float, Float), (Float, Float, Float))?,
+) -> ((Float, Float, Float), (Float, Float, Float), (Float, Float, Float), (Float, Float, Float)) {
+  match custom_box {
+    Some((min, max)) => {
+      let (a, b, c, d) = box_face_corners(face.name, min, max)
+      let (ax, ay, az) = a
+      let (bx, by, bz) = b
+      let (cx, cy, cz) = c
+      let (dx, dy, dz) = d
+      let ox = Float::from_int(x)
+      let oy = Float::from_int(y)
+      let oz = Float::from_int(z)
+      (
+        (ax + ox, ay + oy, az + oz),
+        (bx + ox, by + oy, bz + oz),
+        (cx + ox, cy + oy, cz + oz),
+        (dx + ox, dy + oy, dz + oz),
+      )
+    }
+    None => {
+      let a = face.corners[0]
+      let b = face.corners[1]
+      let c = face.corners[2]
+      let d = face.corners[3]
+      let (ax, ay, az) = a
+      let (bx, by, bz) = b
+      let (cx, cy, cz) = c
+      let (dx, dy, dz) = d
+      (
+        (
+          Float::from_int(ax + x),
+          Float::from_int(ay + y),
+          Float::from_int(az + z),
+        ),
+        (
+          Float::from_int(bx + x),
+          Float::from_int(by + y),
+          Float::from_int(bz + z),
+        ),
+        (
+          Float::from_int(cx + x),
+          Float::from_int(cy + y),
+          Float::from_int(cz + z),
+        ),
+        (
+          Float::from_int(dx + x),
+          Float::from_int(dy + y),
+          Float::from_int(dz + z),
+        ),
+      )
+    }
+  }
+}
+
+///|
 
 ///|
 pub fn build_chunk_mesh(
@@ -329,7 +435,7 @@ pub fn build_chunk_mesh(
               push_face,
             )
           }
-          _ =>
+          _ => {
             for face in faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
@@ -345,35 +451,10 @@ pub fn build_chunk_mesh(
                   | FaceName::NegZ => true
                   _ => false
                 }
-                let a = face.corners[0]
-                let b = face.corners[1]
-                let c = face.corners[2]
-                let d = face.corners[3]
-                let (ax, ay, az) = a
-                let (bx, by, bz) = b
-                let (cx, cy, cz) = c
-                let (dx, dy, dz) = d
-                let a = (
-                  Float::from_int(ax + x),
-                  Float::from_int(ay + y),
-                  Float::from_int(az + z),
-                )
-                let b = (
-                  Float::from_int(bx + x),
-                  Float::from_int(by + y),
-                  Float::from_int(bz + z),
-                )
-                let c = (
-                  Float::from_int(cx + x),
-                  Float::from_int(cy + y),
-                  Float::from_int(cz + z),
-                )
-                let d = (
-                  Float::from_int(dx + x),
-                  Float::from_int(dy + y),
-                  Float::from_int(dz + z),
-                )
+                let custom_box = box_for_shape_face(block.block.shape, face.name)
+                let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
                 let rotate_uv = log_rotate_uv(block, face)
+                let uv_rect = uv_rect_for_shape_face(block.block.shape, face.name)
                 push_face_cube(
                   rotate_uv,
                   a,
@@ -382,12 +463,26 @@ pub fn build_chunk_mesh(
                   d,
                   face.normal,
                   layer_f,
-                  (0.0F, 0.0F, 1.0F, 1.0F),
+                  uv_rect,
                   flip_uv,
                   color_scale,
                 )
+                if block.block.shape.double_sided() {
+                  push_face_rev(
+                    a,
+                    b,
+                    c,
+                    d,
+                    face.normal,
+                    layer_f,
+                    uv_rect,
+                    flip_uv,
+                    color_scale,
+                  )
+                }
               }
             }
+          }
         }
       }
     }
@@ -718,7 +813,7 @@ pub fn build_chunk_mesh_split(
               },
             )
           }
-          _ =>
+          _ => {
             for face in faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
@@ -734,35 +829,10 @@ pub fn build_chunk_mesh_split(
                   | FaceName::NegZ => true
                   _ => false
                 }
-                let a = face.corners[0]
-                let b = face.corners[1]
-                let c = face.corners[2]
-                let d = face.corners[3]
-                let (ax, ay, az) = a
-                let (bx, by, bz) = b
-                let (cx, cy, cz) = c
-                let (dx, dy, dz) = d
-                let a = (
-                  Float::from_int(ax + x),
-                  Float::from_int(ay + y),
-                  Float::from_int(az + z),
-                )
-                let b = (
-                  Float::from_int(bx + x),
-                  Float::from_int(by + y),
-                  Float::from_int(bz + z),
-                )
-                let c = (
-                  Float::from_int(cx + x),
-                  Float::from_int(cy + y),
-                  Float::from_int(cz + z),
-                )
-                let d = (
-                  Float::from_int(dx + x),
-                  Float::from_int(dy + y),
-                  Float::from_int(dz + z),
-                )
+                let custom_box = box_for_shape_face(block.block.shape, face.name)
+                let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
                 let rotate_uv = log_rotate_uv(block, face)
+                let uv_rect = uv_rect_for_shape_face(block.block.shape, face.name)
                 push_face_cube(
                   block,
                   rotate_uv,
@@ -772,14 +842,27 @@ pub fn build_chunk_mesh_split(
                   d,
                   face.normal,
                   layer_f,
-                  (0.0F, 0.0F, 1.0F, 1.0F),
+                  uv_rect,
                   flip_uv,
                   color_scale,
                 )
+                if block.block.shape.double_sided() {
+                  push_face_rev(
+                    block,
+                    a,
+                    b,
+                    c,
+                    d,
+                    face.normal,
+                    layer_f,
+                    uv_rect,
+                    flip_uv,
+                    color_scale,
+                  )
+                }
               }
-            } else {
-              ()
             }
+          }
         }
       }
     }

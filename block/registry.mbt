@@ -1,19 +1,8 @@
 ///|
 pub struct RenderBlock {
   block : Block
-  faces : FaceLayerIndices
+  faces : @shape.FaceLayerIndices
   long_id : UInt
-}
-
-///|
-/// Per-face texture layer indices.
-pub struct FaceLayerIndices {
-  pos_x : Int
-  neg_x : Int
-  pos_y : Int
-  neg_y : Int
-  pos_z : Int
-  neg_z : Int
 }
 
 ///|
@@ -53,7 +42,7 @@ pub fn BlockRegistry::create(
         None => 0
       }
     }
-    let faces = FaceLayerIndices::{
+    let faces = @shape.FaceLayerIndices::{
       pos_x: resolve_layer(def.faces.pos_x),
       neg_x: resolve_layer(def.faces.neg_x),
       pos_y: resolve_layer(def.faces.pos_y),

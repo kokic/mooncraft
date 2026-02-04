@@ -24,141 +24,32 @@ pub struct MeshSplit {
 }
 
 ///|
-fn log_axis_for_state(state : UInt) -> Int {
-  match state.reinterpret_as_int() {
-    1 => 1
-    2 => 2
-    _ => 0
-  }
-}
-
-///|
-fn axis_from_dir(dx : Int, dy : Int, dz : Int) -> Int {
-  if dx != 0 {
-    1
-  } else if dy != 0 {
-    0
-  } else if dz != 0 {
-    2
-  } else {
-    -1
-  }
-}
-
-///|
-fn log_rotate_uv(block : RenderBlock, face : FaceGeom) -> Bool {
-  if block.block.shape is Shape::Log {
-    let axis = log_axis_for_state(block.block.state)
-    let is_end_face = match axis {
-      1 => face.name is FaceName::PosX || face.name is FaceName::NegX
-      2 => face.name is FaceName::PosZ || face.name is FaceName::NegZ
-      _ => face.name is FaceName::PosY || face.name is FaceName::NegY
-    }
-    if is_end_face {
-      false
-    } else if face.corners.length() < 4 {
-      false
-    } else {
-      let (ax, ay, az) = face.corners[0]
-      let (bx, by, bz) = face.corners[1]
-      let (dx, dy, dz) = face.corners[3]
-      let u_axis = axis_from_dir(bx - ax, by - ay, bz - az)
-      let v_axis = axis_from_dir(dx - ax, dy - ay, dz - az)
-      if v_axis == axis {
-        false
-      } else {
-        u_axis == axis
-      }
-    }
-  } else {
-    false
-  }
-}
-
-///|
-fn face_layer_for_block(block : RenderBlock, face : FaceName) -> Int {
-  if block.block.shape is Shape::Log {
-    let end_layer = block.faces.pos_y
-    let side_layer = block.faces.pos_x
-    let axis = log_axis_for_state(block.block.state)
-    match axis {
-      1 =>
-        match face {
-          FaceName::PosX | FaceName::NegX => end_layer
-          _ => side_layer
-        }
-      2 =>
-        match face {
-          FaceName::PosZ | FaceName::NegZ => end_layer
-          _ => side_layer
-        }
-      _ =>
-        match face {
-          FaceName::PosY | FaceName::NegY => end_layer
-          _ => side_layer
-        }
-    }
-  } else {
-    match face {
-      FaceName::PosX => block.faces.pos_x
-      FaceName::NegX => block.faces.neg_x
-      FaceName::PosY => block.faces.pos_y
-      FaceName::NegY => block.faces.neg_y
-      FaceName::PosZ => block.faces.pos_z
-      FaceName::NegZ => block.faces.neg_z
-    }
-  }
-}
-
-///|
-fn uv_rect_for_shape_face(
-  shape : Shape,
-  face : FaceName,
-) -> (Float, Float, Float, Float) {
-  match shape {
-    Shape::GrassPath => {
-      let v0 = 1.0F - @genus.GRASS_PATH_MAX_Y
-      match face {
-        FaceName::PosX
-        | FaceName::NegX
-        | FaceName::PosZ
-        | FaceName::NegZ => (0.0F, v0, 1.0F, 1.0F)
-        _ => (0.0F, 0.0F, 1.0F, 1.0F)
-      }
-    }
-    Shape::Cactus => {
-      let u0 = @genus.CACTUS_MIN
-      let u1 = @genus.CACTUS_MAX
-      match face {
-        FaceName::PosY | FaceName::NegY => (u0, u0, u1, u1)
-        _ => (0.0F, 0.0F, 1.0F, 1.0F)
-      }
-    }
-    _ => (0.0F, 0.0F, 1.0F, 1.0F)
-  }
-}
-
-///|
 fn box_face_corners(
-  face : FaceName,
+  face : @shape.FaceName,
   min : (Float, Float, Float),
   max : (Float, Float, Float),
 ) -> ((Float, Float, Float), (Float, Float, Float), (Float, Float, Float), (Float, Float, Float)) {
   let (x0, y0, z0) = min
   let (x1, y1, z1) = max
   match face {
-    FaceName::PosX => ((x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0))
-    FaceName::NegX => ((x0, y0, z1), (x0, y0, z0), (x0, y1, z0), (x0, y1, z1))
-    FaceName::PosY => ((x0, y1, z1), (x0, y1, z0), (x1, y1, z0), (x1, y1, z1))
-    FaceName::NegY => ((x0, y0, z0), (x0, y0, z1), (x1, y0, z1), (x1, y0, z0))
-    FaceName::PosZ => ((x1, y0, z1), (x0, y0, z1), (x0, y1, z1), (x1, y1, z1))
-    FaceName::NegZ => ((x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0))
+    @shape.FaceName::PosX =>
+      ((x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0))
+    @shape.FaceName::NegX =>
+      ((x0, y0, z1), (x0, y0, z0), (x0, y1, z0), (x0, y1, z1))
+    @shape.FaceName::PosY =>
+      ((x0, y1, z1), (x0, y1, z0), (x1, y1, z0), (x1, y1, z1))
+    @shape.FaceName::NegY =>
+      ((x0, y0, z0), (x0, y0, z1), (x1, y0, z1), (x1, y0, z0))
+    @shape.FaceName::PosZ =>
+      ((x1, y0, z1), (x0, y0, z1), (x0, y1, z1), (x1, y1, z1))
+    @shape.FaceName::NegZ =>
+      ((x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0))
   }
 }
 
 ///|
 fn face_corners_world(
-  face : FaceGeom,
+  face : @shape.FaceGeom,
   x : Int,
   y : Int,
   z : Int,
@@ -436,25 +327,31 @@ pub fn build_chunk_mesh(
             )
           }
           _ => {
-            for face in faces {
+            let model = block.block.shape.model()
+            let render_info = @shape.RenderInfo::{
+              faces: block.faces,
+              state: block.block.state,
+            }
+            let is_double_sided = (model.double_sided)(render_info)
+            for face in @shape.faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
               if !neighbor.block.opacity.enable_occlusion_culling() {
                 let shade = @util.face_shade_scale(nx, ny, nz)
                 let color_scale = shade
-                let layer = face_layer_for_block(block, face.name)
+                let layer = (model.face_layer)(render_info, face.name)
                 let layer_f = Float::from_int(layer)
                 let flip_uv = match face.name {
-                  FaceName::PosX
-                  | FaceName::NegX
-                  | FaceName::PosZ
-                  | FaceName::NegZ => true
+                  @shape.FaceName::PosX
+                  | @shape.FaceName::NegX
+                  | @shape.FaceName::PosZ
+                  | @shape.FaceName::NegZ => true
                   _ => false
                 }
-                let custom_box = box_for_shape_face(block.block.shape, face.name)
+                let custom_box = (model.face_box)(render_info, face.name)
                 let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
-                let rotate_uv = log_rotate_uv(block, face)
-                let uv_rect = uv_rect_for_shape_face(block.block.shape, face.name)
+                let rotate_uv = (model.rotate_uv)(render_info, face)
+                let uv_rect = (model.uv_rect)(render_info, face.name)
                 push_face_cube(
                   rotate_uv,
                   a,
@@ -467,7 +364,7 @@ pub fn build_chunk_mesh(
                   flip_uv,
                   color_scale,
                 )
-                if block.block.shape.double_sided() {
+                if is_double_sided {
                   push_face_rev(
                     a,
                     b,
@@ -814,25 +711,31 @@ pub fn build_chunk_mesh_split(
             )
           }
           _ => {
-            for face in faces {
+            let model = block.block.shape.model()
+            let render_info = @shape.RenderInfo::{
+              faces: block.faces,
+              state: block.block.state,
+            }
+            let is_double_sided = (model.double_sided)(render_info)
+            for face in @shape.faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
               if !neighbor.block.opacity.enable_occlusion_culling() {
                 let shade = @util.face_shade_scale(nx, ny, nz)
                 let color_scale = shade
-                let layer = face_layer_for_block(block, face.name)
+                let layer = (model.face_layer)(render_info, face.name)
                 let layer_f = Float::from_int(layer)
                 let flip_uv = match face.name {
-                  FaceName::PosX
-                  | FaceName::NegX
-                  | FaceName::PosZ
-                  | FaceName::NegZ => true
+                  @shape.FaceName::PosX
+                  | @shape.FaceName::NegX
+                  | @shape.FaceName::PosZ
+                  | @shape.FaceName::NegZ => true
                   _ => false
                 }
-                let custom_box = box_for_shape_face(block.block.shape, face.name)
+                let custom_box = (model.face_box)(render_info, face.name)
                 let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
-                let rotate_uv = log_rotate_uv(block, face)
-                let uv_rect = uv_rect_for_shape_face(block.block.shape, face.name)
+                let rotate_uv = (model.rotate_uv)(render_info, face)
+                let uv_rect = (model.uv_rect)(render_info, face.name)
                 push_face_cube(
                   block,
                   rotate_uv,
@@ -846,7 +749,7 @@ pub fn build_chunk_mesh_split(
                   flip_uv,
                   color_scale,
                 )
-                if block.block.shape.double_sided() {
+                if is_double_sided {
                   push_face_rev(
                     block,
                     a,
@@ -937,7 +840,7 @@ pub fn build_chunk_colors(
           Shape::RedstoneTorchClassic =>
             @genus.Torch::append_classic_colors(push_color)
           _ =>
-            for face in faces {
+            for face in @shape.faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
               if neighbor.block.shape is Shape::Air ||

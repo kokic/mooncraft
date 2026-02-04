@@ -1,4 +1,5 @@
 import {
   "moonbitlang/core/math",
+  "kokic/mooncraft/block/shape",
   "kokic/mooncraft/util",
 }

@@ -24,7 +24,7 @@ pub struct FaceGeom {
 }
 
 ///|
-let faces : Array[FaceGeom] = [
+pub let faces : Array[FaceGeom] = [
   FaceGeom::{
     name: FaceName::PosX,
     normal: (1, 0, 0),
@@ -56,3 +56,14 @@ let faces : Array[FaceGeom] = [
     corners: [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)],
   },
 ]
+
+///|
+/// Per-face texture layer indices.
+pub(all) struct FaceLayerIndices {
+  pos_x : Int
+  neg_x : Int
+  pos_y : Int
+  neg_y : Int
+  pos_z : Int
+  neg_z : Int
+}

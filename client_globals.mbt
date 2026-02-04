@@ -43,7 +43,8 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcCameraFromYawPitch", @player.camera_from_yaw_pitch)
   set_global("mcTorchShapeBoxByState", @block.torch_shape_box_by_state)
   set_global("mcCreateBlockRegistry", @block.BlockRegistry::create)
-  set_global("mcBlockIsSelectable", @block.BlockRegistry::is_selectable)
+  set_global("mcGetRenderBlockByLongId", @block.BlockRegistry::get_by_long_id)
+  set_global("mcBlockIsSelectable", @block.Block::is_selectable)
   set_global("mcPackLongId", @util.pack_long_id)
   set_global("mcUnpackLongId", @util.unpack_long_id)
   set_global("mcChunkXyzByKey", @level.chunk_xyz_by_chunk_key)
@@ -65,6 +66,7 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGetBlockShapeDesc", @block.get_shape_desc)
   set_global("mcComputePlacementState", @block.compute_placement_state)
   set_global("mcMovePlayer", @player.move_player)
+  set_global("mcGetItemDisplayName", @i18n.item_display_name)
   set_global("mcGetBiomeName", fn(wx : Int, wz : Int) -> String {
     let biome = @biome.biome_at(world.noise, wx, wz)
     @biome.name(biome)

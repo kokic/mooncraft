@@ -29,7 +29,7 @@ pub fn Chunk::get_tile(
 }
 
 ///|
-pub fn Chunk::set_tile(
+pub fn Chunk::update_tile_map(
   self : Chunk,
   block_rx : Int,
   block_ry : Int,
@@ -66,4 +66,30 @@ pub fn Chunk::block_rxyz_to_block_xyz(
     block_ry + self.y * CHUNK_Y_SIZE,
     block_rz + self.z * CHUNK_Z_SIZE,
   )
+}
+
+///|
+pub fn Chunk::set_block(
+  chunk : Chunk,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+  long_id : UInt,
+) -> Unit {
+  let base_x = chunk.x * CHUNK_X_SIZE
+  let base_y = chunk.y * CHUNK_Y_SIZE
+  let base_z = chunk.z * CHUNK_Z_SIZE
+  if wx < base_x || wx >= base_x + CHUNK_X_SIZE {
+    return
+  }
+  if wy < base_y || wy >= base_y + CHUNK_Y_SIZE {
+    return
+  }
+  if wz < base_z || wz >= base_z + CHUNK_Z_SIZE {
+    return
+  }
+  let rx = wx - base_x
+  let ry = wy - base_y
+  let rz = wz - base_z
+  chunk.update_tile_map(rx, ry, rz, long_id)
 }

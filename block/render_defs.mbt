@@ -42,7 +42,7 @@ pub fn collect_block_light_info() -> Array[Array[Int]] {
   let out : Array[Array[Int]] = []
   for block in blocks {
     let long_id = block.long_id().reinterpret_as_int()
-    out.push([long_id, block.opacity, block.luminance])
+    out.push([long_id, block.opacity.light_blocker(), block.luminance])
   }
   out
 }

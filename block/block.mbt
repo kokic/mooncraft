@@ -5,7 +5,7 @@ pub struct Block {
   name : @util.UniqueName
   id : BlockId
   state : UInt
-  opacity : Int
+  opacity : Opacity
   luminance : Int
   shape : Shape
   material : Material
@@ -21,7 +21,7 @@ fn Block::create(
   name : @util.UniqueName,
   id? : BlockId = alloc_id(),
   state? : UInt = 0,
-  opacity? : Int = 15,
+  opacity? : Opacity = Opacity::Solid,
   luminance? : Int = 0,
   shape? : Shape = Shape::Normal,
   material? : Material = Material::Normal,
@@ -51,4 +51,13 @@ fn Block::create(
 ///|
 pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
   @util.pack_long_id(block.id, state)
+}
+
+///|
+/// True if the block should be selectable (outlined) in UI.
+pub fn Block::is_selectable(block : Block) -> Bool {
+  match block.shape {
+    Air => false
+    _ => true
+  }
 }

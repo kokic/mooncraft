@@ -144,10 +144,34 @@ function createHotbarUI({
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
+
+      .hotbar-label {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform: translate(-50%, -170%);
+        color: #ffffff;
+        font: 12px/1.2 monospace;
+        padding: 2px 6px;
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: 3px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+        pointer-events: none;
+        white-space: nowrap;
+        opacity: 1;
+      }
+      .hotbar-label.hidden {
+        opacity: 0;
+      }
+      .hotbar-label.fadeout {
+        transition: opacity 0.5s 2s;
+        opacity: 0;
+      }
     </style>
     <div class="hotbar-background"></div>
     <div class="selector-background"></div>
     <div class="hotbar-items"></div>
+    <div class="hotbar-label hidden"></div>
   `;
 
   parent.appendChild(host);
@@ -159,6 +183,8 @@ function createHotbarUI({
   };
 
   const itemsRoot = root.querySelector(".hotbar-items");
+  const nameLabel = root.querySelector(".hotbar-label");
+  let nameFadeTimer = null;
   const itemCanvases = [];
   for (let i = 0; i < slotCount; i += 1) {
     const canvas = document.createElement("canvas");
@@ -198,6 +224,46 @@ function createHotbarUI({
   const updateOffset = () => {
     host.style.setProperty("--offset", `${state.index}`);
     window.mcHotbarSelectedIndex = state.index;
+    requestAnimationFrame(updateLabel);
+  };
+
+  const resolveDisplayName = (item) => {
+    const name = item?.name;
+    if (!name || name === "air") return "";
+    const lookup = window.mcGetItemDisplayName;
+    if (typeof lookup === "function") {
+      const value = lookup(name);
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+    return name;
+  };
+
+  const updateLabel = () => {
+    if (!nameLabel) return;
+    const item = state.items[state.index];
+    const text = resolveDisplayName(item);
+    if (!text) {
+      if (nameFadeTimer) clearTimeout(nameFadeTimer);
+      nameLabel.textContent = "";
+      nameLabel.classList.remove("fadeout");
+      nameLabel.classList.add("hidden");
+      return;
+    }
+    nameLabel.textContent = text;
+    const canvas = itemCanvases[state.index];
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    const centerX = rect.left - hostRect.left + rect.width / 2;
+    const top = rect.top - hostRect.top;
+    nameLabel.style.left = `${centerX}px`;
+    nameLabel.style.top = `${top}px`;
+    nameLabel.classList.remove("hidden");
+    nameLabel.classList.remove("fadeout");
+    if (nameFadeTimer) clearTimeout(nameFadeTimer);
+    nameFadeTimer = setTimeout(() => {
+      nameLabel.classList.add("fadeout");
+    }, 10);
   };
 
   // Select a slot index with wrap-around.
@@ -273,6 +339,7 @@ function createHotbarUI({
       if (textures) state.textures = textures;
       renderItems(state.textures);
       requestAnimationFrame(() => renderItems(state.textures));
+      requestAnimationFrame(updateLabel);
     },
     setItem: (index, item, textures) => {
       if (index < 0 || index >= slotCount) return;
@@ -280,6 +347,7 @@ function createHotbarUI({
       state.items[index] = item ?? null;
       renderItemAt(index, state.textures);
       requestAnimationFrame(() => renderItemAt(index, state.textures));
+      if (index === state.index) requestAnimationFrame(updateLabel);
     },
     dispose,
     loadImages,

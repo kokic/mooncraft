@@ -71,28 +71,16 @@ pub fn BlockRegistry::create(
 
 ///|
 pub fn BlockRegistry::get_by_name(
-  self : BlockRegistry,
+  registry : BlockRegistry,
   name : String,
 ) -> RenderBlock? {
-  self.by_name.get(name)
+  registry.by_name.get(name)
 }
 
 ///|
 pub fn BlockRegistry::get_by_long_id(
-  self : BlockRegistry,
+  registry : BlockRegistry,
   long_id : UInt,
 ) -> RenderBlock? {
-  self.by_long_id.get(long_id)
-}
-
-///|
-/// True if the block should be selectable (outlined) in UI.
-pub fn BlockRegistry::is_selectable(
-  self : BlockRegistry,
-  long_id : UInt,
-) -> Bool {
-  match self.get_by_long_id(long_id) {
-    Some(block) => block.block.opacity > 0
-    None => false
-  }
+  registry.by_long_id.get(long_id)
 }

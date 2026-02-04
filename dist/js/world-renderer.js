@@ -5,15 +5,6 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { packLongId, unpackLongId } from "./block-registry.js";
 
-function torchStateFromPlacement(block, prev) {
-  const value = window.mcTorchStateFromPlacement(block, prev);
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    throw new Error("mcTorchStateFromPlacement returned invalid value");
-  }
-  return num;
-}
-
 function getBlockShapeDesc(longId) {
   const value = window.mcGetBlockShapeDesc(longId);
   return value ?? null;
@@ -100,12 +91,6 @@ function setBlockIdAt(chunkDatas, size, wx, wy, wz, id) {
 function chunkXyzByKey(key) {
   const out = window.mcChunkXyzByKey(key);
   return { x: Number(out._0) | 0, y: Number(out._1) | 0, z: Number(out._2) | 0 };
-}
-
-function getIdByName(name) {
-  const longId = getLongIdByName(name);
-  if (!Number.isFinite(longId)) return null;
-  return unpackLongId(longId).id;
 }
 
 function createOutlineProgram(gl) {
@@ -782,7 +767,13 @@ function renderTestChunk({
     if (!Number.isFinite(currentId)) return null;
     if (currentId === mcAirLongId) return null;
     const decoded = unpackLongId(currentId);
-    const isSelectable = window.mcBlockIsSelectable(blockRegistry, currentId);
+    const renderBlock = typeof window.mcGetRenderBlockByLongId === "function"
+      ? window.mcGetRenderBlockByLongId(blockRegistry, currentId)
+      : null;
+    const block = renderBlock && renderBlock.block ? renderBlock.block : null;
+    const isSelectable = block && typeof window.mcBlockIsSelectable === "function"
+      ? window.mcBlockIsSelectable(block)
+      : currentId !== mcAirLongId;
     if (!isSelectable) return null;
     return { pos: hit.block, id: decoded.id, state: decoded.state, longId: currentId };
   };
@@ -1018,13 +1009,14 @@ function renderTestChunk({
       )
       : "Unknown";
     debugHud.textContent =
-      `X: ${player.state.position[0].toFixed(2)} ` +
-      `Y: ${player.state.position[1].toFixed(2)} ` +
-      `Z: ${player.state.position[2].toFixed(2)} ` +
+      `X: ${player.state.position[0].toFixed(0)} ` +
+      `Y: ${player.state.position[1].toFixed(0)} ` +
+      `Z: ${player.state.position[2].toFixed(0)} ` +
       `| C: ${cx},${cz} ` +
       `| Biome: ${biomeName} ` +
-      `| Loaded: ${chunkDatas.size}` +
-      `| Meshes: ${chunkMeshes.size}`;
+      `| Loaded: ${chunkDatas.size} ` +
+      `| Meshes: ${chunkMeshes.size} ` +
+      ` (3:25)`;
     requestAnimationFrame(draw);
   }
 

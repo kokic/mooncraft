@@ -48,7 +48,7 @@ pub fn ChunkRegion::set_block(
   if Chunk::in_other_chunk(rx, ry, rz) {
     enqueue_block(wx, wy, wz, id)
   } else {
-    self.chunk.set_tile(rx, ry, rz, id)
+    self.chunk.update_tile_map(rx, ry, rz, id)
   }
 }
 
@@ -62,7 +62,7 @@ pub fn apply_pending_to_chunk(chunk : Chunk) -> Unit {
       let ry = placement.wy - chunk.y * CHUNK_Y_SIZE
       let rz = placement.wz - chunk.z * CHUNK_Z_SIZE
       if !Chunk::in_other_chunk(rx, ry, rz) {
-        chunk.set_tile(rx, ry, rz, placement.id)
+        chunk.update_tile_map(rx, ry, rz, placement.id)
       }
     }
     pending_block_placements.remove(key)

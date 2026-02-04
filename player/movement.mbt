@@ -49,7 +49,7 @@ fn get_block_boxes_at(
         None
       } else {
         match @block.lookup_by_long_id(id) {
-          Some(block) if block.opacity > 0 =>
+          Some(block) if block.is_selectable() =>
             match @block.get_shape_desc(id) {
               Some(desc) =>
                 if desc.boxes.length() > 0 {

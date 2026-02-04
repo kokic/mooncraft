@@ -171,9 +171,7 @@ pub fn raycast_blocks(
             match @block.lookup_by_long_id(id) {
               Some(block) =>
                 match block.shape {
-                  @block.Shape::Torch
-                  | @block.Shape::RedstoneTorch
-                  | @block.Shape::RedstoneTorchClassic => {
+                  shape if shape.is_torch_genus() => {
                     let box = @block.torch_shape_box_by_state(block.state)
                     let bmin_f = box.min
                     let bmax_f = box.max

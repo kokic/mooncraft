@@ -32,6 +32,22 @@ function createInventoryUI({
   panelWrapper.style.position = "relative";
   panelWrapper.style.display = "inline-block";
 
+  const nameLabel = document.createElement("div");
+  nameLabel.style.position = "absolute";
+  nameLabel.style.left = "0";
+  nameLabel.style.top = "0";
+  nameLabel.style.transform = "translate(-50%, -170%)";
+  nameLabel.style.color = "#ffffff";
+  nameLabel.style.font = "12px monospace";
+  nameLabel.style.padding = "2px 6px";
+  nameLabel.style.background = "rgba(0, 0, 0, 0.45)";
+  nameLabel.style.borderRadius = "3px";
+  nameLabel.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.7)";
+  nameLabel.style.whiteSpace = "nowrap";
+  nameLabel.style.pointerEvents = "none";
+  nameLabel.style.opacity = "0";
+  panelWrapper.appendChild(nameLabel);
+
   const panel = document.createElement("div");
   panel.style.display = "grid";
   panel.style.gridTemplateColumns = `repeat(${columns}, ${slotSize}px)`;
@@ -99,6 +115,7 @@ function createInventoryUI({
     open: false,
     selectedIndex: -1,
   };
+  let nameFadeTimer = null;
 
   const renderItems = () => {
     for (let i = 0; i < slotCanvases.length; i += 1) {
@@ -125,6 +142,52 @@ function createInventoryUI({
         canvas.style.boxShadow = "inset 0 0 4px rgba(0, 0, 0, 0.7)";
       }
     }
+    updateLabel();
+  };
+
+  const resolveDisplayName = (item) => {
+    const name = item?.name;
+    if (!name || name === "air") return "";
+    const lookup = window.mcGetItemDisplayName;
+    if (typeof lookup === "function") {
+      const value = lookup(name);
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+    return name;
+  };
+
+  const updateLabel = () => {
+    if (!state.open || state.selectedIndex < 0 || state.selectedIndex >= slotCanvases.length) {
+      if (nameFadeTimer) clearTimeout(nameFadeTimer);
+      nameLabel.textContent = "";
+      nameLabel.style.opacity = "0";
+      nameLabel.style.transition = "none";
+      return;
+    }
+    const item = state.items[state.selectedIndex];
+    const text = resolveDisplayName(item);
+    if (!text) {
+      if (nameFadeTimer) clearTimeout(nameFadeTimer);
+      nameLabel.textContent = "";
+      nameLabel.style.opacity = "0";
+      nameLabel.style.transition = "none";
+      return;
+    }
+    const canvas = slotCanvases[state.selectedIndex];
+    const rect = canvas.getBoundingClientRect();
+    const wrapperRect = panelWrapper.getBoundingClientRect();
+    const centerX = rect.left - wrapperRect.left + rect.width / 2;
+    const top = rect.top - wrapperRect.top;
+    nameLabel.textContent = text;
+    nameLabel.style.left = `${centerX}px`;
+    nameLabel.style.top = `${top}px`;
+    nameLabel.style.transition = "none";
+    nameLabel.style.opacity = "1";
+    if (nameFadeTimer) clearTimeout(nameFadeTimer);
+    nameFadeTimer = setTimeout(() => {
+      nameLabel.style.transition = "opacity 0.5s 2s";
+      nameLabel.style.opacity = "0";
+    }, 10);
   };
 
   for (let i = 0; i < slotCanvases.length; i += 1) {
@@ -146,6 +209,11 @@ function createInventoryUI({
     if (open) {
       renderItems();
       updateSelection();
+    } else {
+      if (nameFadeTimer) clearTimeout(nameFadeTimer);
+      nameLabel.textContent = "";
+      nameLabel.style.opacity = "0";
+      nameLabel.style.transition = "none";
     }
   };
 

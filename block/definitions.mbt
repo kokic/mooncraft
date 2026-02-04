@@ -1,7 +1,13 @@
 ///|
 pub let blocks : Array[Block] = [
   // Basic
-  Block::create("air", opacity=0, shape=Shape::Air, [], category=@item.None),
+  Block::create(
+    "air",
+    [],
+    opacity=Cutout,
+    shape=Shape::Air,
+    category=@item.None,
+  ),
   Block::create("stone", ["stone"]),
   Block::create("bedrock", ["bedrock"]),
 
@@ -14,6 +20,9 @@ pub let blocks : Array[Block] = [
   Block::create("cobblestone", ["cobblestone"]),
   Block::create("pre-classic.cobblestone", ["pre-classic/cobblestone"]),
 
+  // Artifact
+  Block::create("bricks", ["bricks"]),
+
   // Desert
   Block::create("sand", ["sand"]),
   Block::create("sandstone", [
@@ -25,22 +34,29 @@ pub let blocks : Array[Block] = [
   Block::create("sandstone_smooth", [
     "sandstone_top", "sandstone_bottom", "sandstone_smooth",
   ]),
-  Block::create("glass", ["glass"]),
+  Block::create("glass", ["glass"], opacity=Cutout),
   Block::create("tnt", ["tnt_top", "tnt_bottom", "tnt_side"]),
 
   // Trees
   ..create_log_group("oak_log", ["oak_log_top", "oak_log"]),
-  Block::create("oak_leaves", ["oak_leaves"], material=Material::TintedLeaf),
+  Block::create(
+    "oak_leaves",
+    ["oak_leaves"],
+    material=Material::TintedLeaf,
+    opacity=Cutout,
+  ),
   Block::create(
     "classic.oak_leaves",
     ["classic/oak_leaves"],
     material=Material::TintedLeaf,
+    opacity=Cutout,
   ),
 
   // Nether
   Block::create("netherrack", ["netherrack"]),
 
   // Miscellaneous
+  Block::create("redstone_block", ["redstone_block"]),
   ..create_torch_group("torch", ["torch"], Shape::Torch),
   ..create_torch_group(
     "redstone_torch",
@@ -76,6 +92,7 @@ fn create_torch(
 ) -> Block {
   Block::create(
     @genus.Torch::unique_name(base, state),
+    opacity=Cutout,
     id~,
     state~,
     shape~,

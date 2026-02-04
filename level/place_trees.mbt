@@ -74,11 +74,12 @@ pub fn place_oak_trees_in_chunk(
   world : World,
   chunk : Chunk,
   params? : TreePlacementParams = plains_oak_params,
+  is_grass? : (UInt) -> Bool = long_id => long_id ==
+    @block.lookup_by_name("grass").unwrap().id,
 ) -> Unit {
   apply_pending_to_chunk(chunk)
   let region = ChunkRegion::new(chunk)
   let air = @block.AIR_LONG_ID
-  let grass = @block.lookup_by_name("grass").unwrap().id
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
@@ -94,7 +95,7 @@ pub fn place_oak_trees_in_chunk(
           base_ry + 1 < CHUNK_Y_SIZE {
           let base = chunk.get_tile(rx, base_ry, rz)
           let above = chunk.get_tile(rx, base_ry + 1, rz)
-          if base == grass && above == air {
+          if is_grass(base) && above == air {
             let setter = fn(x : Int, y : Int, z : Int, id : UInt) -> Unit {
               region.set_block(x, y, z, id)
             }

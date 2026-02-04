@@ -1,7 +1,7 @@
 ///|
 pub struct World {
   seed : UInt64
-  world_type : WorldType
+  kind : WorldType
   noise : @util.PerlinNoise
 }
 
@@ -239,12 +239,12 @@ pub fn World::new(
   world_type? : WorldType = WorldType::PreClassic,
 ) -> World {
   let noise = @util.PerlinNoise::new(seed~)
-  World::{ seed, world_type, noise }
+  World::{ seed, kind: world_type, noise }
 }
 
 ///|
 pub fn World::min_y(self : World) -> Int {
-  match self.world_type {
+  match self.kind {
     WorldType::Finite => FINITE_MIN_Y
     _ => WORLD_MIN_Y
   }
@@ -252,7 +252,7 @@ pub fn World::min_y(self : World) -> Int {
 
 ///|
 pub fn World::max_y(self : World) -> Int {
-  match self.world_type {
+  match self.kind {
     WorldType::Finite => FINITE_MAX_Y
     _ => WORLD_MAX_Y
   }
@@ -264,7 +264,7 @@ fn fill_air(chunk : Chunk) -> Chunk {
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       for ry in 0..<CHUNK_Y_SIZE {
-        chunk.set_tile(rx, ry, rz, air)
+        chunk.update_tile_map(rx, ry, rz, air)
       }
     }
   }
@@ -274,18 +274,24 @@ fn fill_air(chunk : Chunk) -> Chunk {
 ///|
 /// Generate a chunk based on the configured world type.
 pub fn World::generate_chunk(
-  self : World,
+  world : World,
   chunk_x : Int,
   chunk_y : Int,
   chunk_z : Int,
 ) -> Chunk {
   let chunk = Chunk::new(chunk_x, chunk_y, chunk_z)
-  match self.world_type {
+  match world.kind {
     WorldType::Flat => fill_flat(chunk)
-    WorldType::PreClassic => fill_pre_classic(self, chunk)
+    WorldType::Infinite => fill_infinite(world, chunk)
+    WorldType::PreClassic =>
+      if is_chunk_in_preclassic_world(chunk_x, chunk_y, chunk_z) {
+        fill_preclassic(world, chunk)
+      } else {
+        fill_air(chunk)
+      }
     WorldType::Finite =>
       if is_chunk_in_finite_world(chunk_x, chunk_y, chunk_z) {
-        fill_finite(self, chunk)
+        fill_finite(world, chunk)
       } else {
         fill_air(chunk)
       }

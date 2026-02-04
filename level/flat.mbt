@@ -18,12 +18,12 @@ fn fill_flat(
       for ry in 0..<CHUNK_Y_SIZE {
         let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
         if wy < 0 {
-          chunk.set_tile(rx, ry, rz, air)
+          chunk.update_tile_map(rx, ry, rz, air)
         } else if wy < layer_count {
           let idx = layer_count - 1 - wy
-          chunk.set_tile(rx, ry, rz, layer_ids[idx])
+          chunk.update_tile_map(rx, ry, rz, layer_ids[idx])
         } else {
-          chunk.set_tile(rx, ry, rz, air)
+          chunk.update_tile_map(rx, ry, rz, air)
         }
       }
     }

@@ -333,11 +333,7 @@ pub fn build_chunk_mesh(
             for face in faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
-              if neighbor.block.shape is Shape::Air ||
-                !Shape::occludes_faces(
-                  neighbor.block.shape,
-                  neighbor.block.material,
-                ) {
+              if !neighbor.block.opacity.enable_occlusion_culling() {
                 let shade = @util.face_shade_scale(nx, ny, nz)
                 let color_scale = shade
                 let layer = face_layer_for_block(block, face.name)
@@ -726,11 +722,7 @@ pub fn build_chunk_mesh_split(
             for face in faces {
               let (nx, ny, nz) = face.normal
               let neighbor = get_block(x + nx, y + ny, z + nz)
-              if neighbor.block.shape is Shape::Air ||
-                !Shape::occludes_faces(
-                  neighbor.block.shape,
-                  neighbor.block.material,
-                ) {
+              if !neighbor.block.opacity.enable_occlusion_culling() {
                 let shade = @util.face_shade_scale(nx, ny, nz)
                 let color_scale = shade
                 let layer = face_layer_for_block(block, face.name)

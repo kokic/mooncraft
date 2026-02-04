@@ -79,7 +79,7 @@ fn register_api(world : @level.World) -> Unit {
 
 ///|
 /// Main entry: register all JS globals.
-fn register_js_globals(world : @level.World, chunk_data : Array[UInt]) -> Unit {
+fn register_globals(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   register_config(world, chunk_data)
   register_api(world)
 }

@@ -318,3 +318,71 @@ pub fn Torch::append_redstone_colors(push_color : (Int, Float) -> Unit) -> Unit 
   push_color(6, shade_xp)
   push_color(6, shade_xn)
 }
+
+///|
+fn emit_redstone_torch_mesh(
+  info : @shape.RenderInfo,
+  bx : Float,
+  by : Float,
+  bz : Float,
+  push_face : @shape.FaceEmitter,
+  _push_face_rev : @shape.FaceEmitter,
+) -> Bool {
+  let layer_f = Float::from_int(info.faces.pos_x)
+  Torch::append_redstone_mesh(info.state, layer_f, bx, by, bz, push_face)
+  true
+}
+
+///|
+fn emit_redstone_torch_colors(
+  _info : @shape.RenderInfo,
+  push_color : @shape.ColorEmitter,
+) -> Bool {
+  Torch::append_redstone_colors(push_color)
+  true
+}
+
+///|
+fn emit_redstone_classic_mesh(
+  info : @shape.RenderInfo,
+  bx : Float,
+  by : Float,
+  bz : Float,
+  push_face : @shape.FaceEmitter,
+  push_face_rev : @shape.FaceEmitter,
+) -> Bool {
+  let layer_f = Float::from_int(info.faces.pos_x)
+  Torch::append_classic_mesh(info.state, layer_f, bx, by, bz, push_face_rev, push_face)
+  true
+}
+
+///|
+fn emit_redstone_classic_colors(
+  _info : @shape.RenderInfo,
+  push_color : @shape.ColorEmitter,
+) -> Bool {
+  Torch::append_classic_colors(push_color)
+  true
+}
+
+///|
+pub let redstone_torch_model : @shape.Model = @shape.Model::{
+  face_layer: face_layer_default,
+  face_box: face_box_none,
+  uv_rect: uv_rect_default,
+  rotate_uv: rotate_uv_none,
+  double_sided: double_sided_false,
+  emit_mesh: emit_redstone_torch_mesh,
+  emit_colors: emit_redstone_torch_colors,
+}
+
+///|
+pub let redstone_torch_classic_model : @shape.Model = @shape.Model::{
+  face_layer: face_layer_default,
+  face_box: face_box_none,
+  uv_rect: uv_rect_default,
+  rotate_uv: rotate_uv_none,
+  double_sided: double_sided_false,
+  emit_mesh: emit_redstone_classic_mesh,
+  emit_colors: emit_redstone_classic_colors,
+}

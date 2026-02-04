@@ -37,10 +37,32 @@ fn double_sided_false(_info : @shape.RenderInfo) -> Bool {
 }
 
 ///|
+fn emit_mesh_none(
+  _info : @shape.RenderInfo,
+  _bx : Float,
+  _by : Float,
+  _bz : Float,
+  _push_face : @shape.FaceEmitter,
+  _push_face_rev : @shape.FaceEmitter,
+) -> Bool {
+  false
+}
+
+///|
+fn emit_colors_none(
+  _info : @shape.RenderInfo,
+  _push_color : @shape.ColorEmitter,
+) -> Bool {
+  false
+}
+
+///|
 pub let default_model : @shape.Model = @shape.Model::{
   face_layer: face_layer_default,
   face_box: face_box_none,
   uv_rect: uv_rect_default,
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
+  emit_mesh: emit_mesh_none,
+  emit_colors: emit_colors_none,
 }

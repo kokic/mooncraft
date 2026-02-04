@@ -115,4 +115,6 @@ pub let log_model : @shape.Model = @shape.Model::{
     Log::rotate_uv(face, info.state)
   },
   double_sided: double_sided_false,
+  emit_mesh: emit_mesh_none,
+  emit_colors: emit_colors_none,
 }

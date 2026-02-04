@@ -134,7 +134,7 @@ fn plain_height(world : World, wx : Int, wz : Int) -> Int {
 
 ///|
 /// Surface height with biome-aware mountain shaping and erosion.
-fn surface_height(world : World, wx : Int, wz : Int) -> Int {
+pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise

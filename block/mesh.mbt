@@ -282,102 +282,61 @@ pub fn build_chunk_mesh(
         if block.block.shape is Shape::Air {
           continue
         }
-        match block.block.shape {
-          Shape::Torch => {
-            let bx = Float::from_int(x)
-            let by = Float::from_int(y)
-            let bz = Float::from_int(z)
-            let layer_f = Float::from_int(block.faces.pos_x)
-            @genus.Torch::append_mesh(
-              block.block.state,
-              layer_f,
-              bx,
-              by,
-              bz,
-              push_face,
-            )
-          }
-          Shape::RedstoneTorch => {
-            let bx = Float::from_int(x)
-            let by = Float::from_int(y)
-            let bz = Float::from_int(z)
-            let layer_f = Float::from_int(block.faces.pos_x)
-            @genus.Torch::append_redstone_mesh(
-              block.block.state,
-              layer_f,
-              bx,
-              by,
-              bz,
-              push_face,
-            )
-          }
-          Shape::RedstoneTorchClassic => {
-            let bx = Float::from_int(x)
-            let by = Float::from_int(y)
-            let bz = Float::from_int(z)
-            let layer_f = Float::from_int(block.faces.pos_x)
-            @genus.Torch::append_classic_mesh(
-              block.block.state,
-              layer_f,
-              bx,
-              by,
-              bz,
-              push_face_rev,
-              push_face,
-            )
-          }
-          _ => {
-            let model = block.block.shape.model()
-            let render_info = @shape.RenderInfo::{
-              faces: block.faces,
-              state: block.block.state,
+        let model = block.block.shape.model()
+        let render_info = @shape.RenderInfo::{
+          faces: block.faces,
+          state: block.block.state,
+        }
+        let bx = Float::from_int(x)
+        let by = Float::from_int(y)
+        let bz = Float::from_int(z)
+        if (model.emit_mesh)(render_info, bx, by, bz, push_face, push_face_rev) {
+          continue
+        }
+        let is_double_sided = (model.double_sided)(render_info)
+        for face in @shape.faces {
+          let (nx, ny, nz) = face.normal
+          let neighbor = get_block(x + nx, y + ny, z + nz)
+          if !neighbor.block.opacity.enable_occlusion_culling() {
+            let shade = @util.face_shade_scale(nx, ny, nz)
+            let color_scale = shade
+            let layer = (model.face_layer)(render_info, face.name)
+            let layer_f = Float::from_int(layer)
+            let flip_uv = match face.name {
+              @shape.FaceName::PosX
+              | @shape.FaceName::NegX
+              | @shape.FaceName::PosZ
+              | @shape.FaceName::NegZ => true
+              _ => false
             }
-            let is_double_sided = (model.double_sided)(render_info)
-            for face in @shape.faces {
-              let (nx, ny, nz) = face.normal
-              let neighbor = get_block(x + nx, y + ny, z + nz)
-              if !neighbor.block.opacity.enable_occlusion_culling() {
-                let shade = @util.face_shade_scale(nx, ny, nz)
-                let color_scale = shade
-                let layer = (model.face_layer)(render_info, face.name)
-                let layer_f = Float::from_int(layer)
-                let flip_uv = match face.name {
-                  @shape.FaceName::PosX
-                  | @shape.FaceName::NegX
-                  | @shape.FaceName::PosZ
-                  | @shape.FaceName::NegZ => true
-                  _ => false
-                }
-                let custom_box = (model.face_box)(render_info, face.name)
-                let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
-                let rotate_uv = (model.rotate_uv)(render_info, face)
-                let uv_rect = (model.uv_rect)(render_info, face.name)
-                push_face_cube(
-                  rotate_uv,
-                  a,
-                  b,
-                  c,
-                  d,
-                  face.normal,
-                  layer_f,
-                  uv_rect,
-                  flip_uv,
-                  color_scale,
-                )
-                if is_double_sided {
-                  push_face_rev(
-                    a,
-                    b,
-                    c,
-                    d,
-                    face.normal,
-                    layer_f,
-                    uv_rect,
-                    flip_uv,
-                    color_scale,
-                  )
-                }
-              }
+            let custom_box = (model.face_box)(render_info, face.name)
+            let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
+            let rotate_uv = (model.rotate_uv)(render_info, face)
+            let uv_rect = (model.uv_rect)(render_info, face.name)
+            push_face_cube(
+              rotate_uv,
+              a,
+              b,
+              c,
+              d,
+              face.normal,
+              layer_f,
+              uv_rect,
+              flip_uv,
+              color_scale,
+            )
+            if is_double_sided {
+              push_face_rev(
+                a,
+                b,
+                c,
+                d,
+                face.normal,
+                layer_f,
+                uv_rect,
+                flip_uv,
+                color_scale,
+              )
             }
           }
         }
@@ -647,123 +606,93 @@ pub fn build_chunk_mesh_split(
         if block.block.shape is Shape::Air {
           continue
         }
-        match block.block.shape {
-          Shape::Torch => {
-            let bx = Float::from_int(x)
-            let by = Float::from_int(y)
-            let bz = Float::from_int(z)
-            let layer_f = Float::from_int(block.faces.pos_x)
-            @genus.Torch::append_mesh(block.block.state, layer_f, bx, by, bz, fn(
+        let model = block.block.shape.model()
+        let render_info = @shape.RenderInfo::{
+          faces: block.faces,
+          state: block.block.state,
+        }
+        let bx = Float::from_int(x)
+        let by = Float::from_int(y)
+        let bz = Float::from_int(z)
+        let emit_face = fn(
+          a,
+          b,
+          c,
+          d,
+          normal,
+          layer_f,
+          uv_rect,
+          flip_v,
+          color_scale,
+        ) {
+          push_face(
+            block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+          )
+        }
+        let emit_face_rev = fn(
+          a,
+          b,
+          c,
+          d,
+          normal,
+          layer_f,
+          uv_rect,
+          flip_v,
+          color_scale,
+        ) {
+          push_face_rev(
+            block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+          )
+        }
+        if (model.emit_mesh)(render_info, bx, by, bz, emit_face, emit_face_rev) {
+          continue
+        }
+        let is_double_sided = (model.double_sided)(render_info)
+        for face in @shape.faces {
+          let (nx, ny, nz) = face.normal
+          let neighbor = get_block(x + nx, y + ny, z + nz)
+          if !neighbor.block.opacity.enable_occlusion_culling() {
+            let shade = @util.face_shade_scale(nx, ny, nz)
+            let color_scale = shade
+            let layer = (model.face_layer)(render_info, face.name)
+            let layer_f = Float::from_int(layer)
+            let flip_uv = match face.name {
+              @shape.FaceName::PosX
+              | @shape.FaceName::NegX
+              | @shape.FaceName::PosZ
+              | @shape.FaceName::NegZ => true
+              _ => false
+            }
+            let custom_box = (model.face_box)(render_info, face.name)
+            let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
+            let rotate_uv = (model.rotate_uv)(render_info, face)
+            let uv_rect = (model.uv_rect)(render_info, face.name)
+            push_face_cube(
+              block,
+              rotate_uv,
               a,
               b,
               c,
               d,
-              normal,
+              face.normal,
               layer_f,
               uv_rect,
-              flip_v,
+              flip_uv,
               color_scale,
-            ) {
-              push_face(
-                block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+            )
+            if is_double_sided {
+              push_face_rev(
+                block,
+                a,
+                b,
+                c,
+                d,
+                face.normal,
+                layer_f,
+                uv_rect,
+                flip_uv,
+                color_scale,
               )
-            })
-          }
-          Shape::RedstoneTorch => {
-            let bx = Float::from_int(x)
-            let by = Float::from_int(y)
-            let bz = Float::from_int(z)
-            let layer_f = Float::from_int(block.faces.pos_x)
-            @genus.Torch::append_redstone_mesh(
-              block.block.state,
-              layer_f,
-              bx,
-              by,
-              bz,
-              fn(a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale) {
-                push_face(
-                  block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
-                )
-              },
-            )
-          }
-          Shape::RedstoneTorchClassic => {
-            let bx = Float::from_int(x)
-            let by = Float::from_int(y)
-            let bz = Float::from_int(z)
-            let layer_f = Float::from_int(block.faces.pos_x)
-            @genus.Torch::append_classic_mesh(
-              block.block.state,
-              layer_f,
-              bx,
-              by,
-              bz,
-              fn(a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale) {
-                push_face_rev(
-                  block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
-                )
-              },
-              fn(a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale) {
-                push_face(
-                  block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
-                )
-              },
-            )
-          }
-          _ => {
-            let model = block.block.shape.model()
-            let render_info = @shape.RenderInfo::{
-              faces: block.faces,
-              state: block.block.state,
-            }
-            let is_double_sided = (model.double_sided)(render_info)
-            for face in @shape.faces {
-              let (nx, ny, nz) = face.normal
-              let neighbor = get_block(x + nx, y + ny, z + nz)
-              if !neighbor.block.opacity.enable_occlusion_culling() {
-                let shade = @util.face_shade_scale(nx, ny, nz)
-                let color_scale = shade
-                let layer = (model.face_layer)(render_info, face.name)
-                let layer_f = Float::from_int(layer)
-                let flip_uv = match face.name {
-                  @shape.FaceName::PosX
-                  | @shape.FaceName::NegX
-                  | @shape.FaceName::PosZ
-                  | @shape.FaceName::NegZ => true
-                  _ => false
-                }
-                let custom_box = (model.face_box)(render_info, face.name)
-                let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
-                let rotate_uv = (model.rotate_uv)(render_info, face)
-                let uv_rect = (model.uv_rect)(render_info, face.name)
-                push_face_cube(
-                  block,
-                  rotate_uv,
-                  a,
-                  b,
-                  c,
-                  d,
-                  face.normal,
-                  layer_f,
-                  uv_rect,
-                  flip_uv,
-                  color_scale,
-                )
-                if is_double_sided {
-                  push_face_rev(
-                    block,
-                    a,
-                    b,
-                    c,
-                    d,
-                    face.normal,
-                    layer_f,
-                    uv_rect,
-                    flip_uv,
-                    color_scale,
-                  )
-                }
-              }
             }
           }
         }
@@ -833,25 +762,23 @@ pub fn build_chunk_colors(
         if block.block.shape is Shape::Air {
           continue
         }
-        match block.block.shape {
-          Shape::Torch => @genus.Torch::append_colors(push_color)
-          Shape::RedstoneTorch =>
-            @genus.Torch::append_redstone_colors(push_color)
-          Shape::RedstoneTorchClassic =>
-            @genus.Torch::append_classic_colors(push_color)
-          _ =>
-            for face in @shape.faces {
-              let (nx, ny, nz) = face.normal
-              let neighbor = get_block(x + nx, y + ny, z + nz)
-              if neighbor.block.shape is Shape::Air ||
-                neighbor.block.shape is Shape::Torch ||
-                neighbor.block.shape is Shape::RedstoneTorch ||
-                neighbor.block.shape is Shape::RedstoneTorchClassic {
-                let shade = @util.face_shade_scale(nx, ny, nz)
-                let color_scale = shade
-                push_color(6, color_scale)
-              }
-            }
+        let model = block.block.shape.model()
+        let render_info = @shape.RenderInfo::{
+          faces: block.faces,
+          state: block.block.state,
+        }
+        if (model.emit_colors)(render_info, push_color) {
+          continue
+        }
+        for face in @shape.faces {
+          let (nx, ny, nz) = face.normal
+          let neighbor = get_block(x + nx, y + ny, z + nz)
+          if neighbor.block.shape is Shape::Air ||
+            neighbor.block.shape.is_torch_genus() {
+            let shade = @util.face_shade_scale(nx, ny, nz)
+            let color_scale = shade
+            push_color(6, color_scale)
+          }
         }
       }
     }

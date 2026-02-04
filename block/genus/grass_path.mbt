@@ -50,4 +50,6 @@ pub let grass_path_model : @shape.Model = @shape.Model::{
   },
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
+  emit_mesh: emit_mesh_none,
+  emit_colors: emit_colors_none,
 }

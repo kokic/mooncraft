@@ -357,3 +357,37 @@ pub fn Torch::append_classic_colors(push_color : (Int, Float) -> Unit) -> Unit {
   push_color(6, shade_zn)
   push_color(6, shade_zp)
 }
+
+///|
+fn emit_torch_mesh(
+  info : @shape.RenderInfo,
+  bx : Float,
+  by : Float,
+  bz : Float,
+  push_face : @shape.FaceEmitter,
+  _push_face_rev : @shape.FaceEmitter,
+) -> Bool {
+  let layer_f = Float::from_int(info.faces.pos_x)
+  Torch::append_mesh(info.state, layer_f, bx, by, bz, push_face)
+  true
+}
+
+///|
+fn emit_torch_colors(
+  _info : @shape.RenderInfo,
+  push_color : @shape.ColorEmitter,
+) -> Bool {
+  Torch::append_colors(push_color)
+  true
+}
+
+///|
+pub let torch_model : @shape.Model = @shape.Model::{
+  face_layer: face_layer_default,
+  face_box: face_box_none,
+  uv_rect: uv_rect_default,
+  rotate_uv: rotate_uv_none,
+  double_sided: double_sided_false,
+  emit_mesh: emit_torch_mesh,
+  emit_colors: emit_torch_colors,
+}

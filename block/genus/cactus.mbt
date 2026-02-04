@@ -67,4 +67,6 @@ pub let cactus_model : @shape.Model = @shape.Model::{
   },
   rotate_uv: rotate_uv_none,
   double_sided: fn(_info : @shape.RenderInfo) { Cactus::double_sided() },
+  emit_mesh: emit_mesh_none,
+  emit_colors: emit_colors_none,
 }

@@ -68,19 +68,26 @@ pub let blocks : Array[Block] = [
 
   // Miscellaneous
   Block::create("redstone_block", ["redstone_block"]),
-  ..create_torch_group("torch", ["torch"], Shape::Torch),
+  ..create_torch_group("torch", ["torch"], Shape::Torch, luminance=14),
   ..create_torch_group(
     "redstone_torch",
     ["redstone_torch"],
     Shape::RedstoneTorch,
+    luminance=7,
   ),
   ..create_torch_group(
     "classic.redstone_torch",
     ["classic/redstone_torch"],
     Shape::RedstoneTorchClassic,
+    luminance=7,
   ),
-  ..create_torch_group("soul_torch", ["soul_torch"], Shape::Torch),
-  ..create_torch_group("copper_torch", ["copper_torch"], Shape::Torch),
+  ..create_torch_group("soul_torch", ["soul_torch"], Shape::Torch, luminance=14),
+  ..create_torch_group(
+    "copper_torch",
+    ["copper_torch"],
+    Shape::Torch,
+    luminance=14,
+  ),
 ]
 
 ///|
@@ -99,11 +106,13 @@ fn create_torch(
   state : UInt,
   faces : FixedArray[String],
   shape : Shape,
+  luminance? : Int = 0,
   category? : @item.Category = @item.Item,
 ) -> Block {
   Block::create(
     @genus.Torch::unique_name(base, state),
     opacity=Cutout,
+    luminance~,
     id~,
     state~,
     shape~,
@@ -118,13 +127,14 @@ fn create_torch_group(
   id? : UInt = alloc_id(),
   faces : FixedArray[String],
   shape : Shape,
+  luminance? : Int = 0,
 ) -> Array[Block] {
   [
-    create_torch(base, id, 0, faces, shape),
-    create_torch(base, id, 1, faces, shape, category=@item.None),
-    create_torch(base, id, 2, faces, shape, category=@item.None),
-    create_torch(base, id, 3, faces, shape, category=@item.None),
-    create_torch(base, id, 4, faces, shape, category=@item.None),
+    create_torch(base, id, 0, faces, shape, luminance~),
+    create_torch(base, id, 1, faces, shape, luminance~, category=@item.None),
+    create_torch(base, id, 2, faces, shape, luminance~, category=@item.None),
+    create_torch(base, id, 3, faces, shape, luminance~, category=@item.None),
+    create_torch(base, id, 4, faces, shape, luminance~, category=@item.None),
   ]
 }
 

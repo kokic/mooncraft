@@ -88,3 +88,19 @@ pub fn block_to_ui_item(block : @block.Block) -> UiItemView {
     }
   }
 }
+
+///|
+pub fn item_to_ui_item(item : @item.Item) -> UiItemView {
+  let missing = texture_or_fallback("")
+  let tex = texture_or_fallback(item.texture)
+  UiItemView::{
+    name: item.name,
+    shape: "normal",
+    kind: "flat",
+    material: "normal",
+    top: missing,
+    side: missing,
+    bottom: missing,
+    texture: tex,
+  }
+}

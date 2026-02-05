@@ -9,6 +9,7 @@
     "kokic/mooncraft/block/genus",
     "kokic/mooncraft/util",
     "kokic/mooncraft/biome",
-    "kokic/mooncraft/i18n"
+    "kokic/mooncraft/i18n",
+    "kokic/mooncraft/item"
   ]
 }

@@ -1,6 +1,6 @@
 ///|
 /// Face identifier aligned with axis-aligned cube normals.
-pub enum FaceName {
+pub(all) enum FaceName {
   /// X+ face (normal = (1, 0, 0))
   PosX
   /// X- face (normal = (-1, 0, 0))

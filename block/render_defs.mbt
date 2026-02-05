@@ -33,6 +33,13 @@ pub fn collect_texture_names() -> Array[String] {
       out.push(tex)
     }
   }
+  for item in @item.items {
+    let tex = item.texture
+    if tex.length() > 0 && !seen.contains(tex) {
+      seen[tex] = true
+      out.push(tex)
+    }
+  }
   out
 }
 

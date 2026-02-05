@@ -5,6 +5,8 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { packLongId, unpackLongId } from "./block-registry.js";
 
+const UPDATE_LABEL = `(2:00)`
+
 function getBlockShapeDesc(longId) {
   const value = window.mcGetBlockShapeDesc(longId);
   return value ?? null;
@@ -84,6 +86,32 @@ function setBlockIdAt(chunkDatas, size, wx, wy, wz, id) {
   const value = window.mcSetBlockId(chunkDatas, size, wx, wy, wz, id);
   if (!Array.isArray(value)) {
     throw new Error("mcSetBlockId returned non-array");
+  }
+  return value;
+}
+
+function buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY) {
+  const fn = window.mcBuildWorldLight;
+  if (typeof fn !== "function") {
+    return null;
+  }
+  const entries = fn(chunkDatas, size, keys, worldMinY, worldMaxY);
+  if (!Array.isArray(entries)) {
+    console.warn("mcBuildWorldLight returned non-array");
+    return null;
+  }
+  return entries;
+}
+
+function buildChunkColorsSplit(registry, data, light, size) {
+  const fn = window.mcBuildChunkColorsSplit;
+  if (typeof fn !== "function") {
+    return null;
+  }
+  const value = fn(registry, data, light, size);
+  if (!value || !Array.isArray(value.normal) || !Array.isArray(value.leaf)) {
+    console.warn("mcBuildChunkColorsSplit returned invalid data");
+    return null;
   }
   return value;
 }
@@ -314,6 +342,7 @@ function renderTestChunk({
   const pendingChunks = new Set();
   const chunkQueue = [];
   const chunkMeshes = new Map();
+  const chunkLights = new Map();
   const maxGenPerFrame = window.mcChunkGenPerFrame ?? 2;
   const maxMeshBuildPerFrame = window.mcMeshBuildPerFrame ?? 2;
   const worldMinY = window.mcWorldMinY ?? 0;
@@ -328,11 +357,48 @@ function renderTestChunk({
     size,
   });
 
-  // Lighting disabled; face shading is baked into mesh colors.
+  let lightDirty = true;
+  const dirtyLightKeys = new Set();
 
   const fallbackChunk = new Array(size * size * size).fill(0);
   const fallbackLight = new Uint8Array(size * size * size);
   fallbackLight.fill(15);
+  const markLightDirty = (key) => {
+    lightDirty = true;
+    if (typeof key === "string") dirtyLightKeys.add(key);
+  };
+  const rebuildLightMaps = (keys, replaceAll = false) => {
+    const entries = buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY);
+    if (!entries) return;
+    if (replaceAll) chunkLights.clear();
+    for (const entry of entries) {
+      if (!entry) continue;
+      const key = entry._0;
+      const light = entry._1;
+      if (typeof key === "string" && light) {
+        chunkLights.set(key, light);
+      }
+    }
+  };
+  const expandLightKeys = (keys) => {
+    const expanded = new Set();
+    for (const key of keys) {
+      expanded.add(key);
+      const xyz = chunkXyzByKey(key);
+      if (!xyz) continue;
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dz = -1; dz <= 1; dz += 1) {
+            const nkey = `${xyz.x + dx},${xyz.y + dy},${xyz.z + dz}`;
+            if (chunkDatas.has(nkey)) {
+              expanded.add(nkey);
+            }
+          }
+        }
+      }
+    }
+    return expanded;
+  };
   const enqueueChunk = (cx, cy, cz) => {
     const key = `${cx},${cy},${cz}`;
     if (chunkDatas.has(key) || pendingChunks.has(key)) return;
@@ -341,7 +407,7 @@ function renderTestChunk({
   };
 
   const buildChunkMesh = (key, cx, cy, cz, data) => {
-    const light = fallbackLight;
+    const light = chunkLights.get(key) ?? fallbackLight;
     const entries = [{ x: cx, y: cy, z: cz, data, light }];
     const meshPair = window.mcBuildWorldMeshSplit(blockRegistry, entries, size);
     if (!meshPair || !meshPair.normal || !meshPair.leaf) {
@@ -394,6 +460,28 @@ function renderTestChunk({
       leaf: toBuffers(meshPair.leaf),
     });
   };
+  const updateChunkColors = (key) => {
+    const mesh = chunkMeshes.get(key);
+    if (!mesh) return false;
+    const data = chunkDatas.get(key);
+    if (!data) return false;
+    const light = chunkLights.get(key) ?? fallbackLight;
+    const colorsPair = buildChunkColorsSplit(blockRegistry, data, light, size);
+    if (!colorsPair) return false;
+    const normalColors = Float32Array.from(colorsPair.normal ?? []);
+    const leafColors = Float32Array.from(colorsPair.leaf ?? []);
+    if (mesh.normal.count > 0 && normalColors.length !== mesh.normal.count * 4) {
+      return false;
+    }
+    if (mesh.leaf.count > 0 && leafColors.length !== mesh.leaf.count * 4) {
+      return false;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normal.colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, normalColors, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.leaf.colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, leafColors, gl.DYNAMIC_DRAW);
+    return true;
+  };
 
   const processChunkQueue = () => {
     let remaining = maxGenPerFrame;
@@ -410,12 +498,13 @@ function renderTestChunk({
       if (window.mcDebugChunkGen) {
         console.log("chunk gen", key, "type:", data?.constructor?.name, "length:", data?.length);
       }
-      if (data) {
-        data = normalizeChunkData(data);
         if (data) {
-          chunkDatas.set(key, data);
+          data = normalizeChunkData(data);
+          if (data) {
+            chunkDatas.set(key, data);
+            markLightDirty(key);
+          }
         }
-      }
       pendingChunks.delete(key);
       remaining -= 1;
     }
@@ -599,12 +688,30 @@ function renderTestChunk({
     for (const key of chunkMeshes.keys()) {
       if (!desiredKeys.has(key)) {
         chunkMeshes.delete(key);
+        chunkLights.delete(key);
       }
     }
     for (const key of chunkDatas.keys()) {
       if (!desiredKeys.has(key)) {
         chunkDatas.delete(key);
+        chunkLights.delete(key);
       }
+    }
+
+    if (lightDirty) {
+      const sourceKeys = dirtyLightKeys.size > 0
+        ? Array.from(expandLightKeys(dirtyLightKeys))
+        : Array.from(desiredKeys);
+      const replaceAll = dirtyLightKeys.size === 0;
+      rebuildLightMaps(sourceKeys, replaceAll);
+      const updateKeys = dirtyLightKeys.size > 0 ? sourceKeys : Array.from(desiredKeys);
+      for (const key of updateKeys) {
+        if (!updateChunkColors(key)) {
+          chunkMeshes.delete(key);
+        }
+      }
+      dirtyLightKeys.clear();
+      lightDirty = false;
     }
 
     let built = 0;
@@ -748,6 +855,7 @@ function renderTestChunk({
       const xyz = chunkXyzByKey(key);
       if (!xyz) continue;
       rebuildChunk(key, xyz.x, xyz.y, xyz.z);
+      markLightDirty(key);
     }
     return true;
   };
@@ -797,12 +905,20 @@ function renderTestChunk({
       setBlock(hit.block[0], hit.block[1], hit.block[2], mcAirLongId);
     } else if (event.button === 2) {
       if (!hit.prev) return;
+      const slotIndex = typeof hotbar.getSelectedIndex === "function"
+        ? hotbar.getSelectedIndex()
+        : (window.mcHotbarSelectedIndex ?? 0);
+      const selectedItem = hotbarItems[slotIndex];
+      const placedId = getActivePlacedId(slotIndex);
+      if (selectedItem && placedId === mcAirLongId) {
+        const useItemOn = window.mcUseItemOn;
+        if (typeof useItemOn === "function") {
+          useItemOn(selectedItem.name, hit.block, hit.prev);
+        }
+        return;
+      }
       const targetId = getBlockId(hit.prev[0], hit.prev[1], hit.prev[2]);
       if (Number.isFinite(targetId) && targetId === mcAirLongId) {
-        const slotIndex = typeof hotbar.getSelectedIndex === "function"
-          ? hotbar.getSelectedIndex()
-          : (window.mcHotbarSelectedIndex ?? 0);
-        const placedId = getActivePlacedId(slotIndex);
         if (placedId !== mcAirLongId) {
           const placedDecoded = unpackLongId(placedId);
           const placementState = computePlacementState(placedId, hit.block, hit.prev);
@@ -1015,8 +1131,7 @@ function renderTestChunk({
       `| C: ${cx},${cz} ` +
       `| Biome: ${biomeName} ` +
       `| Loaded: ${chunkDatas.size} ` +
-      `| Meshes: ${chunkMeshes.size} ` +
-      ` (11:56)`;
+      `| Meshes: ${chunkMeshes.size} ` + UPDATE_LABEL;
     requestAnimationFrame(draw);
   }
 

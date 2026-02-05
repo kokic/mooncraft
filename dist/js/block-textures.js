@@ -1,6 +1,14 @@
 import { loadImage } from "./asset-loader.js";
 
-const BLOCK_IMAGE_ROOT = "./assets/images/blocks";
+const BLOCK_IMAGE_ROOT = "./assets/images/block";
+const ITEM_IMAGE_ROOT = "./assets/images/item";
+
+function resolveTextureUrl(name) {
+  if (typeof name === "string" && name.startsWith("item/")) {
+    return `${ITEM_IMAGE_ROOT}/${name.slice(5)}.png`;
+  }
+  return `${BLOCK_IMAGE_ROOT}/${name}.png`;
+}
 
 async function loadBlockTextures() {
   const texture_names = window.mcCollectTextureNames();
@@ -14,7 +22,7 @@ async function loadBlockTextures() {
   let base_h = null;
 
   for (const name of texture_names) {
-    const img = await loadImage(`${BLOCK_IMAGE_ROOT}/${name}.png`);
+    const img = await loadImage(resolveTextureUrl(name));
     if (base_w == null) {
       base_w = img.width;
       base_h = img.height;

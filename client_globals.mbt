@@ -56,8 +56,10 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcMat4LookAt", @util.mat4_look_at)
   set_global("mcBuildChunkMesh", @block.build_chunk_mesh)
   set_global("mcBuildChunkColors", @block.build_chunk_colors)
+  set_global("mcBuildChunkColorsSplit", @block.build_chunk_colors_split)
   set_global("mcBuildWorldMesh", @block.build_world_mesh)
   set_global("mcBuildWorldMeshSplit", @block.build_world_mesh_split)
+  set_global("mcBuildWorldLight", @level.build_world_light)
   set_global("mcBuildUiItemMesh", @block.build_ui_item_mesh)
   set_global("mcComputeSpawnPosition", @level.compute_spawn_position)
   set_global("mcRaycastBlocks", @level.raycast_blocks)
@@ -66,6 +68,7 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGetBlockShapeDesc", @block.get_shape_desc)
   set_global("mcComputePlacementState", @block.compute_placement_state)
   set_global("mcMovePlayer", @player.move_player)
+  set_global("mcUseItemOn", @item.use_item_on_block)
   set_global("mcGetItemDisplayName", @i18n.item_display_name)
   set_global("mcGetBiomeName", fn(wx : Int, wz : Int) -> String {
     let biome = @biome.biome_at(world.noise, wx, wz)

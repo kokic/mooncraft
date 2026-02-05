@@ -41,7 +41,7 @@ fn get_block_boxes_at(
   wx : Int,
   wy : Int,
   wz : Int,
-) -> Array[@block.ShapeBox]? {
+) -> Array[@shape.Box]? {
   match @level.get_block_id(chunk_map, size, wx, wy, wz) {
     None => None
     Some(id) =>

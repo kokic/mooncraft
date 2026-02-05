@@ -1,10 +1,11 @@
 ///|
+/// Also see: https://minecraft.wiki/w/Opacity#Types_of_transparent_blocks
 pub(all) enum Opacity {
   /// Render all solid rendering blocks
   Solid
   /// Render various transparent blocks
   Cutout
-  /// Render various translucent blocks [TODO]
+  /// Render various translucent blocks.
   Translucent
 }
 

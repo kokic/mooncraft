@@ -321,7 +321,7 @@ pub fn Torch::append_redstone_colors(push_color : (Int, Float) -> Unit) -> Unit 
 
 ///|
 fn emit_redstone_torch_mesh(
-  info : @shape.RenderInfo,
+  info : @shape.FaceSource,
   bx : Float,
   by : Float,
   bz : Float,
@@ -335,7 +335,7 @@ fn emit_redstone_torch_mesh(
 
 ///|
 fn emit_redstone_torch_colors(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   push_color : @shape.ColorEmitter,
 ) -> Bool {
   Torch::append_redstone_colors(push_color)
@@ -344,7 +344,7 @@ fn emit_redstone_torch_colors(
 
 ///|
 fn emit_redstone_classic_mesh(
-  info : @shape.RenderInfo,
+  info : @shape.FaceSource,
   bx : Float,
   by : Float,
   bz : Float,
@@ -358,7 +358,7 @@ fn emit_redstone_classic_mesh(
 
 ///|
 fn emit_redstone_classic_colors(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   push_color : @shape.ColorEmitter,
 ) -> Bool {
   Torch::append_classic_colors(push_color)

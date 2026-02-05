@@ -83,7 +83,7 @@ pub fn Log::rotate_uv(face : @shape.FaceGeom, state : UInt) -> Bool {
 }
 
 ///|
-fn face_layer_log(info : @shape.RenderInfo, face : @shape.FaceName) -> Int {
+fn face_layer_log(info : @shape.FaceSource, face : @shape.FaceName) -> Int {
   let end_layer = info.faces.pos_y
   let side_layer = info.faces.pos_x
   let axis = Log::axis_from_state(info.state)
@@ -111,7 +111,7 @@ pub let log_model : @shape.Model = @shape.Model::{
   face_layer: face_layer_log,
   face_box: face_box_none,
   uv_rect: uv_rect_default,
-  rotate_uv: fn(info : @shape.RenderInfo, face : @shape.FaceGeom) {
+  rotate_uv: fn(info : @shape.FaceSource, face : @shape.FaceGeom) {
     Log::rotate_uv(face, info.state)
   },
   double_sided: double_sided_false,

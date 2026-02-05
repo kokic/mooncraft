@@ -21,12 +21,14 @@ pub struct MeshData {
 pub struct MeshSplit {
   normal : MeshData
   leaf : MeshData
+  translucent : MeshData
 }
 
 ///|
 pub struct MeshColorsSplit {
   normal : Array[Float]
   leaf : Array[Float]
+  translucent : Array[Float]
 }
 
 ///|
@@ -139,6 +141,10 @@ pub fn build_chunk_mesh(
     let (u, v) = uv
     (v, 1.0F - u)
   })
+  let mut tint_r = 1.0F
+  let mut tint_g = 1.0F
+  let mut tint_b = 1.0F
+  let mut tint_a = 1.0F
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
     None =>
@@ -211,10 +217,10 @@ pub fn build_chunk_mesh(
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(1.0F)
+      colors.push(color_scale * tint_r)
+      colors.push(color_scale * tint_g)
+      colors.push(color_scale * tint_b)
+      colors.push(tint_a)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -254,10 +260,10 @@ pub fn build_chunk_mesh(
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(1.0F)
+      colors.push(color_scale * tint_r)
+      colors.push(color_scale * tint_g)
+      colors.push(color_scale * tint_b)
+      colors.push(tint_a)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -291,10 +297,10 @@ pub fn build_chunk_mesh(
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(1.0F)
+      colors.push(color_scale * tint_r)
+      colors.push(color_scale * tint_g)
+      colors.push(color_scale * tint_b)
+      colors.push(tint_a)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -314,8 +320,13 @@ pub fn build_chunk_mesh(
         if block.block.shape is Shape::Air {
           continue
         }
+        let (tr, tg, tb, ta) = block.block.material.tint()
+        tint_r = tr
+        tint_g = tg
+        tint_b = tb
+        tint_a = ta
         let model = block.block.shape.model()
-        let render_info = @shape.RenderInfo::{
+        let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
         }
@@ -404,6 +415,11 @@ pub fn build_chunk_mesh_split(
   let leaf_layers : Array[Float] = []
   let leaf_colors : Array[Float] = []
   let leaf_normals : Array[Float] = []
+  let trans_positions : Array[Float] = []
+  let trans_uvs : Array[Float] = []
+  let trans_layers : Array[Float] = []
+  let trans_colors : Array[Float] = []
+  let trans_normals : Array[Float] = []
   let base_uvs : Array[(Float, Float)] = [
     (0, 0),
     (1, 0),
@@ -429,6 +445,14 @@ pub fn build_chunk_mesh_split(
           count: 0,
         },
         leaf: MeshData::{
+          positions: [],
+          uvs: [],
+          layers: [],
+          colors: [],
+          normals: [],
+          count: 0,
+        },
+        translucent: MeshData::{
           positions: [],
           uvs: [],
           layers: [],
@@ -494,19 +518,21 @@ pub fn build_chunk_mesh_split(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
+    tint : (Float, Float, Float, Float),
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
     let verts : Array[(Float, Float, Float)] = [a, b, c, a, c, d]
+    let (tr, tg, tb, ta) = tint
     for i in 0..<6 {
       let (vx, vy, vz) = verts[i]
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(1.0F)
+      colors.push(color_scale * tr)
+      colors.push(color_scale * tg)
+      colors.push(color_scale * tb)
+      colors.push(ta)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -534,6 +560,7 @@ pub fn build_chunk_mesh_split(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
+    tint : (Float, Float, Float, Float),
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
@@ -546,15 +573,16 @@ pub fn build_chunk_mesh_split(
       (0, 1),
       (1, 1),
     ]
+    let (tr, tg, tb, ta) = tint
     for i in 0..<6 {
       let (vx, vy, vz) = verts[i]
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(1.0F)
+      colors.push(color_scale * tr)
+      colors.push(color_scale * tg)
+      colors.push(color_scale * tb)
+      colors.push(ta)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -565,6 +593,17 @@ pub fn build_chunk_mesh_split(
       uvs.push(u)
       uvs.push(v2)
       layers.push(layer_f)
+    }
+  }
+  let select_arrays = fn(
+    block : RenderBlock,
+  ) -> (Array[Float], Array[Float], Array[Float], Array[Float], Array[Float]) {
+    if block.block.material is Material::TintedLeaf {
+      (leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals)
+    } else if block.block.opacity is Opacity::Translucent {
+      (trans_positions, trans_uvs, trans_layers, trans_colors, trans_normals)
+    } else {
+      (positions, uvs, layers, colors, normals)
     }
   }
   let push_face = fn(
@@ -579,17 +618,25 @@ pub fn build_chunk_mesh_split(
     flip_v : Bool,
     color_scale : Float,
   ) -> Unit {
-    if block.block.material is Material::TintedLeaf {
-      push_face_into(
-        leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals, a, b, c,
-        d, normal, layer_f, uv_rect, flip_v, color_scale,
-      )
-    } else {
-      push_face_into(
-        positions, uvs, layers, colors, normals, a, b, c, d, normal, layer_f, uv_rect,
-        flip_v, color_scale,
-      )
-    }
+    let tint = block.block.material.tint()
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(block)
+    push_face_into(
+      positions_ref,
+      uvs_ref,
+      layers_ref,
+      colors_ref,
+      normals_ref,
+      a,
+      b,
+      c,
+      d,
+      normal,
+      layer_f,
+      uv_rect,
+      flip_v,
+      color_scale,
+      tint,
+    )
   }
   let push_face_rev = fn(
     block : RenderBlock,
@@ -603,17 +650,25 @@ pub fn build_chunk_mesh_split(
     flip_v : Bool,
     color_scale : Float,
   ) -> Unit {
-    if block.block.material is Material::TintedLeaf {
-      push_face_rev_into(
-        leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals, a, b, c,
-        d, normal, layer_f, uv_rect, flip_v, color_scale,
-      )
-    } else {
-      push_face_rev_into(
-        positions, uvs, layers, colors, normals, a, b, c, d, normal, layer_f, uv_rect,
-        flip_v, color_scale,
-      )
-    }
+    let tint = block.block.material.tint()
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(block)
+    push_face_rev_into(
+      positions_ref,
+      uvs_ref,
+      layers_ref,
+      colors_ref,
+      normals_ref,
+      a,
+      b,
+      c,
+      d,
+      normal,
+      layer_f,
+      uv_rect,
+      flip_v,
+      color_scale,
+      tint,
+    )
   }
   let push_face_cube = fn(
     block : RenderBlock,
@@ -632,21 +687,17 @@ pub fn build_chunk_mesh_split(
     let (u0, v0, u1, v1) = uv_rect
     let verts : Array[(Float, Float, Float)] = [a, b, c, a, c, d]
     let uvs_base = if rotate_uv { base_uvs_rot90 } else { base_uvs }
-    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = if block.block.material
-      is Material::TintedLeaf {
-      (leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals)
-    } else {
-      (positions, uvs, layers, colors, normals)
-    }
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(block)
+    let (tr, tg, tb, ta) = block.block.material.tint()
     for i in 0..<6 {
       let (vx, vy, vz) = verts[i]
       positions_ref.push(vx)
       positions_ref.push(vy)
       positions_ref.push(vz)
-      colors_ref.push(color_scale)
-      colors_ref.push(color_scale)
-      colors_ref.push(color_scale)
-      colors_ref.push(1.0F)
+      colors_ref.push(color_scale * tr)
+      colors_ref.push(color_scale * tg)
+      colors_ref.push(color_scale * tb)
+      colors_ref.push(ta)
       normals_ref.push(Float::from_int(nx))
       normals_ref.push(Float::from_int(ny))
       normals_ref.push(Float::from_int(nz))
@@ -667,7 +718,7 @@ pub fn build_chunk_mesh_split(
           continue
         }
         let model = block.block.shape.model()
-        let render_info = @shape.RenderInfo::{
+        let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
         }
@@ -778,6 +829,14 @@ pub fn build_chunk_mesh_split(
       normals: leaf_normals,
       count: leaf_positions.length() / 3,
     },
+    translucent: MeshData::{
+      positions: trans_positions,
+      uvs: trans_uvs,
+      layers: trans_layers,
+      colors: trans_colors,
+      normals: trans_normals,
+      count: trans_positions.length() / 3,
+    },
   }
 }
 
@@ -791,6 +850,7 @@ pub fn build_chunk_colors_split(
 ) -> MeshColorsSplit {
   let colors : Array[Float] = []
   let leaf_colors : Array[Float] = []
+  let trans_colors : Array[Float] = []
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
   }
@@ -822,17 +882,23 @@ pub fn build_chunk_colors_split(
       15
     }
   }
-  let push_color_into = fn(target : Array[Float], count : Int, color_scale : Float) -> Unit {
+  let push_color_into = fn(
+    target : Array[Float],
+    count : Int,
+    color_scale : Float,
+    tint : (Float, Float, Float, Float),
+  ) -> Unit {
+    let (tr, tg, tb, ta) = tint
     for _ in 0..<count {
-      target.push(color_scale)
-      target.push(color_scale)
-      target.push(color_scale)
-      target.push(1.0F)
+      target.push(color_scale * tr)
+      target.push(color_scale * tg)
+      target.push(color_scale * tb)
+      target.push(ta)
     }
   }
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
-    None => return MeshColorsSplit::{ normal: [], leaf: [] }
+    None => return MeshColorsSplit::{ normal: [], leaf: [], translucent: [] }
   }
   let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
     if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
@@ -853,17 +919,21 @@ pub fn build_chunk_colors_split(
           continue
         }
         let model = block.block.shape.model()
-        let render_info = @shape.RenderInfo::{
+        let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
         }
+        let is_double_sided = (model.double_sided)(render_info)
         let target = if block.block.material is Material::TintedLeaf {
           leaf_colors
+        } else if block.block.opacity is Opacity::Translucent {
+          trans_colors
         } else {
           colors
         }
+        let tint = block.block.material.tint()
         let push_color = fn(count : Int, color_scale : Float) -> Unit {
-          push_color_into(target, count, color_scale)
+          push_color_into(target, count, color_scale, tint)
         }
         if (model.emit_colors)(render_info, push_color) {
           continue
@@ -876,13 +946,14 @@ pub fn build_chunk_colors_split(
             let light_scale = @util.light_level_scale(light)
             let shade = @util.face_shade_scale(nx, ny, nz)
             let color_scale = shade * light_scale
-            push_color(6, color_scale)
+            let count = if is_double_sided { 12 } else { 6 }
+            push_color(count, color_scale)
           }
         }
       }
     }
   }
-  MeshColorsSplit::{ normal: colors, leaf: leaf_colors }
+  MeshColorsSplit::{ normal: colors, leaf: leaf_colors, translucent: trans_colors }
 }
 
 ///|
@@ -894,6 +965,10 @@ pub fn build_chunk_colors(
   size : Int,
 ) -> Array[Float] {
   let colors : Array[Float] = []
+  let mut tint_r = 1.0F
+  let mut tint_g = 1.0F
+  let mut tint_b = 1.0F
+  let mut tint_a = 1.0F
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
   }
@@ -927,10 +1002,10 @@ pub fn build_chunk_colors(
   }
   let push_color = fn(count : Int, color_scale : Float) -> Unit {
     for _ in 0..<count {
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(color_scale)
-      colors.push(1.0F)
+      colors.push(color_scale * tint_r)
+      colors.push(color_scale * tint_g)
+      colors.push(color_scale * tint_b)
+      colors.push(tint_a)
     }
   }
   let air_block = match registry.get_by_name("air") {
@@ -955,14 +1030,20 @@ pub fn build_chunk_colors(
         if block.block.shape is Shape::Air {
           continue
         }
+        let (tr, tg, tb, ta) = block.block.material.tint()
+        tint_r = tr
+        tint_g = tg
+        tint_b = tb
+        tint_a = ta
         let model = block.block.shape.model()
-        let render_info = @shape.RenderInfo::{
+        let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
         }
         if (model.emit_colors)(render_info, push_color) {
           continue
         }
+        let is_double_sided = (model.double_sided)(render_info)
         for face in @shape.faces {
           let (nx, ny, nz) = face.normal
           let neighbor = get_block(x + nx, y + ny, z + nz)
@@ -971,7 +1052,8 @@ pub fn build_chunk_colors(
             let light_scale = @util.light_level_scale(light)
             let shade = @util.face_shade_scale(nx, ny, nz)
             let color_scale = shade * light_scale
-            push_color(6, color_scale)
+            let count = if is_double_sided { 12 } else { 6 }
+            push_color(count, color_scale)
           }
         }
       }
@@ -1042,6 +1124,11 @@ pub fn build_world_mesh_split(
   let leaf_layers : Array[Float] = []
   let leaf_colors : Array[Float] = []
   let leaf_normals : Array[Float] = []
+  let trans_positions : Array[Float] = []
+  let trans_uvs : Array[Float] = []
+  let trans_layers : Array[Float] = []
+  let trans_colors : Array[Float] = []
+  let trans_normals : Array[Float] = []
   for entry in entries {
     let mesh = build_chunk_mesh_split(registry, entry.data, entry.light, size)
     let offset_x = Float::from_int(entry.x * size)
@@ -1087,6 +1174,26 @@ pub fn build_world_mesh_split(
       leaf_normals.push(leaf.normals[nidx + 1])
       leaf_normals.push(leaf.normals[nidx + 2])
     }
+    let translucent = mesh.translucent
+    for i in 0..<translucent.count {
+      let pidx = i * 3
+      trans_positions.push(translucent.positions[pidx] + offset_x)
+      trans_positions.push(translucent.positions[pidx + 1] + offset_y)
+      trans_positions.push(translucent.positions[pidx + 2] + offset_z)
+      let uidx = i * 2
+      trans_uvs.push(translucent.uvs[uidx])
+      trans_uvs.push(translucent.uvs[uidx + 1])
+      trans_layers.push(translucent.layers[i])
+      let cidx = i * 4
+      trans_colors.push(translucent.colors[cidx])
+      trans_colors.push(translucent.colors[cidx + 1])
+      trans_colors.push(translucent.colors[cidx + 2])
+      trans_colors.push(translucent.colors[cidx + 3])
+      let nidx = i * 3
+      trans_normals.push(translucent.normals[nidx])
+      trans_normals.push(translucent.normals[nidx + 1])
+      trans_normals.push(translucent.normals[nidx + 2])
+    }
   }
   MeshSplit::{
     normal: MeshData::{
@@ -1104,6 +1211,14 @@ pub fn build_world_mesh_split(
       colors: leaf_colors,
       normals: leaf_normals,
       count: leaf_positions.length() / 3,
+    },
+    translucent: MeshData::{
+      positions: trans_positions,
+      uvs: trans_uvs,
+      layers: trans_layers,
+      colors: trans_colors,
+      normals: trans_normals,
+      count: trans_positions.length() / 3,
     },
   }
 }

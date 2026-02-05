@@ -53,17 +53,8 @@ fn default_use_on(
   _y : Int,
   _z : Int,
   _face : @shape.FaceName,
-) -> Unit {}
-
-///|
-fn iron_shovel_use_on(
-  _stack : ItemStack,
-  _x : Int,
-  _y : Int,
-  _z : Int,
-  _face : @shape.FaceName,
-) -> Unit {
-
+) -> UseOnAction {
+  UseOnAction::None
 }
 
 ///|
@@ -74,10 +65,10 @@ pub fn Item::use_on(
   y : Int,
   z : Int,
   face : @shape.FaceName,
-) -> Unit {
+) -> UseOnAction {
   match item.archetype {
     ItemArchetype::Tool(kind=ToolKind::Shovel, ..) =>
-      iron_shovel_use_on(stack, x, y, z, face)
+      shovel_use_on(stack, x, y, z, face)
     _ => default_use_on(stack, x, y, z, face)
   }
 }

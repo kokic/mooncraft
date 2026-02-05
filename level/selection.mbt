@@ -172,7 +172,7 @@ pub fn raycast_blocks(
               Some(block) =>
                 match block.shape {
                   shape if shape.is_torch_genus() => {
-                    let box = @block.torch_shape_box_by_state(block.state)
+                    let box = @genus.Torch::shape_box_by_state(block.state)
                     let bmin_f = box.min
                     let bmax_f = box.max
                     let min = [

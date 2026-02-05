@@ -32,15 +32,15 @@ pub fn use_item_on_block(
   name : String,
   block : Array[Int],
   prev : Array[Int],
-) -> Unit {
+) -> UseOnAction {
   if block.length() < 3 || prev.length() < 3 {
-    ()
+    UseOnAction::None
   } else {
     match lookup_by_name(name) {
-      None => ()
+      None => UseOnAction::None
       Some(item) =>
         match face_from_hit(block, prev) {
-          None => ()
+          None => UseOnAction::None
           Some(face) =>
             item.use_on(
               ItemStack::from_item(item),

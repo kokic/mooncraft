@@ -4,7 +4,7 @@ pub fn place_fallen_oak_tree(
   center_x : Int,
   base_y : Int,
   center_z : Int,
-  filler_log? : @block.Block = @block.lookup_by_name("oak_log").unwrap(),
+  filler_log? : @block.Block = @block.lookup_by_name("classic.oak_log").unwrap(),
 ) -> Unit {
   let amount = 4 + @util.random_time_based().int(limit=4) // [4, 8)
   if @util.random_time_based().boolean() {
@@ -24,7 +24,7 @@ pub fn place_oak_tree_genus(
   center_x : Int,
   base_y : Int,
   center_z : Int,
-  filler_log? : @block.Block = @block.lookup_by_name("oak_log").unwrap(),
+  filler_log? : @block.Block = @block.lookup_by_name("classic.oak_log").unwrap(),
   filler_leaves? : @block.BlockId = @block.lookup_by_name("oak_leaves").unwrap().id,
 ) -> Unit {
   let filler_log_id = filler_log.id

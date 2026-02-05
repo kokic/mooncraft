@@ -2,6 +2,14 @@
 const MAX_LIGHT : Int = 15
 
 ///|
+/// Fixed lighting ignores skylight/torchlight and uses full brightness.
+pub const USE_FIXED_LIGHT : Bool = true
+
+///|
+/// Smooth lighting blends neighboring light values to reduce hard steps.
+pub const ENABLE_SMOOTH_LIGHTING : Bool = false
+
+///|
 fn clamp_light(value : Int) -> Int {
   if value < 0 {
     0
@@ -36,6 +44,15 @@ pub fn build_world_light(
   if chunk_keys.length() == 0 {
     return []
   }
+  if USE_FIXED_LIGHT {
+    let pad = size + 2
+    let light_bytes = Bytes::makei(pad * pad * pad, _ => Int::to_byte(MAX_LIGHT))
+    let results : Array[(String, Bytes)] = []
+    for key in chunk_keys {
+      results.push((key, light_bytes))
+    }
+    return results
+  }
   let lookup = build_light_lookup()
   let coords_all : Array[(String, Int, Int, Int)] = []
   let coords_loaded : Array[(String, Int, Int, Int)] = []
@@ -55,10 +72,18 @@ pub fn build_world_light(
       max_cx = cx
       max_cz = cz
     } else {
-      if cx < min_cx { min_cx = cx }
-      if cz < min_cz { min_cz = cz }
-      if cx > max_cx { max_cx = cx }
-      if cz > max_cz { max_cz = cz }
+      if cx < min_cx {
+        min_cx = cx
+      }
+      if cz < min_cz {
+        min_cz = cz
+      }
+      if cx > max_cx {
+        max_cx = cx
+      }
+      if cz > max_cz {
+        max_cz = cz
+      }
     }
     match get_chunk_data(chunk_map, key) {
       None => ()
@@ -76,9 +101,9 @@ pub fn build_world_light(
   if min_cy > max_cy {
     return []
   }
-  for cx in min_cx..=max_cx {
-    for cz in min_cz..=max_cz {
-      for cy in min_cy..=max_cy {
+  for cx in min_cx..<=max_cx {
+    for cz in min_cz..<=max_cz {
+      for cy in min_cy..<=max_cy {
         let key = chunk_key_by_chunk_xyz(cx, cy, cz)
         if chunk_data_by_key.contains(key) {
           continue
@@ -146,7 +171,6 @@ pub fn build_world_light(
     (0, 0, 1),
     (0, 0, -1),
   ]
-
   let sky_qx : Array[Int] = []
   let sky_qy : Array[Int] = []
   let sky_qz : Array[Int] = []
@@ -190,7 +214,11 @@ pub fn build_world_light(
       let nrx = rx + dx
       let nry = ry + dy
       let nrz = rz + dz
-      if nrx < 0 || nrx >= dim_x || nry < 0 || nry >= dim_y || nrz < 0 ||
+      if nrx < 0 ||
+        nrx >= dim_x ||
+        nry < 0 ||
+        nry >= dim_y ||
+        nrz < 0 ||
         nrz >= dim_z {
         continue
       }
@@ -212,7 +240,6 @@ pub fn build_world_light(
       }
     }
   }
-
   let torch_qx : Array[Int] = []
   let torch_qy : Array[Int] = []
   let torch_qz : Array[Int] = []
@@ -250,7 +277,11 @@ pub fn build_world_light(
       let nrx = rx + dx
       let nry = ry + dy
       let nrz = rz + dz
-      if nrx < 0 || nrx >= dim_x || nry < 0 || nry >= dim_y || nrz < 0 ||
+      if nrx < 0 ||
+        nrx >= dim_x ||
+        nry < 0 ||
+        nry >= dim_y ||
+        nrz < 0 ||
         nrz >= dim_z {
         continue
       }
@@ -268,7 +299,45 @@ pub fn build_world_light(
       }
     }
   }
-
+  let light : Array[Int] = Array::make(total, 0)
+  for i in 0..<total {
+    let sky_val = sky[i]
+    let torch_val = torch[i]
+    light[i] = if sky_val > torch_val { sky_val } else { torch_val }
+  }
+  let light_out = if ENABLE_SMOOTH_LIGHTING {
+    let smoothed : Array[Int] = Array::make(total, 0)
+    for rx in 0..<dim_x {
+      for ry in 0..<dim_y {
+        for rz in 0..<dim_z {
+          let idx = index_of(rx, ry, rz)
+          let mut sum = light[idx]
+          let mut count = 1
+          for dir in dirs {
+            let (dx, dy, dz) = dir
+            let nrx = rx + dx
+            let nry = ry + dy
+            let nrz = rz + dz
+            if nrx < 0 ||
+              nrx >= dim_x ||
+              nry < 0 ||
+              nry >= dim_y ||
+              nrz < 0 ||
+              nrz >= dim_z {
+              continue
+            }
+            let nidx = index_of(nrx, nry, nrz)
+            sum = sum + light[nidx]
+            count = count + 1
+          }
+          smoothed[idx] = sum / count
+        }
+      }
+    }
+    smoothed
+  } else {
+    light
+  }
   let results : Array[(String, Bytes)] = []
   let pad = size + 2
   for coord in coords_loaded {
@@ -279,19 +348,15 @@ pub fn build_world_light(
     let light_bytes = Bytes::makei(pad * pad * pad, fn(i) {
       let px = i % pad
       let py = i / (pad * pad)
-      let pz = (i / pad) % pad
+      let pz = i / pad % pad
       let rx = base_rx + (px - 1)
       let ry = base_ry + (py - 1)
       let rz = base_rz + (pz - 1)
-      if rx < 0 || rx >= dim_x || ry < 0 || ry >= dim_y || rz < 0 ||
-        rz >= dim_z {
+      if rx < 0 || rx >= dim_x || ry < 0 || ry >= dim_y || rz < 0 || rz >= dim_z {
         Int::to_byte(0)
       } else {
         let idx = index_of(rx, ry, rz)
-        let sky_val = sky[idx]
-        let torch_val = torch[idx]
-        let light = if sky_val > torch_val { sky_val } else { torch_val }
-        light.to_byte()
+        light_out[idx].to_byte()
       }
     })
     results.push((key, light_bytes))

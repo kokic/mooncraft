@@ -109,7 +109,10 @@ function buildChunkColorsSplit(registry, data, light, size) {
     return null;
   }
   const value = fn(registry, data, light, size);
-  if (!value || !Array.isArray(value.normal) || !Array.isArray(value.leaf)) {
+  if (!value ||
+      !Array.isArray(value.normal) ||
+      !Array.isArray(value.leaf) ||
+      !Array.isArray(value.translucent)) {
     console.warn("mcBuildChunkColorsSplit returned invalid data");
     return null;
   }
@@ -410,7 +413,7 @@ function renderTestChunk({
     const light = chunkLights.get(key) ?? fallbackLight;
     const entries = [{ x: cx, y: cy, z: cz, data, light }];
     const meshPair = window.mcBuildWorldMeshSplit(blockRegistry, entries, size);
-    if (!meshPair || !meshPair.normal || !meshPair.leaf) {
+    if (!meshPair || !meshPair.normal || !meshPair.leaf || !meshPair.translucent) {
       throw new Error("mcBuildWorldMeshSplit returned invalid data");
     }
     const toBuffers = (mesh) => {
@@ -458,29 +461,54 @@ function renderTestChunk({
       cz,
       normal: toBuffers(meshPair.normal),
       leaf: toBuffers(meshPair.leaf),
+      translucent: toBuffers(meshPair.translucent),
     });
   };
   const updateChunkColors = (key) => {
     const mesh = chunkMeshes.get(key);
-    if (!mesh) return false;
+    if (!mesh) return { ok: false, reason: "missing-mesh" };
     const data = chunkDatas.get(key);
-    if (!data) return false;
+    if (!data) return { ok: false, reason: "missing-data" };
     const light = chunkLights.get(key) ?? fallbackLight;
     const colorsPair = buildChunkColorsSplit(blockRegistry, data, light, size);
-    if (!colorsPair) return false;
+    if (!colorsPair) return { ok: false, reason: "invalid-colors" };
     const normalColors = Float32Array.from(colorsPair.normal ?? []);
     const leafColors = Float32Array.from(colorsPair.leaf ?? []);
-    if (mesh.normal.count > 0 && normalColors.length !== mesh.normal.count * 4) {
-      return false;
+    const translucentColors = Float32Array.from(colorsPair.translucent ?? []);
+    const normalExpected = mesh.normal.count * 4;
+    const leafExpected = mesh.leaf.count * 4;
+    const translucentExpected = mesh.translucent.count * 4;
+    if (mesh.normal.count > 0 && normalColors.length !== normalExpected) {
+      return {
+        ok: false,
+        reason: "mismatch-normal",
+        expected: normalExpected,
+        got: normalColors.length,
+      };
     }
-    if (mesh.leaf.count > 0 && leafColors.length !== mesh.leaf.count * 4) {
-      return false;
+    if (mesh.leaf.count > 0 && leafColors.length !== leafExpected) {
+      return {
+        ok: false,
+        reason: "mismatch-leaf",
+        expected: leafExpected,
+        got: leafColors.length,
+      };
+    }
+    if (mesh.translucent.count > 0 && translucentColors.length !== translucentExpected) {
+      return {
+        ok: false,
+        reason: "mismatch-translucent",
+        expected: translucentExpected,
+        got: translucentColors.length,
+      };
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normal.colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, normalColors, gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, mesh.leaf.colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, leafColors, gl.DYNAMIC_DRAW);
-    return true;
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.translucent.colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, translucentColors, gl.DYNAMIC_DRAW);
+    return { ok: true };
   };
 
   const processChunkQueue = () => {
@@ -706,8 +734,9 @@ function renderTestChunk({
       rebuildLightMaps(sourceKeys, replaceAll);
       const updateKeys = dirtyLightKeys.size > 0 ? sourceKeys : Array.from(desiredKeys);
       for (const key of updateKeys) {
-        if (!updateChunkColors(key)) {
-          chunkMeshes.delete(key);
+        const res = updateChunkColors(key);
+        if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
+          console.error("[lighting] failed to update chunk colors", key, res);
         }
       }
       dirtyLightKeys.clear();
@@ -912,8 +941,19 @@ function renderTestChunk({
       const placedId = getActivePlacedId(slotIndex);
       if (selectedItem && placedId === mcAirLongId) {
         const useItemOn = window.mcUseItemOn;
-        if (typeof useItemOn === "function") {
-          useItemOn(selectedItem.name, hit.block, hit.prev);
+        const applyUseOn = window.mcApplyUseOnAction;
+        if (typeof useItemOn === "function" && typeof applyUseOn === "function") {
+          const action = useItemOn(selectedItem.name, hit.block, hit.prev);
+          const keys = applyUseOn(chunkDatas, size, action);
+          if (Array.isArray(keys)) {
+            for (const key of keys) {
+              const xyz = chunkXyzByKey(key);
+              if (xyz) {
+                rebuildChunk(key, xyz.x, xyz.y, xyz.z);
+                markLightDirty(key);
+              }
+            }
+          }
         }
         return;
       }
@@ -1075,6 +1115,48 @@ function renderTestChunk({
     }
 
     gl.useProgram(program);
+    assertCurrentProgram("translucent mvp", program);
+
+    const translucentMeshes = [];
+    for (const mesh of chunkMeshes.values()) {
+      const translucent = mesh.translucent;
+      if (!translucent || translucent.count <= 0) continue;
+      const centerX = (mesh.cx + 0.5) * size;
+      const centerY = (mesh.cy + 0.5) * size;
+      const centerZ = (mesh.cz + 0.5) * size;
+      const dx = centerX - camera.position[0];
+      const dy = centerY - camera.position[1];
+      const dz = centerZ - camera.position[2];
+      translucentMeshes.push({ mesh, dist: dx * dx + dy * dy + dz * dz });
+    }
+    if (translucentMeshes.length > 0) {
+      translucentMeshes.sort((a, b) => b.dist - a.dist);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+      for (const entry of translucentMeshes) {
+        const translucent = entry.mesh.translucent;
+        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.positionBuffer);
+        gl.enableVertexAttribArray(aPosition);
+        gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.colorBuffer);
+        gl.enableVertexAttribArray(aColor);
+        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.uvBuffer);
+        gl.enableVertexAttribArray(aUv);
+        gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.layerBuffer);
+        gl.enableVertexAttribArray(aLayer);
+        gl.vertexAttribPointer(aLayer, 1, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLES, 0, translucent.count);
+      }
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+    }
 
     if (outlineBlock) {
       gl.useProgram(outlineProgram);

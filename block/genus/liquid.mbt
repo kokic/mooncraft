@@ -1,35 +1,53 @@
 ///|
-pub type GrassPath
+pub type Liquid
 
 ///|
 /// 15.0F / 16.0F
-pub const GRASS_PATH_MAX_Y : Float = 0.9375F
+pub const LIQUID_MAX_Y : Float = 0.9375F
 
 ///|
-pub struct GrassPathModelData {
+/// Default water tint (rgb) and alpha.
+pub let water_tint : (Float, Float, Float, Float) = (
+  0.247F,
+  0.463F,
+  0.894F,
+  1.0F,
+)
+
+///|
+/// Default lava tint (rgb) and alpha.
+pub let lava_tint : (Float, Float, Float, Float) = (
+  1.0F,
+  0.42F,
+  0.08F,
+  0.85F,
+)
+
+///|
+pub struct LiquidModelData {
   max_y : Float
   side_v0 : Float
 }
 
 ///|
-pub let grass_path_data : GrassPathModelData = GrassPathModelData::{
-  max_y: GRASS_PATH_MAX_Y,
-  side_v0: 1.0F - GRASS_PATH_MAX_Y,
+pub let liquid_data : LiquidModelData = LiquidModelData::{
+  max_y: LIQUID_MAX_Y,
+  side_v0: 1.0F - LIQUID_MAX_Y,
 }
 
 ///|
-pub fn GrassPath::face_box(
+pub fn Liquid::face_box(
   _face : @shape.FaceName,
 ) -> ((Float, Float, Float), (Float, Float, Float))? {
-  let data = grass_path_data
+  let data = liquid_data
   Some(((0.0F, 0.0F, 0.0F), (1.0F, data.max_y, 1.0F)))
 }
 
 ///|
-pub fn GrassPath::uv_rect(
+pub fn Liquid::uv_rect(
   face : @shape.FaceName,
 ) -> (Float, Float, Float, Float) {
-  let v0 = grass_path_data.side_v0
+  let v0 = liquid_data.side_v0
   match face {
     @shape.FaceName::PosX
     | @shape.FaceName::NegX
@@ -40,13 +58,13 @@ pub fn GrassPath::uv_rect(
 }
 
 ///|
-pub let grass_path_model : @shape.Model = @shape.Model::{
+pub let liquid_model : @shape.Model = @shape.Model::{
   face_layer: face_layer_default,
   face_box: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
-    GrassPath::face_box(face)
+    Liquid::face_box(face)
   },
   uv_rect: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
-    GrassPath::uv_rect(face)
+    Liquid::uv_rect(face)
   },
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,

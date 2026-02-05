@@ -1,5 +1,5 @@
 ///|
-fn face_layer_default(info : @shape.RenderInfo, face : @shape.FaceName) -> Int {
+fn face_layer_default(info : @shape.FaceSource, face : @shape.FaceName) -> Int {
   match face {
     @shape.FaceName::PosX => info.faces.pos_x
     @shape.FaceName::NegX => info.faces.neg_x
@@ -12,7 +12,7 @@ fn face_layer_default(info : @shape.RenderInfo, face : @shape.FaceName) -> Int {
 
 ///|
 fn face_box_none(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   _face : @shape.FaceName,
 ) -> ((Float, Float, Float), (Float, Float, Float))? {
   None
@@ -20,25 +20,25 @@ fn face_box_none(
 
 ///|
 fn uv_rect_default(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   _face : @shape.FaceName,
 ) -> (Float, Float, Float, Float) {
   (0.0F, 0.0F, 1.0F, 1.0F)
 }
 
 ///|
-fn rotate_uv_none(_info : @shape.RenderInfo, _face : @shape.FaceGeom) -> Bool {
+fn rotate_uv_none(_info : @shape.FaceSource, _face : @shape.FaceGeom) -> Bool {
   false
 }
 
 ///|
-fn double_sided_false(_info : @shape.RenderInfo) -> Bool {
+fn double_sided_false(_info : @shape.FaceSource) -> Bool {
   false
 }
 
 ///|
 fn emit_mesh_none(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   _bx : Float,
   _by : Float,
   _bz : Float,
@@ -50,7 +50,7 @@ fn emit_mesh_none(
 
 ///|
 fn emit_colors_none(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   _push_color : @shape.ColorEmitter,
 ) -> Bool {
   false

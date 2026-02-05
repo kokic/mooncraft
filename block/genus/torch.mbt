@@ -41,7 +41,8 @@ pub fn Torch::torch_state_from_placement(
 }
 
 ///|
-const TORCH_BOUNDS_SIZE : Float = 2.5F
+/// Due to the size (X / Z) of the torch model, this value is at least 2
+const TORCH_BOUNDS_SIZE : Float = 3.0F
 
 ///|
 const TORCH_WALL_FACE_BOUNDS_SIZE = 5.0F
@@ -360,7 +361,7 @@ pub fn Torch::append_classic_colors(push_color : (Int, Float) -> Unit) -> Unit {
 
 ///|
 fn emit_torch_mesh(
-  info : @shape.RenderInfo,
+  info : @shape.FaceSource,
   bx : Float,
   by : Float,
   bz : Float,
@@ -374,7 +375,7 @@ fn emit_torch_mesh(
 
 ///|
 fn emit_torch_colors(
-  _info : @shape.RenderInfo,
+  _info : @shape.FaceSource,
   push_color : @shape.ColorEmitter,
 ) -> Bool {
   Torch::append_colors(push_color)
@@ -390,4 +391,22 @@ pub let torch_model : @shape.Model = @shape.Model::{
   double_sided: double_sided_false,
   emit_mesh: emit_torch_mesh,
   emit_colors: emit_torch_colors,
+}
+
+///|
+pub fn torch_bounds_index(state : UInt) -> Int {
+  match state.reinterpret_as_int() {
+    1 => 2 // north
+    2 => 4 // south
+    3 => 6 // west
+    4 => 8 // east
+    _ => 0 // floor
+  }
+}
+
+///|
+pub fn Torch::shape_box_by_state(state : UInt) -> @shape.Box {
+  let bounds = Torch::collect_bounds()
+  let idx = torch_bounds_index(state)
+  @shape.Box::{ min: bounds[idx], max: bounds[idx + 1] }
 }

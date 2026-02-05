@@ -15,6 +15,17 @@ pub let blocks : Array[Block] = [
   Block::create("crying_obsidian", ["crying_obsidian"]),
   Block::create("glowing_obsidian", ["pre-classic/glowing_obsidian"]),
 
+  // Terrain
+  Block::create("grass_snow", ["snow", "dirt", "grass_side_snowed"]),
+  Block::create("classoc.grass_snow", [
+    "classic/snow", "dirt", "classic/grass_side_snowed",
+  ]),
+  ..[
+    "snow", "gravel", "ice", "coal_ore", "iron_ore", "gold_ore", "diamond_ore", "lapis_ore",
+    "redstone_ore", "emerald_ore",
+  ].map(v => Block::create("classic." + v, ["classic/" + v])),
+  Block::create("clay", ["clay"]),
+
   // Land
   Block::create("dirt", ["dirt"]),
   Block::create("grass", ["grass_carried", "dirt", "grass_side_carried"]),
@@ -29,6 +40,23 @@ pub let blocks : Array[Block] = [
   ]),
   Block::create("cobblestone", ["cobblestone"]),
   Block::create("pre-classic.cobblestone", ["pre-classic/cobblestone"]),
+
+  // Liquid
+  Block::create(
+    "water",
+    ["water_still"],
+    shape=Shape::Liquid,
+    opacity=Opacity::Cutout,
+    material=Material::tinted(@genus.water_tint),
+  ),
+  Block::create(
+    "lava",
+    ["pre-classic/lava_still"],
+    shape=Shape::Liquid,
+    opacity=Opacity::Cutout,
+    luminance=15,
+    material=Material::tinted(@genus.lava_tint),
+  ),
 
   // Artifact
   Block::create("bricks", ["bricks"]),
@@ -55,7 +83,12 @@ pub let blocks : Array[Block] = [
   Block::create("tnt", ["tnt_top", "tnt_bottom", "tnt_side"]),
 
   // Trees
-  ..create_log_group("oak_log", ["oak_log_top", "oak_log"]),
+  ..["oak", "dark_oak", "birch", "acacia", "jungle", "spruce"]
+  .map(v => create_log_group("classic.\{v}_log", [
+    "classic/\{v}_log_top",
+    "classic/\{v}_log",
+  ]))
+  .flatten(),
   ..Block::create_with_classic(
     "oak_leaves",
     ["oak_leaves"],
@@ -107,7 +140,7 @@ fn create_torch(
   faces : FixedArray[String],
   shape : Shape,
   luminance? : Int = 0,
-  category? : @item.Category = @item.Item,
+  category? : @item.Category = @item.Block,
 ) -> Block {
   Block::create(
     @genus.Torch::unique_name(base, state),
@@ -144,7 +177,7 @@ fn create_log(
   id : UInt,
   state : UInt,
   faces : FixedArray[String],
-  category? : @item.Category = @item.Item,
+  category? : @item.Category = @item.Block,
 ) -> Block {
   Block::create(
     @genus.Log::unique_name(base, state),

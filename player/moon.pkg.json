@@ -5,6 +5,7 @@
     "kokic/mooncraft/ffi",
     "kokic/mooncraft/level",
     "kokic/mooncraft/util",
-    "kokic/mooncraft/item"
+    "kokic/mooncraft/item",
+    "kokic/mooncraft/block/shape"
   ]
 }

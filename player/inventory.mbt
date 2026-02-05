@@ -1,8 +1,8 @@
 ///|
-pub const INVENTORY_GRID_X : Int = 9
+pub const INVENTORY_GRID_X : Int = 12
 
 ///|
-pub const INVENTORY_GRID_Y : Int = 6
+pub const INVENTORY_GRID_Y : Int = 9
 
 ///|
 pub fn collect_inventory_items() -> Array[UiItemView] {

@@ -59,14 +59,14 @@ pub fn Cactus::double_sided() -> Bool {
 ///|
 pub let cactus_model : @shape.Model = @shape.Model::{
   face_layer: face_layer_default,
-  face_box: fn(_info : @shape.RenderInfo, face : @shape.FaceName) {
+  face_box: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
     Cactus::face_box(face)
   },
-  uv_rect: fn(_info : @shape.RenderInfo, face : @shape.FaceName) {
+  uv_rect: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
     Cactus::uv_rect(face)
   },
   rotate_uv: rotate_uv_none,
-  double_sided: fn(_info : @shape.RenderInfo) { Cactus::double_sided() },
+  double_sided: fn(_info : @shape.FaceSource) { Cactus::double_sided() },
   emit_mesh: emit_mesh_none,
   emit_colors: emit_colors_none,
 }

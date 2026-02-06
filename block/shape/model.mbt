@@ -5,6 +5,12 @@ pub(all) struct FaceSource {
 }
 
 ///|
+pub(all) struct FaceOcclusion {
+  neighbor_occludes : Bool
+  same_block_cull : Bool
+}
+
+///|
 pub type Vertex = (Float, Float, Float)
 
 ///|
@@ -48,6 +54,7 @@ pub(all) struct Model {
   uv_rect : (FaceSource, FaceName) -> (Float, Float, Float, Float)
   rotate_uv : (FaceSource, FaceGeom) -> Bool
   double_sided : (FaceSource) -> Bool
+  face_visible : (FaceSource, FaceGeom, FaceOcclusion) -> Bool
   emit_mesh : (FaceSource, Float, Float, Float, FaceEmitter, FaceEmitter) -> Bool
   emit_colors : (FaceSource, ColorEmitter) -> Bool
 }

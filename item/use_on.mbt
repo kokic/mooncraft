@@ -30,26 +30,46 @@ fn face_from_hit(
 ///|
 pub fn use_item_on_block(
   name : String,
+  category : String,
   block : Array[Int],
   prev : Array[Int],
 ) -> UseOnAction {
   if block.length() < 3 || prev.length() < 3 {
     UseOnAction::None
   } else {
-    match lookup_by_name(name) {
-      None => UseOnAction::None
-      Some(item) =>
+    match category {
+      "item" =>
+        match lookup_by_name(name) {
+          None => UseOnAction::None
+          Some(item) =>
+            match face_from_hit(block, prev) {
+              None => UseOnAction::None
+              Some(face) =>
+                item.use_on(
+                  ItemStack::from_item(item),
+                  block[0],
+                  block[1],
+                  block[2],
+                  face,
+                )
+            }
+        }
+      "block" =>
         match face_from_hit(block, prev) {
           None => UseOnAction::None
-          Some(face) =>
-            item.use_on(
-              ItemStack::from_item(item),
-              block[0],
-              block[1],
-              block[2],
-              face,
+          Some(_) =>
+            UseOnAction::PlaceBlock(
+              target_wx=block[0],
+              target_wy=block[1],
+              target_wz=block[2],
+              place_wx=prev[0],
+              place_wy=prev[1],
+              place_wz=prev[2],
+              name=name,
+              require_air=true,
             )
         }
+      _ => UseOnAction::None
     }
   }
 }

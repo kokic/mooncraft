@@ -41,6 +41,14 @@ pub fn Cactus::face_box(
 }
 
 ///|
+fn cactus_face_box(
+  _info : @shape.FaceSource,
+  face : @shape.FaceName,
+) -> ((Float, Float, Float), (Float, Float, Float))? {
+  Cactus::face_box(face)
+}
+
+///|
 pub fn Cactus::uv_rect(face : @shape.FaceName) -> (Float, Float, Float, Float) {
   let data = cactus_data
   let u0 = data.min
@@ -59,14 +67,15 @@ pub fn Cactus::double_sided() -> Bool {
 ///|
 pub let cactus_model : @shape.Model = @shape.Model::{
   face_layer: face_layer_default,
-  face_box: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
-    Cactus::face_box(face)
-  },
+  face_box: cactus_face_box,
   uv_rect: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
     Cactus::uv_rect(face)
   },
   rotate_uv: rotate_uv_none,
   double_sided: fn(_info : @shape.FaceSource) { Cactus::double_sided() },
+  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+    face_visible_default(cactus_face_box, info, face, occlusion)
+  },
   emit_mesh: emit_mesh_none,
   emit_colors: emit_colors_none,
 }

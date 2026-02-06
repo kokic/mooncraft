@@ -58,7 +58,7 @@ pub let leaf_fragment_shader : String =
   #|     return;
   #|   }
   #|   vec4 color = texture(uTex, vec3(vUv, vLayer));
-  #|   if (color.a <= 0.3) {
+  #|   if (color.a * vColor.a <= 0.3) {
   #|     discard;
   #|   }
   #|   float fogDistance = length(vPos);

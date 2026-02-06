@@ -1,7 +1,12 @@
+import { mat4Ortho, mat4LookAt, mat4Mul } from "./math3d.js";
+
 const ICON_BASE_SIZE = 32;
 const ICON_DEFAULT_CANVAS_SIZE = 256;
 const ICON_FLAT_SIZE = 20;
 const ICON_RENDER_SIZE = 512;
+const ICON_VIEW_EYE = [1, 12 / 16, 1];
+const ICON_VIEW_CENTER = [0, 0, 0];
+const ICON_VIEW_UP = [0, 1, 0];
 
 function setImageSmoothingEnabled(ctx, value) {
   ctx.mozImageSmoothingEnabled = value;
@@ -27,14 +32,6 @@ function resolveTextureLayer(textures, name) {
     throw new Error(`resolveTextureLayer: texture not found: ${name}`);
   }
   return index;
-}
-
-function getMat4Api() {
-  return {
-    mul: window.mcMat4Mul,
-    ortho: window.mcMat4Ortho,
-    lookAt: window.mcMat4LookAt,
-  };
 }
 
 function createShader(gl, type, source) {
@@ -200,6 +197,15 @@ class ItemIconRenderer {
     this.layerBuffer = this.gl.createBuffer();
     this.textureArray = null;
     this.texturesRef = null;
+    this.projMatrix = new Float32Array(16);
+    this.viewMatrix = new Float32Array(16);
+    this.mvpMatrix = new Float32Array(16);
+    this.normalMatrix = new Float32Array([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
+    ]);
   }
 
   ensureTextureArray(textures) {
@@ -229,10 +235,9 @@ class ItemIconRenderer {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.textureArray);
 
     const wsize = 0.425 + Math.SQRT2 / 4;
-    const mat4 = getMat4Api();
-    const proj = mat4.ortho(-wsize, wsize, -wsize, wsize, -1, 5);
-    const view = mat4.lookAt([1, 12 / 16, 1], [0, 0, 0], [0, 1, 0]);
-    const mvp = mat4.mul(proj, view);
+    mat4Ortho(this.projMatrix, -wsize, wsize, -wsize, wsize, -1, 5);
+    mat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
+    mat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
 
     const longId = window.mcGetLongIdByName?.(item.name);
     if (!Number.isFinite(longId)) {
@@ -277,8 +282,8 @@ class ItemIconRenderer {
       }
       gl.useProgram(this.leafProgram);
       gl.uniform1i(this.leafTex, 0);
-      gl.uniformMatrix4fv(this.leafMvp, false, new Float32Array(mvp));
-      gl.uniformMatrix4fv(this.leafView, false, new Float32Array(view));
+      gl.uniformMatrix4fv(this.leafMvp, false, this.mvpMatrix);
+      gl.uniformMatrix4fv(this.leafView, false, this.viewMatrix);
       gl.uniform1f(this.leafDebugSolid, 0.0);
       gl.uniform3f(this.leafFogColor, 0.0, 0.0, 0.0);
       gl.uniform1f(this.leafFogNear, 1000.0);
@@ -287,13 +292,8 @@ class ItemIconRenderer {
     } else {
       gl.useProgram(this.program);
       gl.uniform1i(this.uTex, 0);
-      gl.uniformMatrix4fv(this.uMvp, false, new Float32Array(mvp));
-      gl.uniformMatrix4fv(this.uNormalMatrix, false, new Float32Array([
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1,
-      ]));
+      gl.uniformMatrix4fv(this.uMvp, false, this.mvpMatrix);
+      gl.uniformMatrix4fv(this.uNormalMatrix, false, this.normalMatrix);
       gl.uniform3f(this.uLightDir, 0.4, 1.0, 0.7);
       gl.uniform3f(this.uLightColor, 1.0, 1.0, 1.0);
       gl.uniform3f(this.uAmbientColor, 0.2, 0.2, 0.2);

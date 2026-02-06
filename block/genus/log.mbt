@@ -115,6 +115,9 @@ pub let log_model : @shape.Model = @shape.Model::{
     Log::rotate_uv(face, info.state)
   },
   double_sided: double_sided_false,
+  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+    face_visible_default(face_box_none, info, face, occlusion)
+  },
   emit_mesh: emit_mesh_none,
   emit_colors: emit_colors_none,
 }

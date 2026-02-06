@@ -100,3 +100,66 @@ pub fn set_block_id(
     }
   }
 }
+
+///|
+/// Build padded block data for one chunk (size+2)^3.
+/// Border voxels are sampled from neighbor chunks; missing chunks use `air_id`.
+pub fn build_chunk_data_padded(
+  chunk_map : @ffi.JsValue,
+  size : Int,
+  cx : Int,
+  cy : Int,
+  cz : Int,
+  air_id : UInt,
+) -> Array[UInt] {
+  let pad = size + 2
+  let out = Array::make(pad * pad * pad, air_id)
+  let chunk_cache : Map[String, Array[UInt]] = {}
+  let missing_cache : Map[String, Bool] = {}
+  let resolve_chunk = fn(key : String) -> Array[UInt]? {
+    if chunk_cache.contains(key) {
+      Some(chunk_cache[key])
+    } else if missing_cache.contains(key) {
+      None
+    } else {
+      match get_chunk_data(chunk_map, key) {
+        Some(data) => {
+          chunk_cache[key] = data
+          Some(data)
+        }
+        None => {
+          missing_cache[key] = true
+          None
+        }
+      }
+    }
+  }
+  let base_x = cx * size
+  let base_y = cy * size
+  let base_z = cz * size
+  for py in 0..<pad {
+    let wy = base_y + py - 1
+    let ncy = @util.floor_div(wy, size)
+    let ly = wy - ncy * size
+    for pz in 0..<pad {
+      let wz = base_z + pz - 1
+      let ncz = @util.floor_div(wz, size)
+      let lz = wz - ncz * size
+      for px in 0..<pad {
+        let wx = base_x + px - 1
+        let ncx = @util.floor_div(wx, size)
+        let lx = wx - ncx * size
+        let key = chunk_key_by_chunk_xyz(ncx, ncy, ncz)
+        match resolve_chunk(key) {
+          Some(chunk) => {
+            let src_idx = (ly * size + lz) * size + lx
+            let out_idx = (py * pad + pz) * pad + px
+            out[out_idx] = chunk[src_idx]
+          }
+          None => ()
+        }
+      }
+    }
+  }
+  out
+}

@@ -26,6 +26,14 @@ pub fn GrassPath::face_box(
 }
 
 ///|
+fn grass_path_face_box(
+  _info : @shape.FaceSource,
+  face : @shape.FaceName,
+) -> ((Float, Float, Float), (Float, Float, Float))? {
+  GrassPath::face_box(face)
+}
+
+///|
 pub fn GrassPath::uv_rect(
   face : @shape.FaceName,
 ) -> (Float, Float, Float, Float) {
@@ -42,14 +50,15 @@ pub fn GrassPath::uv_rect(
 ///|
 pub let grass_path_model : @shape.Model = @shape.Model::{
   face_layer: face_layer_default,
-  face_box: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
-    GrassPath::face_box(face)
-  },
+  face_box: grass_path_face_box,
   uv_rect: fn(_info : @shape.FaceSource, face : @shape.FaceName) {
     GrassPath::uv_rect(face)
   },
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
+  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+    face_visible_default(grass_path_face_box, info, face, occlusion)
+  },
   emit_mesh: emit_mesh_none,
   emit_colors: emit_colors_none,
 }

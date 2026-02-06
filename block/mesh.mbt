@@ -116,6 +116,22 @@ fn face_corners_world(
 }
 
 ///|
+fn is_chunk_boundary_face(
+  x : Int,
+  y : Int,
+  z : Int,
+  nx : Int,
+  ny : Int,
+  nz : Int,
+  size : Int,
+) -> Bool {
+  (nx == -1 && x == 0) ||
+  (nx == 1 && x == size - 1) ||
+  (ny == -1 && y == 0) ||
+  (ny == 1 && y == size - 1) ||
+  (nz == -1 && z == 0) ||
+  (nz == 1 && z == size - 1)
+}
 
 ///|
 pub fn build_chunk_mesh(
@@ -160,21 +176,40 @@ pub fn build_chunk_mesh(
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
   }
-  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
-    if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
-      air_block
-    } else {
-      let idx = get_index(x, y, z)
-      match registry.get_by_long_id(chunk_data[idx]) {
-        Some(block) => block
-        None => air_block
-      }
-    }
-  }
-  let light_len = chunk_light.length()
+  let data_len = chunk_data.length()
   let base_len = size * size * size
   let pad = size + 2
   let pad_len = pad * pad * pad
+  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
+    if data_len == base_len {
+      if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
+        air_block
+      } else {
+        let idx = get_index(x, y, z)
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
+      }
+    } else if data_len == pad_len {
+      let px = x + 1
+      let py = y + 1
+      let pz = z + 1
+      if px < 0 || px >= pad || py < 0 || py >= pad || pz < 0 ||
+        pz >= pad {
+        air_block
+      } else {
+        let idx = (py * pad + pz) * pad + px
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
+      }
+    } else {
+      air_block
+    }
+  }
+  let light_len = chunk_light.length()
   let get_light = fn(x : Int, y : Int, z : Int) -> Int {
     if light_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
@@ -287,6 +322,7 @@ pub fn build_chunk_mesh(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
+    alpha_scale : Float,
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
@@ -300,11 +336,55 @@ pub fn build_chunk_mesh(
       colors.push(color_scale * tint_r)
       colors.push(color_scale * tint_g)
       colors.push(color_scale * tint_b)
-      colors.push(tint_a)
+      colors.push(tint_a * alpha_scale)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
       let (bu, bv) = uvs_base[i]
+      let v = if flip_v { 1.0F - bv } else { bv }
+      let u = u0 + bu * (u1 - u0)
+      let v2 = v0 + v * (v1 - v0)
+      uvs.push(u)
+      uvs.push(v2)
+      layers.push(layer_f)
+    }
+  }
+  let push_face_rev_cube = fn(
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+    alpha_scale : Float,
+  ) -> Unit {
+    let (nx, ny, nz) = normal
+    let (u0, v0, u1, v1) = uv_rect
+    let verts : Array[(Float, Float, Float)] = [a, c, b, a, d, c]
+    let base_uvs_rev : Array[(Float, Float)] = [
+      (0, 0),
+      (1, 1),
+      (1, 0),
+      (0, 0),
+      (0, 1),
+      (1, 1),
+    ]
+    for i in 0..<6 {
+      let (vx, vy, vz) = verts[i]
+      positions.push(vx)
+      positions.push(vy)
+      positions.push(vz)
+      colors.push(color_scale * tint_r)
+      colors.push(color_scale * tint_g)
+      colors.push(color_scale * tint_b)
+      colors.push(tint_a * alpha_scale)
+      normals.push(Float::from_int(nx))
+      normals.push(Float::from_int(ny))
+      normals.push(Float::from_int(nz))
+      let (bu, bv) = base_uvs_rev[i]
       let v = if flip_v { 1.0F - bv } else { bv }
       let u = u0 + bu * (u1 - u0)
       let v2 = v0 + v * (v1 - v0)
@@ -340,11 +420,30 @@ pub fn build_chunk_mesh(
         for face in @shape.faces {
           let (nx, ny, nz) = face.normal
           let neighbor = get_block(x + nx, y + ny, z + nz)
-          if !neighbor.block.opacity.enable_occlusion_culling() {
+          let occlusion = @shape.FaceOcclusion::{
+            neighbor_occludes: neighbor.block.occlusion_cull,
+            same_block_cull: block.block.inter_cull && block.long_id == neighbor.long_id,
+          }
+          let visible = (model.face_visible)(render_info, face, occlusion)
+          let boundary_transparent = is_chunk_boundary_face(
+            x,
+            y,
+            z,
+            nx,
+            ny,
+            nz,
+            size,
+          ) && !block.block.occlusion_cull
+          if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)
             let shade = @util.face_shade_scale(nx, ny, nz)
             let color_scale = shade * light_scale
+            let alpha_scale = if boundary_transparent && !visible {
+              0.0F
+            } else {
+              1.0F
+            }
             let layer = (model.face_layer)(render_info, face.name)
             let layer_f = Float::from_int(layer)
             let flip_uv = match face.name {
@@ -369,9 +468,10 @@ pub fn build_chunk_mesh(
               uv_rect,
               flip_uv,
               color_scale,
+              alpha_scale,
             )
             if is_double_sided {
-              push_face_rev(
+              push_face_rev_cube(
                 a,
                 b,
                 c,
@@ -381,6 +481,7 @@ pub fn build_chunk_mesh(
                 uv_rect,
                 flip_uv,
                 color_scale,
+                alpha_scale,
               )
             }
           }
@@ -465,21 +566,40 @@ pub fn build_chunk_mesh_split(
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
   }
-  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
-    if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
-      air_block
-    } else {
-      let idx = get_index(x, y, z)
-      match registry.get_by_long_id(chunk_data[idx]) {
-        Some(block) => block
-        None => air_block
-      }
-    }
-  }
-  let light_len = chunk_light.length()
+  let data_len = chunk_data.length()
   let base_len = size * size * size
   let pad = size + 2
   let pad_len = pad * pad * pad
+  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
+    if data_len == base_len {
+      if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
+        air_block
+      } else {
+        let idx = get_index(x, y, z)
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
+      }
+    } else if data_len == pad_len {
+      let px = x + 1
+      let py = y + 1
+      let pz = z + 1
+      if px < 0 || px >= pad || py < 0 || py >= pad || pz < 0 ||
+        pz >= pad {
+        air_block
+      } else {
+        let idx = (py * pad + pz) * pad + px
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
+      }
+    } else {
+      air_block
+    }
+  }
+  let light_len = chunk_light.length()
   let get_light = fn(x : Int, y : Int, z : Int) -> Int {
     if light_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
@@ -519,6 +639,7 @@ pub fn build_chunk_mesh_split(
     flip_v : Bool,
     color_scale : Float,
     tint : (Float, Float, Float, Float),
+    alpha_scale : Float,
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
@@ -532,7 +653,7 @@ pub fn build_chunk_mesh_split(
       colors.push(color_scale * tr)
       colors.push(color_scale * tg)
       colors.push(color_scale * tb)
-      colors.push(ta)
+      colors.push(ta * alpha_scale)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -561,6 +682,7 @@ pub fn build_chunk_mesh_split(
     flip_v : Bool,
     color_scale : Float,
     tint : (Float, Float, Float, Float),
+    alpha_scale : Float,
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
@@ -582,7 +704,7 @@ pub fn build_chunk_mesh_split(
       colors.push(color_scale * tr)
       colors.push(color_scale * tg)
       colors.push(color_scale * tb)
-      colors.push(ta)
+      colors.push(ta * alpha_scale)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -600,7 +722,7 @@ pub fn build_chunk_mesh_split(
   ) -> (Array[Float], Array[Float], Array[Float], Array[Float], Array[Float]) {
     if block.block.material is Material::TintedLeaf {
       (leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals)
-    } else if block.block.opacity is Opacity::Translucent {
+    } else if block.block.alpha_mode is AlphaMode::Translucent {
       (trans_positions, trans_uvs, trans_layers, trans_colors, trans_normals)
     } else {
       (positions, uvs, layers, colors, normals)
@@ -636,6 +758,7 @@ pub fn build_chunk_mesh_split(
       flip_v,
       color_scale,
       tint,
+      1.0F,
     )
   }
   let push_face_rev = fn(
@@ -668,6 +791,41 @@ pub fn build_chunk_mesh_split(
       flip_v,
       color_scale,
       tint,
+      1.0F,
+    )
+  }
+  let push_face_rev_cube = fn(
+    block : RenderBlock,
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+    alpha_scale : Float,
+  ) -> Unit {
+    let tint = block.block.material.tint()
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(block)
+    push_face_rev_into(
+      positions_ref,
+      uvs_ref,
+      layers_ref,
+      colors_ref,
+      normals_ref,
+      a,
+      b,
+      c,
+      d,
+      normal,
+      layer_f,
+      uv_rect,
+      flip_v,
+      color_scale,
+      tint,
+      alpha_scale,
     )
   }
   let push_face_cube = fn(
@@ -682,6 +840,7 @@ pub fn build_chunk_mesh_split(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
+    alpha_scale : Float,
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
@@ -697,7 +856,7 @@ pub fn build_chunk_mesh_split(
       colors_ref.push(color_scale * tr)
       colors_ref.push(color_scale * tg)
       colors_ref.push(color_scale * tb)
-      colors_ref.push(ta)
+      colors_ref.push(ta * alpha_scale)
       normals_ref.push(Float::from_int(nx))
       normals_ref.push(Float::from_int(ny))
       normals_ref.push(Float::from_int(nz))
@@ -762,11 +921,30 @@ pub fn build_chunk_mesh_split(
         for face in @shape.faces {
           let (nx, ny, nz) = face.normal
           let neighbor = get_block(x + nx, y + ny, z + nz)
-          if !neighbor.block.opacity.enable_occlusion_culling() {
+          let occlusion = @shape.FaceOcclusion::{
+            neighbor_occludes: neighbor.block.occlusion_cull,
+            same_block_cull: block.block.inter_cull && block.long_id == neighbor.long_id,
+          }
+          let visible = (model.face_visible)(render_info, face, occlusion)
+          let boundary_transparent = is_chunk_boundary_face(
+            x,
+            y,
+            z,
+            nx,
+            ny,
+            nz,
+            size,
+          ) && !block.block.occlusion_cull
+          if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)
             let shade = @util.face_shade_scale(nx, ny, nz)
             let color_scale = shade * light_scale
+            let alpha_scale = if boundary_transparent && !visible {
+              0.0F
+            } else {
+              1.0F
+            }
             let layer = (model.face_layer)(render_info, face.name)
             let layer_f = Float::from_int(layer)
             let flip_uv = match face.name {
@@ -792,9 +970,10 @@ pub fn build_chunk_mesh_split(
               uv_rect,
               flip_uv,
               color_scale,
+              alpha_scale,
             )
             if is_double_sided {
-              push_face_rev(
+              push_face_rev_cube(
                 block,
                 a,
                 b,
@@ -805,6 +984,7 @@ pub fn build_chunk_mesh_split(
                 uv_rect,
                 flip_uv,
                 color_scale,
+                alpha_scale,
               )
             }
           }
@@ -854,6 +1034,7 @@ pub fn build_chunk_colors_split(
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
   }
+  let data_len = chunk_data.length()
   let light_len = chunk_light.length()
   let base_len = size * size * size
   let pad = size + 2
@@ -887,13 +1068,14 @@ pub fn build_chunk_colors_split(
     count : Int,
     color_scale : Float,
     tint : (Float, Float, Float, Float),
+    alpha_scale : Float,
   ) -> Unit {
     let (tr, tg, tb, ta) = tint
     for _ in 0..<count {
       target.push(color_scale * tr)
       target.push(color_scale * tg)
       target.push(color_scale * tb)
-      target.push(ta)
+      target.push(ta * alpha_scale)
     }
   }
   let air_block = match registry.get_by_name("air") {
@@ -901,14 +1083,32 @@ pub fn build_chunk_colors_split(
     None => return MeshColorsSplit::{ normal: [], leaf: [], translucent: [] }
   }
   let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
-    if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
-      air_block
-    } else {
-      let idx = get_index(x, y, z)
-      match registry.get_by_long_id(chunk_data[idx]) {
-        Some(block) => block
-        None => air_block
+    if data_len == base_len {
+      if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
+        air_block
+      } else {
+        let idx = get_index(x, y, z)
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
       }
+    } else if data_len == pad_len {
+      let px = x + 1
+      let py = y + 1
+      let pz = z + 1
+      if px < 0 || px >= pad || py < 0 || py >= pad || pz < 0 ||
+        pz >= pad {
+        air_block
+      } else {
+        let idx = (py * pad + pz) * pad + px
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
+      }
+    } else {
+      air_block
     }
   }
   for x in 0..<size {
@@ -926,14 +1126,21 @@ pub fn build_chunk_colors_split(
         let is_double_sided = (model.double_sided)(render_info)
         let target = if block.block.material is Material::TintedLeaf {
           leaf_colors
-        } else if block.block.opacity is Opacity::Translucent {
+        } else if block.block.alpha_mode is AlphaMode::Translucent {
           trans_colors
         } else {
           colors
         }
         let tint = block.block.material.tint()
+        let push_color_alpha = fn(
+          count : Int,
+          color_scale : Float,
+          alpha_scale : Float,
+        ) -> Unit {
+          push_color_into(target, count, color_scale, tint, alpha_scale)
+        }
         let push_color = fn(count : Int, color_scale : Float) -> Unit {
-          push_color_into(target, count, color_scale, tint)
+          push_color_alpha(count, color_scale, 1.0F)
         }
         if (model.emit_colors)(render_info, push_color) {
           continue
@@ -941,13 +1148,32 @@ pub fn build_chunk_colors_split(
         for face in @shape.faces {
           let (nx, ny, nz) = face.normal
           let neighbor = get_block(x + nx, y + ny, z + nz)
-          if !neighbor.block.opacity.enable_occlusion_culling() {
+          let occlusion = @shape.FaceOcclusion::{
+            neighbor_occludes: neighbor.block.occlusion_cull,
+            same_block_cull: block.block.inter_cull && block.long_id == neighbor.long_id,
+          }
+          let visible = (model.face_visible)(render_info, face, occlusion)
+          let boundary_transparent = is_chunk_boundary_face(
+            x,
+            y,
+            z,
+            nx,
+            ny,
+            nz,
+            size,
+          ) && !block.block.occlusion_cull
+          if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)
             let shade = @util.face_shade_scale(nx, ny, nz)
             let color_scale = shade * light_scale
+            let alpha_scale = if boundary_transparent && !visible {
+              0.0F
+            } else {
+              1.0F
+            }
             let count = if is_double_sided { 12 } else { 6 }
-            push_color(count, color_scale)
+            push_color_alpha(count, color_scale, alpha_scale)
           }
         }
       }
@@ -972,6 +1198,7 @@ pub fn build_chunk_colors(
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
     (y * size + z) * size + x
   }
+  let data_len = chunk_data.length()
   let light_len = chunk_light.length()
   let base_len = size * size * size
   let pad = size + 2
@@ -1000,27 +1227,48 @@ pub fn build_chunk_colors(
       15
     }
   }
-  let push_color = fn(count : Int, color_scale : Float) -> Unit {
+  let push_color_alpha = fn(count : Int, color_scale : Float, alpha_scale : Float) -> Unit {
     for _ in 0..<count {
       colors.push(color_scale * tint_r)
       colors.push(color_scale * tint_g)
       colors.push(color_scale * tint_b)
-      colors.push(tint_a)
+      colors.push(tint_a * alpha_scale)
     }
+  }
+  let push_color = fn(count : Int, color_scale : Float) -> Unit {
+    push_color_alpha(count, color_scale, 1.0F)
   }
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
     None => return []
   }
   let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
-    if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
-      air_block
-    } else {
-      let idx = get_index(x, y, z)
-      match registry.get_by_long_id(chunk_data[idx]) {
-        Some(block) => block
-        None => air_block
+    if data_len == base_len {
+      if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
+        air_block
+      } else {
+        let idx = get_index(x, y, z)
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
       }
+    } else if data_len == pad_len {
+      let px = x + 1
+      let py = y + 1
+      let pz = z + 1
+      if px < 0 || px >= pad || py < 0 || py >= pad || pz < 0 ||
+        pz >= pad {
+        air_block
+      } else {
+        let idx = (py * pad + pz) * pad + px
+        match registry.get_by_long_id(chunk_data[idx]) {
+          Some(block) => block
+          None => air_block
+        }
+      }
+    } else {
+      air_block
     }
   }
   for x in 0..<size {
@@ -1047,13 +1295,32 @@ pub fn build_chunk_colors(
         for face in @shape.faces {
           let (nx, ny, nz) = face.normal
           let neighbor = get_block(x + nx, y + ny, z + nz)
-          if !neighbor.block.opacity.enable_occlusion_culling() {
+          let occlusion = @shape.FaceOcclusion::{
+            neighbor_occludes: neighbor.block.occlusion_cull,
+            same_block_cull: block.block.inter_cull && block.long_id == neighbor.long_id,
+          }
+          let visible = (model.face_visible)(render_info, face, occlusion)
+          let boundary_transparent = is_chunk_boundary_face(
+            x,
+            y,
+            z,
+            nx,
+            ny,
+            nz,
+            size,
+          ) && !block.block.occlusion_cull
+          if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)
             let shade = @util.face_shade_scale(nx, ny, nz)
             let color_scale = shade * light_scale
+            let alpha_scale = if boundary_transparent && !visible {
+              0.0F
+            } else {
+              1.0F
+            }
             let count = if is_double_sided { 12 } else { 6 }
-            push_color(count, color_scale)
+            push_color_alpha(count, color_scale, alpha_scale)
           }
         }
       }

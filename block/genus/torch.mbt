@@ -389,6 +389,9 @@ pub let torch_model : @shape.Model = @shape.Model::{
   uv_rect: uv_rect_default,
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
+  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+    face_visible_default(face_box_none, info, face, occlusion)
+  },
   emit_mesh: emit_torch_mesh,
   emit_colors: emit_torch_colors,
 }

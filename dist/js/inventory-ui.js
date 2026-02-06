@@ -120,7 +120,7 @@ function createInventoryUI({
   const renderItems = () => {
     for (let i = 0; i < slotCanvases.length; i += 1) {
       const canvas = slotCanvases[i];
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) continue;
       const item = state.items[i];
       if (!item) {

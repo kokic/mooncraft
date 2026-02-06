@@ -3,9 +3,16 @@ import {
 } from "./player-controller.js";
 import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
-import { packLongId, unpackLongId } from "./block-registry.js";
+import { unpackLongId } from "./block-registry.js";
+import {
+  UP_VECTOR,
+  cameraFromYawPitch,
+  mat4Perspective,
+  mat4LookAt,
+  mat4Mul,
+} from "./math3d.js";
 
-const UPDATE_LABEL = `(2:00)`
+const UPDATE_LABEL = `(7:26)`
 
 function getBlockShapeDesc(longId) {
   const value = window.mcGetBlockShapeDesc(longId);
@@ -20,23 +27,7 @@ function getTorchShapeBoxByState(state) {
   return value;
 }
 
-function computePlacementState(longId, block, prev) {
-  const value = window.mcComputePlacementState(longId, block, prev);
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-}
-
 window.mcGameMode = "creative" // "spectator"
-
-function getMat4Api() {
-  const mul = window.mcMat4Mul;
-  const perspective = window.mcMat4Perspective;
-  const lookAt = window.mcMat4LookAt;
-  if (typeof mul !== "function" || typeof perspective !== "function" || typeof lookAt !== "function") {
-    throw new Error("mat4 api unavailable from MoonBit");
-  }
-  return { mul, perspective, lookAt };
-}
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -65,12 +56,6 @@ function createProgram(gl, vertexSource, fragmentSource) {
     throw new Error(info || "program link failed");
   }
   return program;
-}
-
-function getLongIdByName(name) {
-  const value = window.mcGetLongIdByName(name);
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
 }
 
 function getBlockIdAt(chunkDatas, size, wx, wy, wz) {
@@ -110,13 +95,27 @@ function buildChunkColorsSplit(registry, data, light, size) {
   }
   const value = fn(registry, data, light, size);
   if (!value ||
-      !Array.isArray(value.normal) ||
-      !Array.isArray(value.leaf) ||
-      !Array.isArray(value.translucent)) {
+    !Array.isArray(value.normal) ||
+    !Array.isArray(value.leaf) ||
+    !Array.isArray(value.translucent)) {
     console.warn("mcBuildChunkColorsSplit returned invalid data");
     return null;
   }
   return value;
+}
+
+function buildChunkDataPadded(chunkDatas, size, cx, cy, cz, centerData) {
+  const fn = window.mcBuildChunkDataPadded;
+  if (typeof fn !== "function") {
+    return centerData;
+  }
+  const airLongId = Number(window.mcAirLongId ?? 0);
+  const value = fn(chunkDatas, size, cx, cy, cz, airLongId);
+  if (Array.isArray(value)) return value;
+  if (value instanceof Uint32Array) return Array.from(value);
+  if (value && typeof value.length === "number") return Array.from(value);
+  console.warn("mcBuildChunkDataPadded returned invalid data");
+  return centerData;
 }
 
 function chunkXyzByKey(key) {
@@ -265,7 +264,10 @@ function renderTestChunk({
   chunkGenerator,
 }) {
   const canvas = createCanvas();
-  const gl = canvas.getContext("webgl2");
+  const gl = canvas.getContext("webgl2", {
+    alpha: false, 
+    powerPreference: "high-performance", 
+  });
   if (!gl) throw new Error("webgl2 not supported");
 
   const vertexSource = `#version 300 es
@@ -310,7 +312,7 @@ function renderTestChunk({
         return;
       }
       vec4 color = texture(uTex, vec3(vUv, vLayer));
-      if (color.a <= 0.3) {
+      if (color.a * vColor.a <= 0.3) {
         discard;
       }
       float fogDistance = length(vPos);
@@ -352,6 +354,7 @@ function renderTestChunk({
   const worldMaxY = window.mcWorldMaxY ?? 0;
   const chunkMinY = Math.floor(worldMinY / size);
   const chunkMaxY = Math.floor(worldMaxY / size);
+  const useFixedLight = window.mcUseFixedLight === true;
   console.debug("[spawn] world bounds", {
     worldMinY,
     worldMaxY,
@@ -366,9 +369,42 @@ function renderTestChunk({
   const fallbackChunk = new Array(size * size * size).fill(0);
   const fallbackLight = new Uint8Array(size * size * size);
   fallbackLight.fill(15);
+  const deleteMeshBuffers = (buffers) => {
+    if (!buffers) return;
+    if (buffers.vaoWorld) gl.deleteVertexArray(buffers.vaoWorld);
+    if (buffers.vaoLeaf) gl.deleteVertexArray(buffers.vaoLeaf);
+    if (buffers.positionBuffer) gl.deleteBuffer(buffers.positionBuffer);
+    if (buffers.colorBuffer) gl.deleteBuffer(buffers.colorBuffer);
+    if (buffers.normalBuffer) gl.deleteBuffer(buffers.normalBuffer);
+    if (buffers.uvBuffer) gl.deleteBuffer(buffers.uvBuffer);
+    if (buffers.layerBuffer) gl.deleteBuffer(buffers.layerBuffer);
+  };
+  const deleteChunkMesh = (mesh) => {
+    if (!mesh) return;
+    deleteMeshBuffers(mesh.normal);
+    deleteMeshBuffers(mesh.leaf);
+    deleteMeshBuffers(mesh.translucent);
+  };
   const markLightDirty = (key) => {
     lightDirty = true;
     if (typeof key === "string") dirtyLightKeys.add(key);
+  };
+  const markNeighborLightDirty = (key) => {
+    const xyz = chunkXyzByKey(key);
+    if (!xyz) return;
+    const keys = [
+      `${xyz.x - 1},${xyz.y},${xyz.z}`,
+      `${xyz.x + 1},${xyz.y},${xyz.z}`,
+      `${xyz.x},${xyz.y - 1},${xyz.z}`,
+      `${xyz.x},${xyz.y + 1},${xyz.z}`,
+      `${xyz.x},${xyz.y},${xyz.z - 1}`,
+      `${xyz.x},${xyz.y},${xyz.z + 1}`,
+    ];
+    for (const nkey of keys) {
+      if (chunkDatas.has(nkey)) {
+        markLightDirty(nkey);
+      }
+    }
   };
   const rebuildLightMaps = (keys, replaceAll = false) => {
     const entries = buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY);
@@ -410,8 +446,9 @@ function renderTestChunk({
   };
 
   const buildChunkMesh = (key, cx, cy, cz, data) => {
-    const light = chunkLights.get(key) ?? fallbackLight;
-    const entries = [{ x: cx, y: cy, z: cz, data, light }];
+    const light = useFixedLight ? fallbackLight : (chunkLights.get(key) ?? fallbackLight);
+    const paddedData = buildChunkDataPadded(chunkDatas, size, cx, cy, cz, data);
+    const entries = [{ x: cx, y: cy, z: cz, data: paddedData, light }];
     const meshPair = window.mcBuildWorldMeshSplit(blockRegistry, entries, size);
     if (!meshPair || !meshPair.normal || !meshPair.leaf || !meshPair.translucent) {
       throw new Error("mcBuildWorldMeshSplit returned invalid data");
@@ -448,6 +485,8 @@ function renderTestChunk({
       gl.bufferData(gl.ARRAY_BUFFER, layers, gl.STATIC_DRAW);
       return {
         count: mesh.count,
+        vaoWorld: null,
+        vaoLeaf: null,
         positionBuffer,
         colorBuffer,
         normalBuffer,
@@ -455,22 +494,27 @@ function renderTestChunk({
         layerBuffer,
       };
     };
-    chunkMeshes.set(key, {
+    const nextMesh = {
       cx,
       cy,
       cz,
       normal: toBuffers(meshPair.normal),
       leaf: toBuffers(meshPair.leaf),
       translucent: toBuffers(meshPair.translucent),
-    });
+    };
+    const prevMesh = chunkMeshes.get(key);
+    if (prevMesh) deleteChunkMesh(prevMesh);
+    chunkMeshes.set(key, nextMesh);
   };
   const updateChunkColors = (key) => {
+    if (useFixedLight) return { ok: true };
     const mesh = chunkMeshes.get(key);
     if (!mesh) return { ok: false, reason: "missing-mesh" };
     const data = chunkDatas.get(key);
     if (!data) return { ok: false, reason: "missing-data" };
     const light = chunkLights.get(key) ?? fallbackLight;
-    const colorsPair = buildChunkColorsSplit(blockRegistry, data, light, size);
+    const paddedData = buildChunkDataPadded(chunkDatas, size, mesh.cx, mesh.cy, mesh.cz, data);
+    const colorsPair = buildChunkColorsSplit(blockRegistry, paddedData, light, size);
     if (!colorsPair) return { ok: false, reason: "invalid-colors" };
     const normalColors = Float32Array.from(colorsPair.normal ?? []);
     const leafColors = Float32Array.from(colorsPair.leaf ?? []);
@@ -526,13 +570,13 @@ function renderTestChunk({
       if (window.mcDebugChunkGen) {
         console.log("chunk gen", key, "type:", data?.constructor?.name, "length:", data?.length);
       }
+      if (data) {
+        data = normalizeChunkData(data);
         if (data) {
-          data = normalizeChunkData(data);
-          if (data) {
-            chunkDatas.set(key, data);
-            markLightDirty(key);
-          }
+          chunkDatas.set(key, data);
+          markLightDirty(key);
         }
+      }
       pendingChunks.delete(key);
       remaining -= 1;
     }
@@ -619,6 +663,48 @@ function renderTestChunk({
   const outlineOffset = gl.getUniformLocation(outlineProgram, "uOffset");
   const outlineViewOffset = gl.getUniformLocation(outlineProgram, "uViewOffset");
   const outlineColor = gl.getUniformLocation(outlineProgram, "uColor");
+  const ensureWorldVao = (meshPart) => {
+    if (meshPart.vaoWorld) return meshPart.vaoWorld;
+    const vao = gl.createVertexArray();
+    if (!vao) return null;
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.positionBuffer);
+    gl.enableVertexAttribArray(aPosition);
+    gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.colorBuffer);
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.uvBuffer);
+    gl.enableVertexAttribArray(aUv);
+    gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.layerBuffer);
+    gl.enableVertexAttribArray(aLayer);
+    gl.vertexAttribPointer(aLayer, 1, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    meshPart.vaoWorld = vao;
+    return vao;
+  };
+  const ensureLeafVao = (meshPart) => {
+    if (meshPart.vaoLeaf) return meshPart.vaoLeaf;
+    const vao = gl.createVertexArray();
+    if (!vao) return null;
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.positionBuffer);
+    gl.enableVertexAttribArray(leafPosition);
+    gl.vertexAttribPointer(leafPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.colorBuffer);
+    gl.enableVertexAttribArray(leafColor);
+    gl.vertexAttribPointer(leafColor, 4, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.uvBuffer);
+    gl.enableVertexAttribArray(leafUv);
+    gl.vertexAttribPointer(leafUv, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.layerBuffer);
+    gl.enableVertexAttribArray(leafLayer);
+    gl.vertexAttribPointer(leafLayer, 1, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    meshPart.vaoLeaf = vao;
+    return vao;
+  };
 
   gl.useProgram(program);
   gl.uniform1i(uTex, 0);
@@ -715,28 +801,37 @@ function renderTestChunk({
     // Drop far chunks to cap memory/draw calls.
     for (const key of chunkMeshes.keys()) {
       if (!desiredKeys.has(key)) {
+        const mesh = chunkMeshes.get(key);
+        if (mesh) deleteChunkMesh(mesh);
         chunkMeshes.delete(key);
         chunkLights.delete(key);
       }
     }
+    const removedDataKeys = [];
     for (const key of chunkDatas.keys()) {
       if (!desiredKeys.has(key)) {
+        removedDataKeys.push(key);
         chunkDatas.delete(key);
         chunkLights.delete(key);
       }
     }
+    for (const key of removedDataKeys) {
+      markNeighborLightDirty(key);
+    }
 
     if (lightDirty) {
-      const sourceKeys = dirtyLightKeys.size > 0
-        ? Array.from(expandLightKeys(dirtyLightKeys))
-        : Array.from(desiredKeys);
-      const replaceAll = dirtyLightKeys.size === 0;
-      rebuildLightMaps(sourceKeys, replaceAll);
-      const updateKeys = dirtyLightKeys.size > 0 ? sourceKeys : Array.from(desiredKeys);
-      for (const key of updateKeys) {
-        const res = updateChunkColors(key);
-        if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
-          console.error("[lighting] failed to update chunk colors", key, res);
+      if (!useFixedLight) {
+        const sourceKeys = dirtyLightKeys.size > 0
+          ? Array.from(expandLightKeys(dirtyLightKeys))
+          : Array.from(desiredKeys);
+        const replaceAll = dirtyLightKeys.size === 0;
+        rebuildLightMaps(sourceKeys, replaceAll);
+        const updateKeys = dirtyLightKeys.size > 0 ? sourceKeys : Array.from(desiredKeys);
+        for (const key of updateKeys) {
+          const res = updateChunkColors(key);
+          if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
+            console.error("[lighting] failed to update chunk colors", key, res);
+          }
         }
       }
       dirtyLightKeys.clear();
@@ -796,27 +891,6 @@ function renderTestChunk({
     hotbar.setItems(hotbarItems, textures);
   }
 
-  const placedBlockIds = hotbarItems
-    .map((item) => {
-      if (!item) return mcAirLongId;
-      const id = getLongIdByName(item.name);
-      return Number.isFinite(id) ? id : mcAirLongId;
-    });
-  window.mcPlacedBlockIds = placedBlockIds;
-
-  let heldLongId = null;
-  const setHeldLongId = (id) => {
-    heldLongId = Number.isFinite(id) ? id : null;
-  };
-
-  const getPlacedBlockId = (index) => {
-    const id = placedBlockIds[index];
-    return Number.isFinite(id) ? id : mcAirLongId;
-  };
-  const getActivePlacedId = (index) => (
-    Number.isFinite(heldLongId) ? heldLongId : getPlacedBlockId(index)
-  );
-
   const inventoryColumns = window.mcInventoryGridX ?? 9;
   const inventoryRows = window.mcInventoryGridY ?? 6;
   const inventoryItems = padItems(
@@ -835,19 +909,18 @@ function renderTestChunk({
     columns: inventoryColumns,
     rows: inventoryRows,
     onSelect: (item) => {
-      const id = getLongIdByName(item.name);
-      if (Number.isFinite(id)) {
-        setHeldLongId(id);
-        const slotIndex = typeof hotbar.getSelectedIndex === "function"
-          ? hotbar.getSelectedIndex()
-          : (window.mcHotbarSelectedIndex ?? 0);
-        hotbarItems[slotIndex] = item;
-        placedBlockIds[slotIndex] = id;
-        if (typeof hotbar.setItem === "function") {
-          hotbar.setItem(slotIndex, item, textures);
-        } else if (typeof hotbar.setItems === "function") {
-          hotbar.setItems(hotbarItems, textures);
-        }
+      const slotIndex = typeof hotbar.getSelectedIndex === "function"
+        ? hotbar.getSelectedIndex()
+        : (window.mcHotbarSelectedIndex ?? 0);
+      hotbarItems[slotIndex] = item;
+      const category = item?.category ?? null;
+      if (category == null) {
+        console.error("[hotbar] missing category on item", item);
+      }
+      if (typeof hotbar.setItem === "function") {
+        hotbar.setItem(slotIndex, item, textures);
+      } else if (typeof hotbar.setItems === "function") {
+        hotbar.setItems(hotbarItems, textures);
       }
     },
     onClose: () => {
@@ -876,6 +949,20 @@ function renderTestChunk({
     if (!data) return;
     buildChunkMesh(key, cx, cy, cz, data);
   };
+
+  const drawCamera = {
+    position: [0, 0, 0],
+    direction: [0, 0, 0],
+    center: [0, 0, 0],
+  };
+  const raycastCamera = {
+    position: [0, 0, 0],
+    direction: [0, 0, 0],
+    center: [0, 0, 0],
+  };
+  const projMatrix = new Float32Array(16);
+  const viewMatrix = new Float32Array(16);
+  const mvpMatrix = new Float32Array(16);
 
   const setBlock = (wx, wy, wz, id) => {
     const keys = setBlockIdAt(chunkDatas, size, wx, wy, wz, id);
@@ -918,68 +1005,73 @@ function renderTestChunk({
   const onMouseDown = (event) => {
     if (document.pointerLockElement !== canvas) return;
     event.preventDefault();
-    const eye = [
+    cameraFromYawPitch(
+      raycastCamera,
       player.state.position[0],
       player.state.position[1] + 1.65,
       player.state.position[2],
-    ];
-    const camera = window.mcCameraFromYawPitch(
-      [...eye],
       player.state.yaw,
       player.state.pitch,
     );
-    const hit = raycastBlocks(camera.position, camera.direction);
+    const hit = raycastBlocks(raycastCamera.position, raycastCamera.direction);
     if (!hit) return;
     if (event.button === 0) {
-      setBlock(hit.block[0], hit.block[1], hit.block[2], mcAirLongId);
+      const slotIndex = typeof hotbar.getSelectedIndex === "function"
+        ? hotbar.getSelectedIndex()
+        : (window.mcHotbarSelectedIndex ?? 0);
+      const selectedItem = hotbarItems[slotIndex];
+      const category = selectedItem?.category ?? "none";
+      if (selectedItem && selectedItem.category == null) {
+        console.error("[hotbar] missing category on item", selectedItem);
+        return;
+      }
+      const useItem = window.mcUseItem;
+      const applyUse = window.mcApplyUseAction;
+      if (typeof useItem === "function" && typeof applyUse === "function") {
+        const action = useItem(selectedItem?.name ?? "", category, hit.block);
+        const keys = applyUse(chunkDatas, size, action);
+        if (Array.isArray(keys)) {
+          for (const key of keys) {
+            const xyz = chunkXyzByKey(key);
+            if (xyz) {
+              rebuildChunk(key, xyz.x, xyz.y, xyz.z);
+              markLightDirty(key);
+            }
+          }
+        }
+      }
     } else if (event.button === 2) {
       if (!hit.prev) return;
       const slotIndex = typeof hotbar.getSelectedIndex === "function"
         ? hotbar.getSelectedIndex()
         : (window.mcHotbarSelectedIndex ?? 0);
       const selectedItem = hotbarItems[slotIndex];
-      const placedId = getActivePlacedId(slotIndex);
-      if (selectedItem && placedId === mcAirLongId) {
-        const useItemOn = window.mcUseItemOn;
-        const applyUseOn = window.mcApplyUseOnAction;
-        if (typeof useItemOn === "function" && typeof applyUseOn === "function") {
-          const action = useItemOn(selectedItem.name, hit.block, hit.prev);
-          const keys = applyUseOn(chunkDatas, size, action);
-          if (Array.isArray(keys)) {
-            for (const key of keys) {
-              const xyz = chunkXyzByKey(key);
-              if (xyz) {
-                rebuildChunk(key, xyz.x, xyz.y, xyz.z);
-                markLightDirty(key);
-              }
-            }
-          }
-        }
+      const category = selectedItem?.category ?? null;
+      if (!selectedItem) return;
+      if (category == null) {
+        console.error("[hotbar] missing category on item", selectedItem);
         return;
       }
-      const targetId = getBlockId(hit.prev[0], hit.prev[1], hit.prev[2]);
-      if (Number.isFinite(targetId) && targetId === mcAirLongId) {
-        if (placedId !== mcAirLongId) {
-          const placedDecoded = unpackLongId(placedId);
-          const placementState = computePlacementState(placedId, hit.block, hit.prev);
-          const toPlaceId = Number.isFinite(placementState)
-            ? (placementState !== placedDecoded.state
-              ? packLongId(placedDecoded.id, placementState)
-              : placedId)
-            : placedId;
-          const canPlace = typeof window.mcCanPlaceBlock === "function"
-            ? window.mcCanPlaceBlock(
-              toPlaceId,
-              player.state.position,
-              player.state.entityHeight,
-              player.state.entityRadius,
-              hit.prev[0],
-              hit.prev[1],
-              hit.prev[2],
-            )
-            : true;
-          if (canPlace) {
-            setBlock(hit.prev[0], hit.prev[1], hit.prev[2], toPlaceId);
+      if (category !== "item" && category !== "block") return;
+      const useItemOn = window.mcUseItemOn;
+      const applyUseOn = window.mcApplyUseOnAction;
+      if (typeof useItemOn === "function" && typeof applyUseOn === "function") {
+        const action = useItemOn(selectedItem.name, category, hit.block, hit.prev);
+        const keys = applyUseOn(
+          chunkDatas,
+          size,
+          action,
+          player.state.position,
+          player.state.entityHeight ?? 0,
+          player.state.entityRadius ?? 0,
+        );
+        if (Array.isArray(keys)) {
+          for (const key of keys) {
+            const xyz = chunkXyzByKey(key);
+            if (xyz) {
+              rebuildChunk(key, xyz.x, xyz.y, xyz.z);
+              markLightDirty(key);
+            }
           }
         }
       }
@@ -990,8 +1082,7 @@ function renderTestChunk({
   canvas.addEventListener("mousedown", onMouseDown);
   if (hotbar?.host) {
     hotbar.host.addEventListener("hotbarselect", (event) => {
-      const index = event.detail?.index ?? 0;
-      setHeldLongId(getPlacedBlockId(index));
+      const _ = event.detail?.index ?? 0;
     });
   }
 
@@ -1030,26 +1121,24 @@ function renderTestChunk({
     rebuildMeshIfNeeded();
 
     const eyeHeight = 1.65;
-    const camera = window.mcCameraFromYawPitch(
-      [
-        player.state.position[0],
-        player.state.position[1] + eyeHeight,
-        player.state.position[2],
-      ],
+    const camera = cameraFromYawPitch(
+      drawCamera,
+      player.state.position[0],
+      player.state.position[1] + eyeHeight,
+      player.state.position[2],
       player.state.yaw,
       player.state.pitch,
     );
     const outlineBlock = updateOutline(camera);
     const aspect = canvasSize.width / canvasSize.height;
     const fov = (window.mcFov ?? 60) * (Math.PI / 180);
-    const mat4 = getMat4Api();
-    const proj = mat4.perspective(fov, aspect, 0.1, 200.0);
-    const view = mat4.lookAt(camera.position, camera.center, [0, 1, 0]);
-    const mvp = mat4.mul(proj, view);
+    mat4Perspective(projMatrix, fov, aspect, 0.1, 200.0);
+    mat4LookAt(viewMatrix, camera.position, camera.center, UP_VECTOR);
+    mat4Mul(mvpMatrix, projMatrix, viewMatrix);
     gl.useProgram(program);
     assertCurrentProgram("world mvp", program);
-    gl.uniformMatrix4fv(uMvp, false, new Float32Array(mvp));
-    gl.uniformMatrix4fv(uView, false, new Float32Array(view));
+    gl.uniformMatrix4fv(uMvp, false, mvpMatrix);
+    gl.uniformMatrix4fv(uView, false, viewMatrix);
     gl.uniform3f(uFogColor, 0.6, 0.8, 1.0);
     const renderDistance = window.mcRenderDistance ?? 0;
     const fogFar = (renderDistance + 0.6) * size;
@@ -1060,24 +1149,12 @@ function renderTestChunk({
     for (const mesh of chunkMeshes.values()) {
       const normal = mesh.normal;
       if (normal.count <= 0) continue;
-      gl.bindBuffer(gl.ARRAY_BUFFER, normal.positionBuffer);
-      gl.enableVertexAttribArray(aPosition);
-      gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, normal.colorBuffer);
-      gl.enableVertexAttribArray(aColor);
-      gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, normal.uvBuffer);
-      gl.enableVertexAttribArray(aUv);
-      gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, normal.layerBuffer);
-      gl.enableVertexAttribArray(aLayer);
-      gl.vertexAttribPointer(aLayer, 1, gl.FLOAT, false, 0, 0);
-
+      const vao = ensureWorldVao(normal);
+      if (!vao) continue;
+      gl.bindVertexArray(vao);
       gl.drawArrays(gl.TRIANGLES, 0, normal.count);
     }
+    gl.bindVertexArray(null);
 
     const leafTintValue = window.mcOakLeavesDefaultTint;
     if (!Array.isArray(leafTintValue) || leafTintValue.length < 3) {
@@ -1085,8 +1162,8 @@ function renderTestChunk({
     }
     gl.useProgram(leafProgram);
     assertCurrentProgram("leaf mvp", leafProgram);
-    gl.uniformMatrix4fv(leafMvp, false, new Float32Array(mvp));
-    gl.uniformMatrix4fv(leafView, false, new Float32Array(view));
+    gl.uniformMatrix4fv(leafMvp, false, mvpMatrix);
+    gl.uniformMatrix4fv(leafView, false, viewMatrix);
     gl.uniform3f(leafFogColor, 0.6, 0.8, 1.0);
     gl.uniform1f(leafFogNear, fogNear);
     gl.uniform1f(leafFogFar, fogFar);
@@ -1095,24 +1172,12 @@ function renderTestChunk({
     for (const mesh of chunkMeshes.values()) {
       const leaf = mesh.leaf;
       if (leaf.count <= 0) continue;
-      gl.bindBuffer(gl.ARRAY_BUFFER, leaf.positionBuffer);
-      gl.enableVertexAttribArray(leafPosition);
-      gl.vertexAttribPointer(leafPosition, 3, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, leaf.colorBuffer);
-      gl.enableVertexAttribArray(leafColor);
-      gl.vertexAttribPointer(leafColor, 4, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, leaf.uvBuffer);
-      gl.enableVertexAttribArray(leafUv);
-      gl.vertexAttribPointer(leafUv, 2, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, leaf.layerBuffer);
-      gl.enableVertexAttribArray(leafLayer);
-      gl.vertexAttribPointer(leafLayer, 1, gl.FLOAT, false, 0, 0);
-
+      const vao = ensureLeafVao(leaf);
+      if (!vao) continue;
+      gl.bindVertexArray(vao);
       gl.drawArrays(gl.TRIANGLES, 0, leaf.count);
     }
+    gl.bindVertexArray(null);
 
     gl.useProgram(program);
     assertCurrentProgram("translucent mvp", program);
@@ -1136,24 +1201,12 @@ function renderTestChunk({
       gl.depthMask(false);
       for (const entry of translucentMeshes) {
         const translucent = entry.mesh.translucent;
-        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.positionBuffer);
-        gl.enableVertexAttribArray(aPosition);
-        gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.colorBuffer);
-        gl.enableVertexAttribArray(aColor);
-        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.uvBuffer);
-        gl.enableVertexAttribArray(aUv);
-        gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, translucent.layerBuffer);
-        gl.enableVertexAttribArray(aLayer);
-        gl.vertexAttribPointer(aLayer, 1, gl.FLOAT, false, 0, 0);
-
+        const vao = ensureWorldVao(translucent);
+        if (!vao) continue;
+        gl.bindVertexArray(vao);
         gl.drawArrays(gl.TRIANGLES, 0, translucent.count);
       }
+      gl.bindVertexArray(null);
       gl.depthMask(true);
       gl.disable(gl.BLEND);
     }
@@ -1161,7 +1214,7 @@ function renderTestChunk({
     if (outlineBlock) {
       gl.useProgram(outlineProgram);
       assertCurrentProgram("outline mvp", outlineProgram);
-      gl.uniformMatrix4fv(outlineMvp, false, new Float32Array(mvp));
+      gl.uniformMatrix4fv(outlineMvp, false, mvpMatrix);
       const desc = getBlockShapeDesc(outlineBlock.longId);
       let boxes = desc?.boxes;
       if (desc && Number.isFinite(desc.facing) && desc.facing >= 0) {

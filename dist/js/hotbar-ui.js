@@ -17,7 +17,7 @@ function createCroppedDataUrl(img, crop) {
   const canvas = document.createElement("canvas");
   canvas.width = crop.width;
   canvas.height = crop.height;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { alpha: true });
 
   ctx.drawImage(
     img,
@@ -199,7 +199,7 @@ function createHotbarUI({
   // Draw all item slots into their canvases.
   const renderItemAt = (index, textures) => {
     const canvas = itemCanvases[index];
-    const ctx = canvas?.getContext("2d");
+    const ctx = canvas?.getContext("2d", { alpha: true });
     if (!ctx) return;
     const item = state.items[index];
     if (!item) {

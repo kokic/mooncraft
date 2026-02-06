@@ -10,20 +10,20 @@ pub enum ItemArchetype {
 ///|
 pub enum ToolKind {
   Shovel
-  Pickaxe
-  Axe
-  Hoe
-  Sword
+  // Pickaxe
+  // Axe
+  // Hoe
+  // Sword
 }
 
 ///|
 pub enum ToolTier {
-  Wood
-  Stone
+  // Wood
+  // Stone
   Iron
-  Gold
-  Diamond
-  Netherite
+  // Gold
+  // Diamond
+  // Netherite
 }
 
 ///|
@@ -48,11 +48,11 @@ pub fn ItemStack::from_item(item : Item, count? : Int = 1) -> ItemStack {
 
 ///|
 fn default_use_on(
-  _stack : ItemStack,
-  _x : Int,
-  _y : Int,
-  _z : Int,
-  _face : @shape.FaceName,
+  _ : ItemStack,
+  _ : Int,
+  _ : Int,
+  _ : Int,
+  _ : @shape.FaceName,
 ) -> UseOnAction {
   UseOnAction::None
 }

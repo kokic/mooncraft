@@ -55,13 +55,14 @@ fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      let biome = @biome.biome_at(world.noise, wx, wz)
+      let column = terrain_column(world, wx, wz)
+      let biome = column.biome
       let dirt_depth = surface_dirt_depth(world, wx, wz)
       let sand_depth = desert_sand_depth(world, wx, wz)
-      let surface = surface_height(world, wx, wz)
+      let surface = column.surface
       for ry in 0..<CHUNK_Y_SIZE {
         let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
-        let density = density_at(world, wx, wy, wz)
+        let density = density_at_column(world, column, wy)
         if wy < PRECLASSIC_MIN_Y {
           chunk.update_tile_map(rx, ry, rz, air)
         } else if wy == PRECLASSIC_MIN_Y {

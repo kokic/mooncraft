@@ -28,7 +28,7 @@ fn face_from_hit(
 }
 
 ///|
-pub fn use_item_on_block(
+pub fn use_item_on(
   name : String,
   category : String,
   block : Array[Int],

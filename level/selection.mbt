@@ -144,67 +144,105 @@ pub fn raycast_blocks(
   origin : Array[Double],
   dir : Array[Double],
   max_dist : Double,
-  step : Double,
+  _step : Double,
   air_id : UInt,
 ) -> RaycastResult? {
   if origin.length() < 3 || dir.length() < 3 {
     None
   } else {
-    let mut t = 0.0
+    let dx = dir[0]
+    let dy = dir[1]
+    let dz = dir[2]
+    let eps = 0.00000001
+    if dx.abs() < eps && dy.abs() < eps && dz.abs() < eps {
+      return None
+    }
+    let mut bx = origin[0].floor().to_int()
+    let mut by = origin[1].floor().to_int()
+    let mut bz = origin[2].floor().to_int()
+    let sx = if dx > 0.0 { 1 } else if dx < 0.0 { -1 } else { 0 }
+    let sy = if dy > 0.0 { 1 } else if dy < 0.0 { -1 } else { 0 }
+    let sz = if dz > 0.0 { 1 } else if dz < 0.0 { -1 } else { 0 }
+    let inf = max_dist + 1.0
+    let mut t_max_x = if sx == 0 {
+      inf
+    } else if sx > 0 {
+      (bx.to_double() + 1.0 - origin[0]) / dx
+    } else {
+      (origin[0] - bx.to_double()) / (-dx)
+    }
+    let mut t_max_y = if sy == 0 {
+      inf
+    } else if sy > 0 {
+      (by.to_double() + 1.0 - origin[1]) / dy
+    } else {
+      (origin[1] - by.to_double()) / (-dy)
+    }
+    let mut t_max_z = if sz == 0 {
+      inf
+    } else if sz > 0 {
+      (bz.to_double() + 1.0 - origin[2]) / dz
+    } else {
+      (origin[2] - bz.to_double()) / (-dz)
+    }
+    let t_delta_x = if sx == 0 { inf } else { 1.0 / dx.abs() }
+    let t_delta_y = if sy == 0 { inf } else { 1.0 / dy.abs() }
+    let t_delta_z = if sz == 0 { inf } else { 1.0 / dz.abs() }
+    let mut traveled = 0.0
     let mut last_pos : (Int, Int, Int)? = None
-    while t <= max_dist {
-      let px = origin[0] + dir[0] * t
-      let py = origin[1] + dir[1] * t
-      let pz = origin[2] + dir[2] * t
-      let bx = px.floor().to_int()
-      let by = py.floor().to_int()
-      let bz = pz.floor().to_int()
-      let changed = match last_pos {
-        None => true
-        Some((lx, ly, lz)) => bx != lx || by != ly || bz != lz
-      }
-      if changed {
-        let hit = get_block_at(chunk_map, size, bx, by, bz)
-        match hit {
-          Some(id) if id != air_id => {
-            let mut allow_hit = true
-            match @block.lookup_by_long_id(id) {
-              Some(block) =>
-                match block.shape {
-                  shape if shape.is_torch_genus() => {
-                    let box = @genus.Torch::shape_box_by_state(block.state)
-                    let bmin_f = box.min
-                    let bmax_f = box.max
-                    let min = [
-                      bx.to_double() + bmin_f[0].to_double(),
-                      by.to_double() + bmin_f[1].to_double(),
-                      bz.to_double() + bmin_f[2].to_double(),
-                    ]
-                    let max = [
-                      bx.to_double() + bmax_f[0].to_double(),
-                      by.to_double() + bmax_f[1].to_double(),
-                      bz.to_double() + bmax_f[2].to_double(),
-                    ]
-                    allow_hit = ray_intersects_aabb(origin, dir, min, max)
-                  }
-                  _ => ()
+    while traveled <= max_dist {
+      let hit = get_block_at(chunk_map, size, bx, by, bz)
+      match hit {
+        Some(id) if id != air_id => {
+          let mut allow_hit = true
+          match @block.lookup_by_long_id(id) {
+            Some(block) =>
+              match block.shape {
+                shape if shape.is_torch_genus() => {
+                  let box = @genus.Torch::shape_box_by_state(block.state)
+                  let bmin_f = box.min
+                  let bmax_f = box.max
+                  let min = [
+                    bx.to_double() + bmin_f[0].to_double(),
+                    by.to_double() + bmin_f[1].to_double(),
+                    bz.to_double() + bmin_f[2].to_double(),
+                  ]
+                  let max = [
+                    bx.to_double() + bmax_f[0].to_double(),
+                    by.to_double() + bmax_f[1].to_double(),
+                    bz.to_double() + bmax_f[2].to_double(),
+                  ]
+                  allow_hit = ray_intersects_aabb(origin, dir, min, max)
                 }
-              None => ()
-            }
-            if allow_hit {
-              let prev = match last_pos {
-                Some((lx, ly, lz)) => @ffi.JsValue::cast_from([lx, ly, lz])
-                None => @ffi.JsValue::null()
+                _ => ()
               }
-              return Some(RaycastResult::{ block: [bx, by, bz], prev })
-            } else {
-              last_pos = Some((bx, by, bz))
-            }
+            None => ()
           }
-          _ => last_pos = Some((bx, by, bz))
+          if allow_hit {
+            let prev = match last_pos {
+              Some((lx, ly, lz)) => @ffi.JsValue::cast_from([lx, ly, lz])
+              None => @ffi.JsValue::null()
+            }
+            return Some(RaycastResult::{ block: [bx, by, bz], prev })
+          } else {
+            last_pos = Some((bx, by, bz))
+          }
         }
+        _ => last_pos = Some((bx, by, bz))
       }
-      t = t + step
+      if t_max_x <= t_max_y && t_max_x <= t_max_z {
+        bx = bx + sx
+        traveled = t_max_x
+        t_max_x = t_max_x + t_delta_x
+      } else if t_max_y <= t_max_z {
+        by = by + sy
+        traveled = t_max_y
+        t_max_y = t_max_y + t_delta_y
+      } else {
+        bz = bz + sz
+        traveled = t_max_z
+        t_max_z = t_max_z + t_delta_z
+      }
     }
     None
   }

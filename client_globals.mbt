@@ -68,7 +68,7 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGetBlockShapeDesc", @block.get_shape_desc)
   set_global("mcComputePlacementState", @block.compute_placement_state)
   set_global("mcMovePlayer", @player.move_player)
-  set_global("mcUseItemOn", @item.use_item_on_block)
+  set_global("mcUseItemOn", @item.use_item_on)
   set_global("mcUseItem", @item.use_item)
   set_global("mcGetItemDisplayName", @i18n.item_display_name)
   set_global("mcGetBiomeName", fn(wx : Int, wz : Int) -> String {

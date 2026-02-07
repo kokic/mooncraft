@@ -13,6 +13,7 @@ import {
 } from "./math3d.js";
 
 const UPDATE_LABEL = `(7:26)`
+const DEFAULT_MESH_SECTION_SIZE = 8;
 
 function getBlockShapeDesc(longId) {
   const value = window.mcGetBlockShapeDesc(longId);
@@ -86,36 +87,6 @@ function buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY) {
     return null;
   }
   return entries;
-}
-
-function buildChunkColorsSplit(registry, data, light, size) {
-  const fn = window.mcBuildChunkColorsSplit;
-  if (typeof fn !== "function") {
-    return null;
-  }
-  const value = fn(registry, data, light, size);
-  if (!value ||
-    !Array.isArray(value.normal) ||
-    !Array.isArray(value.leaf) ||
-    !Array.isArray(value.translucent)) {
-    console.warn("mcBuildChunkColorsSplit returned invalid data");
-    return null;
-  }
-  return value;
-}
-
-function buildChunkDataPadded(chunkDatas, size, cx, cy, cz, centerData) {
-  const fn = window.mcBuildChunkDataPadded;
-  if (typeof fn !== "function") {
-    return centerData;
-  }
-  const airLongId = Number(window.mcAirLongId ?? 0);
-  const value = fn(chunkDatas, size, cx, cy, cz, airLongId);
-  if (Array.isArray(value)) return value;
-  if (value instanceof Uint32Array) return Array.from(value);
-  if (value && typeof value.length === "number") return Array.from(value);
-  console.warn("mcBuildChunkDataPadded returned invalid data");
-  return centerData;
 }
 
 function chunkXyzByKey(key) {
@@ -346,8 +317,11 @@ function renderTestChunk({
   if (data) chunkDatas.set("0,0,0", data);
   const pendingChunks = new Set();
   const chunkQueue = [];
+  let chunkQueueHead = 0;
   const chunkMeshes = new Map();
   const chunkLights = new Map();
+  const dirtyMeshKeys = new Set();
+  const dirtySectionKeys = new Set();
   const maxGenPerFrame = window.mcChunkGenPerFrame ?? 2;
   const maxMeshBuildPerFrame = window.mcMeshBuildPerFrame ?? 2;
   const worldMinY = window.mcWorldMinY ?? 0;
@@ -355,6 +329,20 @@ function renderTestChunk({
   const chunkMinY = Math.floor(worldMinY / size);
   const chunkMaxY = Math.floor(worldMaxY / size);
   const useFixedLight = window.mcUseFixedLight === true;
+  const meshSectionRaw = Number(window.mcMeshSectionSize ?? DEFAULT_MESH_SECTION_SIZE);
+  const meshSectionCandidate = Number.isFinite(meshSectionRaw)
+    ? Math.max(1, Math.floor(meshSectionRaw))
+    : DEFAULT_MESH_SECTION_SIZE;
+  const meshSectionSize = size % meshSectionCandidate === 0 ? meshSectionCandidate : size;
+  const sectionsPerAxis = Math.max(1, Math.floor(size / meshSectionSize));
+  const sectionCellCount = meshSectionSize * meshSectionSize * meshSectionSize;
+  if (meshSectionSize !== meshSectionCandidate) {
+    console.warn("[mesh] section size must divide chunk size; fallback to full chunk", {
+      requested: meshSectionCandidate,
+      chunkSize: size,
+      sectionSize: meshSectionSize,
+    });
+  }
   console.debug("[spawn] world bounds", {
     worldMinY,
     worldMaxY,
@@ -367,8 +355,8 @@ function renderTestChunk({
   const dirtyLightKeys = new Set();
 
   const fallbackChunk = new Array(size * size * size).fill(0);
-  const fallbackLight = new Uint8Array(size * size * size);
-  fallbackLight.fill(15);
+  const fallbackSectionLight = new Uint8Array(sectionCellCount);
+  fallbackSectionLight.fill(15);
   const deleteMeshBuffers = (buffers) => {
     if (!buffers) return;
     if (buffers.vaoWorld) gl.deleteVertexArray(buffers.vaoWorld);
@@ -381,6 +369,15 @@ function renderTestChunk({
   };
   const deleteChunkMesh = (mesh) => {
     if (!mesh) return;
+    if (mesh.sections instanceof Map) {
+      for (const section of mesh.sections.values()) {
+        deleteMeshBuffers(section.normal);
+        deleteMeshBuffers(section.leaf);
+        deleteMeshBuffers(section.translucent);
+      }
+      mesh.sections.clear();
+      return;
+    }
     deleteMeshBuffers(mesh.normal);
     deleteMeshBuffers(mesh.leaf);
     deleteMeshBuffers(mesh.translucent);
@@ -388,6 +385,77 @@ function renderTestChunk({
   const markLightDirty = (key) => {
     lightDirty = true;
     if (typeof key === "string") dirtyLightKeys.add(key);
+  };
+  const markMeshDirty = (key) => {
+    if (typeof key === "string") dirtyMeshKeys.add(key);
+  };
+  const sectionKeyOf = (chunkKey, sx, sy, sz) => `${chunkKey}|${sx},${sy},${sz}`;
+  const parseSectionKey = (value) => {
+    if (typeof value !== "string") return null;
+    const sep = value.indexOf("|");
+    if (sep <= 0) return null;
+    const key = value.slice(0, sep);
+    const parts = value.slice(sep + 1).split(",");
+    if (parts.length !== 3) return null;
+    const sx = Number(parts[0]);
+    const sy = Number(parts[1]);
+    const sz = Number(parts[2]);
+    if (!Number.isInteger(sx) || !Number.isInteger(sy) || !Number.isInteger(sz)) {
+      return null;
+    }
+    if (sx < 0 || sy < 0 || sz < 0) return null;
+    if (sx >= sectionsPerAxis || sy >= sectionsPerAxis || sz >= sectionsPerAxis) {
+      return null;
+    }
+    return { key, sx, sy, sz };
+  };
+  const clearDirtySectionsForChunk = (chunkKey) => {
+    const prefix = `${chunkKey}|`;
+    for (const sectionKey of Array.from(dirtySectionKeys)) {
+      if (sectionKey.startsWith(prefix)) {
+        dirtySectionKeys.delete(sectionKey);
+      }
+    }
+  };
+  const markChunkSectionsDirty = (chunkKey) => {
+    if (typeof chunkKey !== "string" || !chunkDatas.has(chunkKey)) return;
+    for (let sy = 0; sy < sectionsPerAxis; sy += 1) {
+      for (let sz = 0; sz < sectionsPerAxis; sz += 1) {
+        for (let sx = 0; sx < sectionsPerAxis; sx += 1) {
+          dirtySectionKeys.add(sectionKeyOf(chunkKey, sx, sy, sz));
+        }
+      }
+    }
+  };
+  const markSectionDirtyByWorld = (wx, wy, wz, touchedChunkKeys) => {
+    const cx = Math.floor(wx / size);
+    const cy = Math.floor(wy / size);
+    const cz = Math.floor(wz / size);
+    const key = `${cx},${cy},${cz}`;
+    if (!chunkDatas.has(key)) return;
+    const lx = wx - cx * size;
+    const ly = wy - cy * size;
+    const lz = wz - cz * size;
+    const sx = Math.floor(lx / meshSectionSize);
+    const sy = Math.floor(ly / meshSectionSize);
+    const sz = Math.floor(lz / meshSectionSize);
+    if (sx < 0 || sy < 0 || sz < 0) return;
+    if (sx >= sectionsPerAxis || sy >= sectionsPerAxis || sz >= sectionsPerAxis) return;
+    dirtySectionKeys.add(sectionKeyOf(key, sx, sy, sz));
+    if (touchedChunkKeys instanceof Set) {
+      touchedChunkKeys.add(key);
+    }
+  };
+  const markVoxelAndNeighborSectionsDirty = (wx, wy, wz) => {
+    const touched = new Set();
+    markSectionDirtyByWorld(wx, wy, wz, touched);
+    markSectionDirtyByWorld(wx - 1, wy, wz, touched);
+    markSectionDirtyByWorld(wx + 1, wy, wz, touched);
+    markSectionDirtyByWorld(wx, wy - 1, wz, touched);
+    markSectionDirtyByWorld(wx, wy + 1, wz, touched);
+    markSectionDirtyByWorld(wx, wy, wz - 1, touched);
+    markSectionDirtyByWorld(wx, wy, wz + 1, touched);
+    return touched;
   };
   const markNeighborLightDirty = (key) => {
     const xyz = chunkXyzByKey(key);
@@ -444,121 +512,171 @@ function renderTestChunk({
     pendingChunks.add(key);
     chunkQueue.push({ key, cx, cy, cz });
   };
-
-  const buildChunkMesh = (key, cx, cy, cz, data) => {
-    const light = useFixedLight ? fallbackLight : (chunkLights.get(key) ?? fallbackLight);
-    const paddedData = buildChunkDataPadded(chunkDatas, size, cx, cy, cz, data);
-    const entries = [{ x: cx, y: cy, z: cz, data: paddedData, light }];
-    const meshPair = window.mcBuildWorldMeshSplit(blockRegistry, entries, size);
+  const toBuffers = (mesh) => {
+    const positions = new Float32Array(mesh.positions);
+    const uvs = new Float32Array(mesh.uvs);
+    const layers = new Float32Array(mesh.layers);
+    let colors = new Float32Array(mesh.colors ?? []);
+    if (colors.length === 0 && mesh.count > 0) {
+      colors = new Float32Array(mesh.count * 4);
+      for (let i = 0; i < colors.length; i += 4) {
+        colors[i] = 1;
+        colors[i + 1] = 1;
+        colors[i + 2] = 1;
+        colors[i + 3] = 1;
+      }
+    }
+    const normals = new Float32Array(mesh.normals ?? []);
+    const positionBuffer = gl.createBuffer();
+    const uvBuffer = gl.createBuffer();
+    const layerBuffer = gl.createBuffer();
+    const colorBuffer = gl.createBuffer();
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layerBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, layers, gl.STATIC_DRAW);
+    return {
+      count: mesh.count,
+      vaoWorld: null,
+      vaoLeaf: null,
+      positionBuffer,
+      colorBuffer,
+      normalBuffer,
+      uvBuffer,
+      layerBuffer,
+    };
+  };
+  const getOrCreateChunkMesh = (key, cx, cy, cz) => {
+    const prev = chunkMeshes.get(key);
+    if (prev && prev.sections instanceof Map) {
+      prev.cx = cx;
+      prev.cy = cy;
+      prev.cz = cz;
+      return prev;
+    }
+    if (prev) {
+      deleteChunkMesh(prev);
+    }
+    const mesh = { cx, cy, cz, sections: new Map() };
+    chunkMeshes.set(key, mesh);
+    return mesh;
+  };
+  const buildSectionPaddedData = (baseWorldX, baseWorldY, baseWorldZ) => {
+    const pad = meshSectionSize + 2;
+    const padded = new Array(pad * pad * pad);
+    let idx = 0;
+    for (let y = -1; y <= meshSectionSize; y += 1) {
+      for (let z = -1; z <= meshSectionSize; z += 1) {
+        for (let x = -1; x <= meshSectionSize; x += 1) {
+          padded[idx] = getBlockIdAt(
+            chunkDatas,
+            size,
+            baseWorldX + x,
+            baseWorldY + y,
+            baseWorldZ + z,
+          );
+          idx += 1;
+        }
+      }
+    }
+    return padded;
+  };
+  const buildSectionLight = (key, sx, sy, sz) => {
+    if (useFixedLight) return fallbackSectionLight;
+    const chunkLight = chunkLights.get(key);
+    if (!chunkLight || typeof chunkLight.length !== "number") {
+      return fallbackSectionLight;
+    }
+    const chunkCellCount = size * size * size;
+    if (chunkLight.length < chunkCellCount) {
+      return fallbackSectionLight;
+    }
+    const sectionLight = new Uint8Array(sectionCellCount);
+    const offsetX = sx * meshSectionSize;
+    const offsetY = sy * meshSectionSize;
+    const offsetZ = sz * meshSectionSize;
+    let idx = 0;
+    for (let y = 0; y < meshSectionSize; y += 1) {
+      for (let z = 0; z < meshSectionSize; z += 1) {
+        for (let x = 0; x < meshSectionSize; x += 1) {
+          const lx = offsetX + x;
+          const ly = offsetY + y;
+          const lz = offsetZ + z;
+          const lightIndex = ((ly * size) + lz) * size + lx;
+          sectionLight[idx] = Number(chunkLight[lightIndex] ?? 15);
+          idx += 1;
+        }
+      }
+    }
+    return sectionLight;
+  };
+  const buildChunkSectionMesh = (key, cx, cy, cz, sx, sy, sz) => {
+    const sectionChunkX = cx * sectionsPerAxis + sx;
+    const sectionChunkY = cy * sectionsPerAxis + sy;
+    const sectionChunkZ = cz * sectionsPerAxis + sz;
+    const baseWorldX = sectionChunkX * meshSectionSize;
+    const baseWorldY = sectionChunkY * meshSectionSize;
+    const baseWorldZ = sectionChunkZ * meshSectionSize;
+    const sectionData = buildSectionPaddedData(baseWorldX, baseWorldY, baseWorldZ);
+    const sectionLight = buildSectionLight(key, sx, sy, sz);
+    const entries = [{
+      x: sectionChunkX,
+      y: sectionChunkY,
+      z: sectionChunkZ,
+      data: sectionData,
+      light: sectionLight,
+    }];
+    const meshPair = window.mcBuildWorldMeshSplit(blockRegistry, entries, meshSectionSize);
     if (!meshPair || !meshPair.normal || !meshPair.leaf || !meshPair.translucent) {
       throw new Error("mcBuildWorldMeshSplit returned invalid data");
     }
-    const toBuffers = (mesh) => {
-      const positions = new Float32Array(mesh.positions);
-      const uvs = new Float32Array(mesh.uvs);
-      const layers = new Float32Array(mesh.layers);
-      let colors = new Float32Array(mesh.colors ?? []);
-      if (colors.length === 0 && mesh.count > 0) {
-        colors = new Float32Array(mesh.count * 4);
-        for (let i = 0; i < colors.length; i += 4) {
-          colors[i] = 1;
-          colors[i + 1] = 1;
-          colors[i + 2] = 1;
-          colors[i + 3] = 1;
-        }
-      }
-      const normals = new Float32Array(mesh.normals ?? []);
-      const positionBuffer = gl.createBuffer();
-      const uvBuffer = gl.createBuffer();
-      const layerBuffer = gl.createBuffer();
-      const colorBuffer = gl.createBuffer();
-      const normalBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, layerBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, layers, gl.STATIC_DRAW);
-      return {
-        count: mesh.count,
-        vaoWorld: null,
-        vaoLeaf: null,
-        positionBuffer,
-        colorBuffer,
-        normalBuffer,
-        uvBuffer,
-        layerBuffer,
-      };
-    };
-    const nextMesh = {
-      cx,
-      cy,
-      cz,
+    const chunkMesh = getOrCreateChunkMesh(key, cx, cy, cz);
+    const id = `${sx},${sy},${sz}`;
+    const prevSection = chunkMesh.sections.get(id);
+    if (prevSection) {
+      deleteMeshBuffers(prevSection.normal);
+      deleteMeshBuffers(prevSection.leaf);
+      deleteMeshBuffers(prevSection.translucent);
+    }
+    chunkMesh.sections.set(id, {
+      sx,
+      sy,
+      sz,
+      centerX: baseWorldX + meshSectionSize * 0.5,
+      centerY: baseWorldY + meshSectionSize * 0.5,
+      centerZ: baseWorldZ + meshSectionSize * 0.5,
       normal: toBuffers(meshPair.normal),
       leaf: toBuffers(meshPair.leaf),
       translucent: toBuffers(meshPair.translucent),
-    };
-    const prevMesh = chunkMeshes.get(key);
-    if (prevMesh) deleteChunkMesh(prevMesh);
-    chunkMeshes.set(key, nextMesh);
+    });
+  };
+  const buildChunkMesh = (key, cx, cy, cz, _data) => {
+    for (let sy = 0; sy < sectionsPerAxis; sy += 1) {
+      for (let sz = 0; sz < sectionsPerAxis; sz += 1) {
+        for (let sx = 0; sx < sectionsPerAxis; sx += 1) {
+          buildChunkSectionMesh(key, cx, cy, cz, sx, sy, sz);
+        }
+      }
+    }
   };
   const updateChunkColors = (key) => {
     if (useFixedLight) return { ok: true };
-    const mesh = chunkMeshes.get(key);
-    if (!mesh) return { ok: false, reason: "missing-mesh" };
-    const data = chunkDatas.get(key);
-    if (!data) return { ok: false, reason: "missing-data" };
-    const light = chunkLights.get(key) ?? fallbackLight;
-    const paddedData = buildChunkDataPadded(chunkDatas, size, mesh.cx, mesh.cy, mesh.cz, data);
-    const colorsPair = buildChunkColorsSplit(blockRegistry, paddedData, light, size);
-    if (!colorsPair) return { ok: false, reason: "invalid-colors" };
-    const normalColors = Float32Array.from(colorsPair.normal ?? []);
-    const leafColors = Float32Array.from(colorsPair.leaf ?? []);
-    const translucentColors = Float32Array.from(colorsPair.translucent ?? []);
-    const normalExpected = mesh.normal.count * 4;
-    const leafExpected = mesh.leaf.count * 4;
-    const translucentExpected = mesh.translucent.count * 4;
-    if (mesh.normal.count > 0 && normalColors.length !== normalExpected) {
-      return {
-        ok: false,
-        reason: "mismatch-normal",
-        expected: normalExpected,
-        got: normalColors.length,
-      };
-    }
-    if (mesh.leaf.count > 0 && leafColors.length !== leafExpected) {
-      return {
-        ok: false,
-        reason: "mismatch-leaf",
-        expected: leafExpected,
-        got: leafColors.length,
-      };
-    }
-    if (mesh.translucent.count > 0 && translucentColors.length !== translucentExpected) {
-      return {
-        ok: false,
-        reason: "mismatch-translucent",
-        expected: translucentExpected,
-        got: translucentColors.length,
-      };
-    }
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normal.colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, normalColors, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.leaf.colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, leafColors, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.translucent.colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, translucentColors, gl.DYNAMIC_DRAW);
+    markChunkSectionsDirty(key);
     return { ok: true };
   };
 
   const processChunkQueue = () => {
     let remaining = maxGenPerFrame;
-    while (remaining > 0 && chunkQueue.length > 0) {
-      const next = chunkQueue.shift();
+    while (remaining > 0 && chunkQueueHead < chunkQueue.length) {
+      const next = chunkQueue[chunkQueueHead];
+      chunkQueueHead += 1;
       if (!next) break;
       const { key, cx, cy, cz } = next;
       let data = null;
@@ -574,11 +692,19 @@ function renderTestChunk({
         data = normalizeChunkData(data);
         if (data) {
           chunkDatas.set(key, data);
+          markMeshDirty(key);
           markLightDirty(key);
         }
       }
       pendingChunks.delete(key);
       remaining -= 1;
+    }
+    if (chunkQueueHead >= chunkQueue.length) {
+      chunkQueue.length = 0;
+      chunkQueueHead = 0;
+    } else if (chunkQueueHead > 256 && chunkQueueHead * 2 >= chunkQueue.length) {
+      chunkQueue.splice(0, chunkQueueHead);
+      chunkQueueHead = 0;
     }
   };
 
@@ -805,6 +931,8 @@ function renderTestChunk({
         if (mesh) deleteChunkMesh(mesh);
         chunkMeshes.delete(key);
         chunkLights.delete(key);
+        dirtyMeshKeys.delete(key);
+        clearDirtySectionsForChunk(key);
       }
     }
     const removedDataKeys = [];
@@ -813,10 +941,73 @@ function renderTestChunk({
         removedDataKeys.push(key);
         chunkDatas.delete(key);
         chunkLights.delete(key);
+        dirtyMeshKeys.delete(key);
+        clearDirtySectionsForChunk(key);
       }
     }
     for (const key of removedDataKeys) {
       markNeighborLightDirty(key);
+    }
+
+    let built = 0;
+    for (const key of Array.from(dirtyMeshKeys)) {
+      if (built >= maxMeshBuildPerFrame) break;
+      if (!desiredKeys.has(key)) {
+        dirtyMeshKeys.delete(key);
+        continue;
+      }
+      const data = chunkDatas.get(key);
+      if (!data) {
+        dirtyMeshKeys.delete(key);
+        continue;
+      }
+      const xyz = chunkXyzByKey(key);
+      if (!xyz) {
+        dirtyMeshKeys.delete(key);
+        continue;
+      }
+      buildChunkMesh(key, xyz.x, xyz.y, xyz.z, data);
+      dirtyMeshKeys.delete(key);
+      clearDirtySectionsForChunk(key);
+      built += 1;
+    }
+    for (const sectionKey of Array.from(dirtySectionKeys)) {
+      if (built >= maxMeshBuildPerFrame) break;
+      const parsed = parseSectionKey(sectionKey);
+      if (!parsed) {
+        dirtySectionKeys.delete(sectionKey);
+        continue;
+      }
+      if (!desiredKeys.has(parsed.key)) {
+        dirtySectionKeys.delete(sectionKey);
+        continue;
+      }
+      if (dirtyMeshKeys.has(parsed.key)) {
+        continue;
+      }
+      if (!chunkDatas.has(parsed.key)) {
+        dirtySectionKeys.delete(sectionKey);
+        continue;
+      }
+      const xyz = chunkXyzByKey(parsed.key);
+      if (!xyz) {
+        dirtySectionKeys.delete(sectionKey);
+        continue;
+      }
+      buildChunkSectionMesh(parsed.key, xyz.x, xyz.y, xyz.z, parsed.sx, parsed.sy, parsed.sz);
+      dirtySectionKeys.delete(sectionKey);
+      built += 1;
+    }
+    for (const key of desiredKeys) {
+      if (built >= maxMeshBuildPerFrame) break;
+      if (chunkMeshes.has(key)) continue;
+      const data = chunkDatas.get(key);
+      if (!data) continue;
+      const xyz = chunkXyzByKey(key);
+      if (!xyz) continue;
+      buildChunkMesh(key, xyz.x, xyz.y, xyz.z, data);
+      clearDirtySectionsForChunk(key);
+      built += 1;
     }
 
     if (lightDirty) {
@@ -836,18 +1027,6 @@ function renderTestChunk({
       }
       dirtyLightKeys.clear();
       lightDirty = false;
-    }
-
-    let built = 0;
-    for (const key of desiredKeys) {
-      if (built >= maxMeshBuildPerFrame) break;
-      if (chunkMeshes.has(key)) continue;
-      const data = chunkDatas.get(key);
-      if (!data) continue;
-      const xyz = chunkXyzByKey(key);
-      if (!xyz) continue;
-      buildChunkMesh(key, xyz.x, xyz.y, xyz.z, data);
-      built += 1;
     }
   };
 
@@ -944,10 +1123,14 @@ function renderTestChunk({
       canvas.requestPointerLock();
     }
   };
-  const rebuildChunk = (key, cx, cy, cz) => {
-    const data = chunkDatas.get(key);
-    if (!data) return;
-    buildChunkMesh(key, cx, cy, cz, data);
+  const markEditedVoxelSections = (wx, wy, wz, keys) => {
+    const touched = markVoxelAndNeighborSectionsDirty(wx, wy, wz);
+    if (!Array.isArray(keys)) return;
+    for (const key of keys) {
+      if (!touched.has(key)) {
+        markMeshDirty(key);
+      }
+    }
   };
 
   const drawCamera = {
@@ -963,14 +1146,15 @@ function renderTestChunk({
   const projMatrix = new Float32Array(16);
   const viewMatrix = new Float32Array(16);
   const mvpMatrix = new Float32Array(16);
+  const enableProgramAssert = window.mcDebugProgramAssert === true;
+  let biomeHudFrame = 0;
+  let biomeHudCached = "Unknown";
 
   const setBlock = (wx, wy, wz, id) => {
     const keys = setBlockIdAt(chunkDatas, size, wx, wy, wz, id);
     if (!Array.isArray(keys) || keys.length === 0) return false;
+    markEditedVoxelSections(wx, wy, wz, keys);
     for (const key of keys) {
-      const xyz = chunkXyzByKey(key);
-      if (!xyz) continue;
-      rebuildChunk(key, xyz.x, xyz.y, xyz.z);
       markLightDirty(key);
     }
     return true;
@@ -1031,12 +1215,9 @@ function renderTestChunk({
         const action = useItem(selectedItem?.name ?? "", category, hit.block);
         const keys = applyUse(chunkDatas, size, action);
         if (Array.isArray(keys)) {
+          markEditedVoxelSections(hit.block[0], hit.block[1], hit.block[2], keys);
           for (const key of keys) {
-            const xyz = chunkXyzByKey(key);
-            if (xyz) {
-              rebuildChunk(key, xyz.x, xyz.y, xyz.z);
-              markLightDirty(key);
-            }
+            markLightDirty(key);
           }
         }
       }
@@ -1066,12 +1247,9 @@ function renderTestChunk({
           player.state.entityRadius ?? 0,
         );
         if (Array.isArray(keys)) {
+          markEditedVoxelSections(hit.prev[0], hit.prev[1], hit.prev[2], keys);
           for (const key of keys) {
-            const xyz = chunkXyzByKey(key);
-            if (xyz) {
-              rebuildChunk(key, xyz.x, xyz.y, xyz.z);
-              markLightDirty(key);
-            }
+            markLightDirty(key);
           }
         }
       }
@@ -1087,6 +1265,7 @@ function renderTestChunk({
   }
 
   const assertCurrentProgram = (label, expected) => {
+    if (!enableProgramAssert) return;
     const current = gl.getParameter(gl.CURRENT_PROGRAM);
     if (current !== expected) {
       const name = current === program
@@ -1146,7 +1325,33 @@ function renderTestChunk({
     gl.uniform1f(uFogNear, fogNear);
     gl.uniform1f(uFogFar, fogFar);
 
-    for (const mesh of chunkMeshes.values()) {
+    const maxVisibleDist = (renderDistance + 1.2) * size;
+    const maxVisibleDistSq = maxVisibleDist * maxVisibleDist;
+    const chunkRadius = meshSectionSize * 0.9;
+    const coneCos = Math.cos(Math.min(fov * 0.65, Math.PI * 0.95));
+    const visibleMeshes = [];
+    for (const chunkMesh of chunkMeshes.values()) {
+      if (!(chunkMesh?.sections instanceof Map)) continue;
+      for (const mesh of chunkMesh.sections.values()) {
+        const dx = mesh.centerX - camera.position[0];
+        const dy = mesh.centerY - camera.position[1];
+        const dz = mesh.centerZ - camera.position[2];
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq > maxVisibleDistSq) continue;
+        const dist = Math.sqrt(distSq);
+        if (dist > chunkRadius) {
+          const dot = dx * camera.direction[0] +
+            dy * camera.direction[1] +
+            dz * camera.direction[2];
+          if (dot < -chunkRadius) continue;
+          if (dot < coneCos * dist - chunkRadius) continue;
+        }
+        visibleMeshes.push({ mesh, distSq });
+      }
+    }
+
+    for (const entry of visibleMeshes) {
+      const mesh = entry.mesh;
       const normal = mesh.normal;
       if (normal.count <= 0) continue;
       const vao = ensureWorldVao(normal);
@@ -1169,7 +1374,8 @@ function renderTestChunk({
     gl.uniform1f(leafFogFar, fogFar);
     gl.uniform3f(leafTint, leafTintValue[0], leafTintValue[1], leafTintValue[2]);
 
-    for (const mesh of chunkMeshes.values()) {
+    for (const entry of visibleMeshes) {
+      const mesh = entry.mesh;
       const leaf = mesh.leaf;
       if (leaf.count <= 0) continue;
       const vao = ensureLeafVao(leaf);
@@ -1183,16 +1389,11 @@ function renderTestChunk({
     assertCurrentProgram("translucent mvp", program);
 
     const translucentMeshes = [];
-    for (const mesh of chunkMeshes.values()) {
+    for (const entry of visibleMeshes) {
+      const mesh = entry.mesh;
       const translucent = mesh.translucent;
       if (!translucent || translucent.count <= 0) continue;
-      const centerX = (mesh.cx + 0.5) * size;
-      const centerY = (mesh.cy + 0.5) * size;
-      const centerZ = (mesh.cz + 0.5) * size;
-      const dx = centerX - camera.position[0];
-      const dy = centerY - camera.position[1];
-      const dz = centerZ - camera.position[2];
-      translucentMeshes.push({ mesh, dist: dx * dx + dy * dy + dz * dz });
+      translucentMeshes.push({ mesh, dist: entry.distSq });
     }
     if (translucentMeshes.length > 0) {
       translucentMeshes.sort((a, b) => b.dist - a.dist);
@@ -1253,20 +1454,24 @@ function renderTestChunk({
 
     const cx = Math.floor(player.state.position[0] / size);
     const cz = Math.floor(player.state.position[2] / size);
-    const biomeName = typeof window.mcGetBiomeName === "function"
-      ? window.mcGetBiomeName(
-        Math.floor(player.state.position[0]),
-        Math.floor(player.state.position[2]),
-      )
-      : "Unknown";
+    if ((biomeHudFrame & 7) === 0) {
+      biomeHudCached = typeof window.mcGetBiomeName === "function"
+        ? window.mcGetBiomeName(
+          Math.floor(player.state.position[0]),
+          Math.floor(player.state.position[2]),
+        )
+        : "Unknown";
+    }
+    biomeHudFrame += 1;
     debugHud.textContent =
       `X: ${player.state.position[0].toFixed(0)} ` +
       `Y: ${player.state.position[1].toFixed(0)} ` +
       `Z: ${player.state.position[2].toFixed(0)} ` +
       `| C: ${cx},${cz} ` +
-      `| Biome: ${biomeName} ` +
+      `| Biome: ${biomeHudCached} ` +
       `| Loaded: ${chunkDatas.size} ` +
-      `| Meshes: ${chunkMeshes.size} ` + UPDATE_LABEL;
+      `| Chunks: ${chunkMeshes.size} ` +
+      `| Visible: ${visibleMeshes.length} ` + UPDATE_LABEL;
     requestAnimationFrame(draw);
   }
 

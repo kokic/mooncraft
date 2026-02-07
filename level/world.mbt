@@ -6,6 +6,15 @@ pub struct World {
 }
 
 ///|
+pub(all) struct TerrainColumn {
+  wx : Int
+  wz : Int
+  biome : @biome.Biome
+  plain : Int
+  surface : Int
+}
+
+///|
 /// Highest world Y (fixed for now).
 pub const WORLD_MAX_Y : Int = 32
 
@@ -83,12 +92,16 @@ const DESERT_SANDSTONE_DEPTH : Int = 4
 
 ///|
 /// Base (flat) height per biome, before mountain shaping.
-fn plain_height(world : World, wx : Int, wz : Int) -> Int {
+fn plain_height_with_biome(
+  world : World,
+  wx : Int,
+  wz : Int,
+  biome : @biome.Biome,
+  params : @biome.BiomeParams,
+) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise
-  let biome = @biome.biome_at(noise, wx, wz)
-  let params = @biome.params(biome)
   let continental = @biome.fbm2d(
     noise,
     x * @biome.CONTINENTAL_FREQ,
@@ -132,14 +145,17 @@ fn plain_height(world : World, wx : Int, wz : Int) -> Int {
   }
 }
 
-///|
 /// Surface height with biome-aware mountain shaping and erosion.
-pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
+fn surface_height_with_params(
+  world : World,
+  wx : Int,
+  wz : Int,
+  params : @biome.BiomeParams,
+  plain : Int,
+) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise
-  let biome = @biome.biome_at(noise, wx, wz)
-  let params = @biome.params(biome)
   let erosion = @biome.fbm2d(
     noise,
     x * @biome.EROSION_FREQ,
@@ -152,7 +168,7 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
   let erosion_t = (erosion + 1.0) / 2.0
   let ridge = peaks * peaks * peaks
   let mountain = ridge * params.mountain_amp * (1.0 - erosion_t * 0.6)
-  let height = plain_height(world, wx, wz).to_double() + mountain
+  let height = plain.to_double() + mountain
   let h = height.round().to_int()
   let max_h = if params.max_height > MAX_TERRAIN_HEIGHT {
     MAX_TERRAIN_HEIGHT
@@ -166,6 +182,24 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
   } else {
     h
   }
+}
+
+///|
+/// Surface height with biome-aware mountain shaping and erosion.
+pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
+  let biome = @biome.biome_at(world.noise, wx, wz)
+  let params = @biome.params(biome)
+  let plain = plain_height_with_biome(world, wx, wz, biome, params)
+  surface_height_with_params(world, wx, wz, params, plain)
+}
+
+///|
+fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
+  let biome = @biome.biome_at(world.noise, wx, wz)
+  let params = @biome.params(biome)
+  let plain = plain_height_with_biome(world, wx, wz, biome, params)
+  let surface = surface_height_with_params(world, wx, wz, params, plain)
+  TerrainColumn::{ wx, wz, biome, plain, surface }
 }
 
 ///|
@@ -191,13 +225,13 @@ fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
 
 ///|
 /// Density field used to decide air vs solid for pre-classic terrain.
-fn density_at(world : World, wx : Int, wy : Int, wz : Int) -> Double {
-  let x = wx.to_double()
+fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double {
+  let x = column.wx.to_double()
   let y = wy.to_double()
-  let z = wz.to_double()
-  let biome = @biome.biome_at(world.noise, wx, wz)
-  let surface = surface_height(world, wx, wz).to_double()
-  let plain = plain_height(world, wx, wz).to_double()
+  let z = column.wz.to_double()
+  let biome = column.biome
+  let surface = column.surface.to_double()
+  let plain = column.plain.to_double()
   if y > surface {
     -1.0
   } else if y <= plain {

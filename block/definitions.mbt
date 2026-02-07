@@ -53,7 +53,7 @@ pub let blocks : Array[Block] = [
     occlusion_cull=false,
     same_block_cull=true,
     alpha_mode=AlphaMode::Translucent,
-    material=Material::tinted(@genus.classic_water_tint),
+    material=Material::Normal,
   ),
   Block::create(
     "lava",
@@ -63,15 +63,6 @@ pub let blocks : Array[Block] = [
     same_block_cull=true,
     alpha_mode=AlphaMode::Cutout,
     luminance=15,
-  ),
-  Block::create(
-    "miku",
-    ["water_still"],
-    shape=Shape::Liquid,
-    occlusion_cull=false,
-    same_block_cull=true,
-    alpha_mode=AlphaMode::Translucent,
-    material=Material::tinted(@util.rgba("#ffffff")),
   ),
 
   // Artifact
@@ -94,7 +85,7 @@ pub let blocks : Array[Block] = [
     ["cactus_top", "cactus_bottom", "cactus_side"],
     shape=Shape::Cactus,
     occlusion_cull=false,
-    opacity=13,
+    opacity=0,
     alpha_mode=AlphaMode::Cutout,
   ),
   Block::create(
@@ -152,12 +143,12 @@ pub let blocks : Array[Block] = [
 ]
 
 ///|
-/// The long id of the air block should be an invariant
-pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
-
-///|
-pub fn Block::is_air(block : Block) -> Bool {
-  block.id == AIR_LONG_ID
+/// True if the block should be selectable (outlined box) in UI.
+pub fn Block::is_selectable(block : Block) -> Bool {
+  match block.shape {
+    Air | Liquid => false
+    _ => true
+  }
 }
 
 ///|
@@ -275,4 +266,13 @@ fn Block::create_with_classic(
       faces.map(s => "classic/" + s),
     ),
   ]
+}
+
+///|
+/// The long id of the air block should be an invariant
+pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
+
+///|
+pub fn Block::is_air(block : Block) -> Bool {
+  block.id == AIR_LONG_ID
 }

@@ -18,7 +18,7 @@ pub fn apply_use_action(
 ) -> Array[String] {
   match action {
     @item.UseAction::None => []
-    @item.UseAction::Batch(actions~) => {
+    @item.UseAction::Batch(actions) => {
       let out : Array[String] = []
       for sub in actions {
         for key in apply_use_action(chunk_map, size, sub) {
@@ -27,7 +27,7 @@ pub fn apply_use_action(
       }
       out
     }
-    @item.UseAction::BreakBlock(wx~, wy~, wz~) => {
+    @item.UseAction::BreakBlock(wx~, wy~, wz~) =>
       match get_block_id(chunk_map, size, wx, wy, wz) {
         None => []
         Some(id) =>
@@ -37,6 +37,5 @@ pub fn apply_use_action(
             []
           }
       }
-    }
   }
 }

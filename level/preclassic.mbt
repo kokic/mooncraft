@@ -56,7 +56,7 @@ fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
       let column = terrain_column(world, wx, wz)
-      let biome = column.biome
+      let biome = column.surface_biome
       let dirt_depth = surface_dirt_depth(world, wx, wz)
       let sand_depth = desert_sand_depth(world, wx, wz)
       let surface = column.surface

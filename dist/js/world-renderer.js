@@ -12,7 +12,7 @@ import {
   mat4Mul,
 } from "./math3d.js";
 
-const UPDATE_LABEL = `(7:26)`
+const UPDATE_LABEL = `(9:47)`
 const DEFAULT_MESH_SECTION_SIZE = 8;
 
 function getBlockShapeDesc(longId) {
@@ -68,6 +68,12 @@ function getBlockIdAt(chunkDatas, size, wx, wy, wz) {
   return num;
 }
 
+function getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, fallbackId) {
+  const value = window.mcGetBlockId(chunkDatas, size, wx, wy, wz);
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallbackId;
+}
+
 function setBlockIdAt(chunkDatas, size, wx, wy, wz, id) {
   const value = window.mcSetBlockId(chunkDatas, size, wx, wy, wz, id);
   if (!Array.isArray(value)) {
@@ -81,12 +87,52 @@ function buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY) {
   if (typeof fn !== "function") {
     return null;
   }
-  const entries = fn(chunkDatas, size, keys, worldMinY, worldMaxY);
+  const minY = Number.isFinite(worldMinY) ? worldMinY : 0;
+  const maxY = Number.isFinite(worldMaxY) ? worldMaxY : 0;
+  const entries = fn(chunkDatas, size, keys, minY, maxY);
   if (!Array.isArray(entries)) {
     console.warn("mcBuildWorldLight returned non-array");
     return null;
   }
   return entries;
+}
+
+function buildChunkColorsSplit(registry, data, light, size) {
+  const fn = window.mcBuildChunkColorsSplit;
+  if (typeof fn !== "function") {
+    return null;
+  }
+  const value = fn(registry, data, light, size);
+  if (!value ||
+    !Array.isArray(value.normal) ||
+    !Array.isArray(value.leaf) ||
+    !Array.isArray(value.translucent)) {
+    console.warn("mcBuildChunkColorsSplit returned invalid data");
+    return null;
+  }
+  return value;
+}
+
+function normalizeWaterTintSample(value) {
+  if (!Array.isArray(value) || value.length < 3) {
+    return [1, 1, 1, 1];
+  }
+  const r = Number(value[0]);
+  const g = Number(value[1]);
+  const b = Number(value[2]);
+  const a = Number.isFinite(Number(value[3])) ? Number(value[3]) : 1;
+  return [
+    Number.isFinite(r) ? r : 1,
+    Number.isFinite(g) ? g : 1,
+    Number.isFinite(b) ? b : 1,
+    Number.isFinite(a) ? a : 1,
+  ];
+}
+
+function toColorByte(value) {
+  const v = Number.isFinite(value) ? value : 1;
+  const scaled = Math.round(Math.min(1, Math.max(0, v)) * 255);
+  return scaled & 0xff;
 }
 
 function chunkXyzByKey(key) {
@@ -254,10 +300,12 @@ function renderTestChunk({
     out vec3 vPos;
     out vec2 vUv;
     out float vLayer;
+    out vec2 vWorldXZ;
     void main() {
       vUv = aUv;
       vLayer = aLayer;
       vColor = aColor;
+      vWorldXZ = aPosition.xz;
       vec4 pos = vec4(aPosition, 1.0);
       vPos = (uView * pos).xyz;
       gl_Position = uMvp * pos;
@@ -271,11 +319,17 @@ function renderTestChunk({
     in float vLayer;
     in vec3 vPos;
     in vec4 vColor;
+    in vec2 vWorldXZ;
     uniform sampler2DArray uTex;
+    uniform sampler2D uWaterTintTex;
     uniform float uDebugSolid;
     uniform vec3 uFogColor;
     uniform float uFogNear;
     uniform float uFogFar;
+    uniform float uWaterLayer;
+    uniform vec2 uWaterTintOrigin;
+    uniform vec2 uWaterTintInvSize;
+    uniform float uWaterTintStep;
     out vec4 outColor;
     void main() {
       if (uDebugSolid > 0.5) {
@@ -286,9 +340,16 @@ function renderTestChunk({
       if (color.a * vColor.a <= 0.3) {
         discard;
       }
+      vec3 waterTint = vec3(1.0);
+      if (uWaterLayer >= 0.0 && abs(vLayer - uWaterLayer) < 0.5 && uWaterTintStep > 0.0) {
+        vec2 cell = floor((vWorldXZ - uWaterTintOrigin) / uWaterTintStep + 0.5);
+        vec2 uv = (cell + 0.5) * uWaterTintInvSize;
+        uv = clamp(uv, vec2(0.0), vec2(1.0));
+        waterTint = texture(uWaterTintTex, uv).rgb;
+      }
       float fogDistance = length(vPos);
       float fogAmount = smoothstep(uFogNear, uFogFar, fogDistance);
-      vec3 mixed = mix(vColor.rgb * color.rgb, uFogColor, fogAmount);
+      vec3 mixed = mix(vColor.rgb * color.rgb * waterTint, uFogColor, fogAmount);
       outColor = vec4(mixed, color.a * vColor.a);
     }
   `;
@@ -312,6 +373,26 @@ function renderTestChunk({
     return buffer;
   };
   const size = chunkSize ?? 16;
+  const rawSpawnChunkX = Number(window.mcSpawnChunkX ?? 0);
+  const rawSpawnChunkZ = Number(window.mcSpawnChunkZ ?? 0);
+  const rawSpawnLocalX = Number(window.mcSpawnLocalX ?? Math.floor(size / 2));
+  const rawSpawnLocalZ = Number(window.mcSpawnLocalZ ?? Math.floor(size / 2));
+  const rawSpawnSurfaceOffset = Number(window.mcSpawnSurfaceOffset ?? 3);
+  const rawSpawnFallbackY = Number(window.mcSpawnFallbackY ?? size);
+  const spawnChunkX = Number.isFinite(rawSpawnChunkX) ? Math.floor(rawSpawnChunkX) : 0;
+  const spawnChunkZ = Number.isFinite(rawSpawnChunkZ) ? Math.floor(rawSpawnChunkZ) : 0;
+  const spawnLocalX = Number.isFinite(rawSpawnLocalX)
+    ? Math.max(0, Math.min(size - 1, Math.floor(rawSpawnLocalX)))
+    : Math.floor(size / 2);
+  const spawnLocalZ = Number.isFinite(rawSpawnLocalZ)
+    ? Math.max(0, Math.min(size - 1, Math.floor(rawSpawnLocalZ)))
+    : Math.floor(size / 2);
+  const spawnSurfaceOffset = Number.isFinite(rawSpawnSurfaceOffset)
+    ? Math.floor(rawSpawnSurfaceOffset)
+    : 3;
+  const spawnFallbackY = Number.isFinite(rawSpawnFallbackY)
+    ? Math.floor(rawSpawnFallbackY)
+    : size;
   let data = normalizeChunkData(chunkData);
   const chunkDatas = new Map();
   if (data) chunkDatas.set("0,0,0", data);
@@ -324,11 +405,21 @@ function renderTestChunk({
   const dirtySectionKeys = new Set();
   const maxGenPerFrame = window.mcChunkGenPerFrame ?? 2;
   const maxMeshBuildPerFrame = window.mcMeshBuildPerFrame ?? 2;
+  const maxLightUpdatePerFrame = window.mcLightUpdatePerFrame ?? 3;
+  const localLightUseDesired = window.mcLocalLightUseDesired === true;
+  const lightPropagationRange = Math.max(
+    0,
+    Number.isFinite(Number(window.mcLightPropagationRange))
+      ? Math.floor(Number(window.mcLightPropagationRange))
+      : 2,
+  );
   const worldMinY = window.mcWorldMinY ?? 0;
   const worldMaxY = window.mcWorldMaxY ?? 0;
   const chunkMinY = Math.floor(worldMinY / size);
   const chunkMaxY = Math.floor(worldMaxY / size);
   const useFixedLight = window.mcUseFixedLight === true;
+  const rawAirLongId = Number(window.mcAirLongId ?? 0);
+  const airLongId = Number.isFinite(rawAirLongId) ? rawAirLongId : 0;
   const meshSectionRaw = Number(window.mcMeshSectionSize ?? DEFAULT_MESH_SECTION_SIZE);
   const meshSectionCandidate = Number.isFinite(meshSectionRaw)
     ? Math.max(1, Math.floor(meshSectionRaw))
@@ -349,10 +440,19 @@ function renderTestChunk({
     chunkMinY,
     chunkMaxY,
     size,
+    spawnChunkX,
+    spawnChunkZ,
+    spawnLocalX,
+    spawnLocalZ,
+    spawnSurfaceOffset,
+    spawnFallbackY,
   });
 
   let lightDirty = true;
   const dirtyLightKeys = new Set();
+  const lightUpdateQueue = [];
+  let lightUpdateHead = 0;
+  const pendingLightSeeds = new Set();
 
   const fallbackChunk = new Array(size * size * size).fill(0);
   const fallbackSectionLight = new Uint8Array(sectionCellCount);
@@ -417,16 +517,6 @@ function renderTestChunk({
       }
     }
   };
-  const markChunkSectionsDirty = (chunkKey) => {
-    if (typeof chunkKey !== "string" || !chunkDatas.has(chunkKey)) return;
-    for (let sy = 0; sy < sectionsPerAxis; sy += 1) {
-      for (let sz = 0; sz < sectionsPerAxis; sz += 1) {
-        for (let sx = 0; sx < sectionsPerAxis; sx += 1) {
-          dirtySectionKeys.add(sectionKeyOf(chunkKey, sx, sy, sz));
-        }
-      }
-    }
-  };
   const markSectionDirtyByWorld = (wx, wy, wz, touchedChunkKeys) => {
     const cx = Math.floor(wx / size);
     const cy = Math.floor(wy / size);
@@ -457,6 +547,101 @@ function renderTestChunk({
     markSectionDirtyByWorld(wx, wy, wz + 1, touched);
     return touched;
   };
+  const enqueueLightSeed = (wx, wy, wz) => {
+    const scx = Math.floor(Math.floor(wx) / size);
+    const scy = Math.floor(Math.floor(wy) / size);
+    const scz = Math.floor(Math.floor(wz) / size);
+    const seedKey = `${scx},${scy},${scz}`;
+    if (pendingLightSeeds.has(seedKey)) return;
+    pendingLightSeeds.add(seedKey);
+    lightUpdateQueue.push({ scx, scy, scz, seedKey });
+  };
+  const isLocalLightSeedReady = (seed, desiredKeys, readyRadius) => {
+    if (!seed) return false;
+    const { scx, scy, scz } = seed;
+    if (!Number.isInteger(scx) || !Number.isInteger(scy) || !Number.isInteger(scz)) {
+      return false;
+    }
+    for (let dx = -readyRadius; dx <= readyRadius; dx += 1) {
+      for (let dz = -readyRadius; dz <= readyRadius; dz += 1) {
+        const key = `${scx + dx},${scy},${scz + dz}`;
+        if (desiredKeys && !desiredKeys.has(key)) continue;
+        if (!chunkDatas.has(key)) return false;
+      }
+    }
+    return true;
+  };
+  const enqueueLightEdit = (wx, wy, wz, keys) => {
+    enqueueLightSeed(wx, wy, wz);
+    const scx = Math.floor(wx / size);
+    const scy = Math.floor(wy / size);
+    const scz = Math.floor(wz / size);
+    if (!Array.isArray(keys)) return;
+    for (const key of keys) {
+      const xyz = chunkXyzByKey(key);
+      if (!xyz) continue;
+      const dx = Math.abs(xyz.x - scx);
+      const dy = Math.abs(xyz.y - scy);
+      const dz = Math.abs(xyz.z - scz);
+      if (dx > 1 || dy > 1 || dz > 1) {
+        markLightDirty(key);
+      }
+    }
+  };
+  const processLocalLightQueue = (desiredKeys) => {
+    if (useFixedLight) return;
+    if (lightUpdateHead >= lightUpdateQueue.length) return;
+    let remaining = maxLightUpdatePerFrame;
+    const chunkRadius = Math.max(0, Math.ceil(lightPropagationRange / size));
+    const readyRadius = Math.max(1, chunkRadius + 1);
+    const deferredSeeds = [];
+    const localKeySet = new Set();
+    while (remaining > 0 && lightUpdateHead < lightUpdateQueue.length) {
+      const seed = lightUpdateQueue[lightUpdateHead];
+      lightUpdateHead += 1;
+      if (!seed) continue;
+      if (!isLocalLightSeedReady(seed, desiredKeys, readyRadius)) {
+        deferredSeeds.push(seed);
+        continue;
+      }
+      pendingLightSeeds.delete(seed.seedKey);
+      const { scx, scy, scz } = seed;
+      for (let dx = -chunkRadius; dx <= chunkRadius; dx += 1) {
+        for (let dz = -chunkRadius; dz <= chunkRadius; dz += 1) {
+          const key = `${scx + dx},${scy},${scz + dz}`;
+          if (!chunkDatas.has(key)) continue;
+          if (desiredKeys && !desiredKeys.has(key)) continue;
+          localKeySet.add(key);
+        }
+      }
+      remaining -= 1;
+    }
+    if (lightUpdateHead >= lightUpdateQueue.length) {
+      lightUpdateQueue.length = 0;
+      lightUpdateHead = 0;
+    } else if (lightUpdateHead > 128 && lightUpdateHead * 2 >= lightUpdateQueue.length) {
+      lightUpdateQueue.splice(0, lightUpdateHead);
+      lightUpdateHead = 0;
+    }
+    if (deferredSeeds.length > 0) {
+      lightUpdateQueue.push(...deferredSeeds);
+    }
+    if (localKeySet.size === 0 && !(localLightUseDesired && desiredKeys?.size > 0)) return;
+    const sourceKeys = localLightUseDesired && desiredKeys?.size > 0
+      ? Array.from(desiredKeys)
+      : Array.from(expandLightKeysHorizontal(localKeySet, 1));
+    if (sourceKeys.length === 0) return;
+    // Skylight depends on global top boundary; local updates still need full vertical range.
+    const updatedKeys = rebuildLightMaps(sourceKeys, false, worldMinY, worldMaxY);
+    for (const key of updatedKeys) {
+      if (desiredKeys && !desiredKeys.has(key)) continue;
+      if (!chunkMeshes.has(key)) continue;
+      const res = updateChunkColors(key);
+      if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
+        console.error("[lighting] failed to update chunk colors", key, res);
+      }
+    }
+  };
   const markNeighborLightDirty = (key) => {
     const xyz = chunkXyzByKey(key);
     if (!xyz) return;
@@ -474,18 +659,26 @@ function renderTestChunk({
       }
     }
   };
-  const rebuildLightMaps = (keys, replaceAll = false) => {
-    const entries = buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY);
-    if (!entries) return;
+  const rebuildLightMaps = (
+    keys,
+    replaceAll = false,
+    minY = worldMinY,
+    maxY = worldMaxY,
+  ) => {
+    const entries = buildWorldLight(chunkDatas, size, keys, minY, maxY);
+    if (!entries) return [];
     if (replaceAll) chunkLights.clear();
+    const updatedKeys = [];
     for (const entry of entries) {
       if (!entry) continue;
       const key = entry._0;
       const light = entry._1;
       if (typeof key === "string" && light) {
         chunkLights.set(key, light);
+        updatedKeys.push(key);
       }
     }
+    return updatedKeys;
   };
   const expandLightKeys = (keys) => {
     const expanded = new Set();
@@ -500,6 +693,22 @@ function renderTestChunk({
             if (chunkDatas.has(nkey)) {
               expanded.add(nkey);
             }
+          }
+        }
+      }
+    }
+    return expanded;
+  };
+  const expandLightKeysHorizontal = (keys, radius = 1) => {
+    const expanded = new Set();
+    for (const key of keys) {
+      const xyz = chunkXyzByKey(key);
+      if (!xyz) continue;
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        for (let dz = -radius; dz <= radius; dz += 1) {
+          const nkey = `${xyz.x + dx},${xyz.y},${xyz.z + dz}`;
+          if (chunkDatas.has(nkey)) {
+            expanded.add(nkey);
           }
         }
       }
@@ -575,12 +784,13 @@ function renderTestChunk({
     for (let y = -1; y <= meshSectionSize; y += 1) {
       for (let z = -1; z <= meshSectionSize; z += 1) {
         for (let x = -1; x <= meshSectionSize; x += 1) {
-          padded[idx] = getBlockIdAt(
+          padded[idx] = getBlockIdAtOrDefault(
             chunkDatas,
             size,
             baseWorldX + x,
             baseWorldY + y,
             baseWorldZ + z,
+            airLongId,
           );
           idx += 1;
         }
@@ -595,7 +805,11 @@ function renderTestChunk({
       return fallbackSectionLight;
     }
     const chunkCellCount = size * size * size;
-    if (chunkLight.length < chunkCellCount) {
+    const chunkPad = size + 2;
+    const chunkPadCount = chunkPad * chunkPad * chunkPad;
+    const useBase = chunkLight.length === chunkCellCount;
+    const usePad = chunkLight.length === chunkPadCount;
+    if (!useBase && !usePad) {
       return fallbackSectionLight;
     }
     const sectionLight = new Uint8Array(sectionCellCount);
@@ -609,7 +823,9 @@ function renderTestChunk({
           const lx = offsetX + x;
           const ly = offsetY + y;
           const lz = offsetZ + z;
-          const lightIndex = ((ly * size) + lz) * size + lx;
+          const lightIndex = useBase
+            ? ((ly * size) + lz) * size + lx
+            : (((ly + 1) * chunkPad) + (lz + 1)) * chunkPad + (lx + 1);
           sectionLight[idx] = Number(chunkLight[lightIndex] ?? 15);
           idx += 1;
         }
@@ -652,6 +868,7 @@ function renderTestChunk({
       centerX: baseWorldX + meshSectionSize * 0.5,
       centerY: baseWorldY + meshSectionSize * 0.5,
       centerZ: baseWorldZ + meshSectionSize * 0.5,
+      dataPadded: sectionData,
       normal: toBuffers(meshPair.normal),
       leaf: toBuffers(meshPair.leaf),
       translucent: toBuffers(meshPair.translucent),
@@ -666,9 +883,70 @@ function renderTestChunk({
       }
     }
   };
+  const markNeighborMeshDirty = (key) => {
+    const xyz = chunkXyzByKey(key);
+    if (!xyz) return;
+    const keys = [
+      `${xyz.x - 1},${xyz.y},${xyz.z}`,
+      `${xyz.x + 1},${xyz.y},${xyz.z}`,
+      `${xyz.x},${xyz.y - 1},${xyz.z}`,
+      `${xyz.x},${xyz.y + 1},${xyz.z}`,
+      `${xyz.x},${xyz.y},${xyz.z - 1}`,
+      `${xyz.x},${xyz.y},${xyz.z + 1}`,
+    ];
+    for (const nkey of keys) {
+      if (chunkDatas.has(nkey)) {
+        markMeshDirty(nkey);
+      }
+    }
+  };
+  const updateSectionColors = (chunkKey, mesh, section) => {
+    const sectionData = Array.isArray(section.dataPadded)
+      ? section.dataPadded
+      : buildSectionPaddedData(
+        (section.sx + mesh.cx * sectionsPerAxis) * meshSectionSize,
+        (section.sy + mesh.cy * sectionsPerAxis) * meshSectionSize,
+        (section.sz + mesh.cz * sectionsPerAxis) * meshSectionSize,
+      );
+    const sectionLight = buildSectionLight(chunkKey, section.sx, section.sy, section.sz);
+    const colorsPair = buildChunkColorsSplit(
+      blockRegistry,
+      sectionData,
+      sectionLight,
+      meshSectionSize,
+    );
+    if (!colorsPair) return { ok: false, reason: "invalid-colors" };
+    const uploadColors = (part, colors) => {
+      const expected = part.count * 4;
+      const arr = Float32Array.from(colors ?? []);
+      if (part.count > 0 && arr.length !== expected) {
+        return false;
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, part.colorBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
+      return true;
+    };
+    if (!uploadColors(section.normal, colorsPair.normal)) {
+      return { ok: false, reason: "mismatch-normal" };
+    }
+    if (!uploadColors(section.leaf, colorsPair.leaf)) {
+      return { ok: false, reason: "mismatch-leaf" };
+    }
+    if (!uploadColors(section.translucent, colorsPair.translucent)) {
+      return { ok: false, reason: "mismatch-translucent" };
+    }
+    return { ok: true };
+  };
   const updateChunkColors = (key) => {
     if (useFixedLight) return { ok: true };
-    markChunkSectionsDirty(key);
+    const mesh = chunkMeshes.get(key);
+    if (!mesh || !(mesh.sections instanceof Map)) {
+      return { ok: false, reason: "missing-mesh" };
+    }
+    for (const section of mesh.sections.values()) {
+      const res = updateSectionColors(key, mesh, section);
+      if (!res.ok) return res;
+    }
     return { ok: true };
   };
 
@@ -693,6 +971,7 @@ function renderTestChunk({
         if (data) {
           chunkDatas.set(key, data);
           markMeshDirty(key);
+          markNeighborMeshDirty(key);
           markLightDirty(key);
         }
       }
@@ -722,17 +1001,24 @@ function renderTestChunk({
     return chunkDatas.get(key) ?? null;
   };
 
-  // Ensure spawn chunk exists before computing surface height.
-  if (!chunkDatas.has("0,0,0") && typeof chunkGenerator === "function") {
+  // Ensure the full spawn XZ column is loaded before computing spawn surface.
+  if (typeof chunkGenerator === "function") {
     try {
-      let seedData = chunkGenerator(0, 0, 0);
-      seedData = normalizeChunkData(seedData);
-      if (seedData) {
-        chunkDatas.set("0,0,0", seedData);
-        console.debug("[spawn] seed chunk loaded", { key: "0,0,0", len: seedData.length });
-      } else {
-        console.debug("[spawn] seed chunk empty", { key: "0,0,0" });
+      let loaded = 0;
+      for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
+        const key = `${spawnChunkX},${cy},${spawnChunkZ}`;
+        if (chunkDatas.has(key)) continue;
+        let seedData = chunkGenerator(spawnChunkX, cy, spawnChunkZ);
+        seedData = normalizeChunkData(seedData);
+        if (!seedData) continue;
+        chunkDatas.set(key, seedData);
+        loaded += 1;
       }
+      console.debug("[spawn] seed column loaded", {
+        x: spawnChunkX,
+        z: spawnChunkZ,
+        loaded,
+      });
     } catch (err) {
       console.warn("spawn chunk gen failed", err);
     }
@@ -745,20 +1031,118 @@ function renderTestChunk({
       size,
       chunkMinY,
       chunkMaxY,
-      0,
-      0,
-      Math.floor(size / 2),
-      Math.floor(size / 2),
-      3,
-      size,
-      0,
+      spawnChunkX,
+      spawnChunkZ,
+      spawnLocalX,
+      spawnLocalZ,
+      spawnSurfaceOffset,
+      spawnFallbackY,
     )
     : {
-      position: [Math.floor(size / 2) + 0.5, size + 3, Math.floor(size / 2) + 0.5],
+      position: [
+        spawnLocalX + 0.5,
+        spawnFallbackY + spawnSurfaceOffset,
+        spawnLocalZ + 0.5,
+      ],
       surfaceY: null,
     };
 
   const textureArray = createTextureArray(gl, textures);
+  const rawWaterLayer = textures?.textureIndex?.get("water_still");
+  const waterLayer = Number.isFinite(Number(rawWaterLayer))
+    ? Number(rawWaterLayer)
+    : -1;
+  const getWaterTintAt = typeof window.mcGetWaterTint === "function"
+    ? window.mcGetWaterTint
+    : null;
+  const rawWaterTintStep = Number(window.mcWaterTintGridStep ?? 4);
+  const waterTintStep = Number.isFinite(rawWaterTintStep)
+    ? Math.max(1, Math.floor(rawWaterTintStep))
+    : 4;
+  const hasWaterTintLookup = !!getWaterTintAt && waterLayer >= 0;
+  const waterTintTexture = hasWaterTintLookup ? gl.createTexture() : null;
+  const waterTintState = {
+    centerCx: Number.NaN,
+    centerCz: Number.NaN,
+    renderDistance: -1,
+    originX: 0,
+    originZ: 0,
+    width: 1,
+    height: 1,
+    step: waterTintStep,
+    valid: false,
+  };
+  const rebuildWaterTintTexture = (centerCx, centerCz, renderDistance) => {
+    if (!waterTintTexture || typeof getWaterTintAt !== "function") return;
+    const marginChunks = 2;
+    const minChunkX = centerCx - renderDistance - marginChunks;
+    const maxChunkX = centerCx + renderDistance + marginChunks;
+    const minChunkZ = centerCz - renderDistance - marginChunks;
+    const maxChunkZ = centerCz + renderDistance + marginChunks;
+    const originX = minChunkX * size;
+    const originZ = minChunkZ * size;
+    const maxX = (maxChunkX + 1) * size - 1;
+    const maxZ = (maxChunkZ + 1) * size - 1;
+    const width = Math.max(1, Math.floor((maxX - originX) / waterTintStep) + 1);
+    const height = Math.max(1, Math.floor((maxZ - originZ) / waterTintStep) + 1);
+    const pixels = new Uint8Array(width * height * 4);
+    let ptr = 0;
+    for (let z = 0; z < height; z += 1) {
+      const wz = originZ + z * waterTintStep;
+      for (let x = 0; x < width; x += 1) {
+        const wx = originX + x * waterTintStep;
+        const tint = normalizeWaterTintSample(getWaterTintAt(wx, wz));
+        pixels[ptr] = toColorByte(tint[0]);
+        pixels[ptr + 1] = toColorByte(tint[1]);
+        pixels[ptr + 2] = toColorByte(tint[2]);
+        pixels[ptr + 3] = toColorByte(tint[3]);
+        ptr += 4;
+      }
+    }
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      width,
+      height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      pixels,
+    );
+    gl.activeTexture(gl.TEXTURE0);
+    waterTintState.centerCx = centerCx;
+    waterTintState.centerCz = centerCz;
+    waterTintState.renderDistance = renderDistance;
+    waterTintState.originX = originX;
+    waterTintState.originZ = originZ;
+    waterTintState.width = width;
+    waterTintState.height = height;
+    waterTintState.step = waterTintStep;
+    waterTintState.valid = true;
+  };
+  if (waterTintTexture) {
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([255, 255, 255, 255]),
+    );
+    gl.activeTexture(gl.TEXTURE0);
+  }
 
   const aPosition = gl.getAttribLocation(program, "aPosition");
   const aColor = gl.getAttribLocation(program, "aColor");
@@ -771,6 +1155,11 @@ function renderTestChunk({
   const uFogColor = gl.getUniformLocation(program, "uFogColor");
   const uFogNear = gl.getUniformLocation(program, "uFogNear");
   const uFogFar = gl.getUniformLocation(program, "uFogFar");
+  const uWaterTintTex = gl.getUniformLocation(program, "uWaterTintTex");
+  const uWaterLayer = gl.getUniformLocation(program, "uWaterLayer");
+  const uWaterTintOrigin = gl.getUniformLocation(program, "uWaterTintOrigin");
+  const uWaterTintInvSize = gl.getUniformLocation(program, "uWaterTintInvSize");
+  const uWaterTintStep = gl.getUniformLocation(program, "uWaterTintStep");
   const leafPosition = gl.getAttribLocation(leafProgram, "aPosition");
   const leafColor = gl.getAttribLocation(leafProgram, "aColor");
   const leafUv = gl.getAttribLocation(leafProgram, "aUv");
@@ -834,12 +1223,18 @@ function renderTestChunk({
 
   gl.useProgram(program);
   gl.uniform1i(uTex, 0);
+  gl.uniform1i(uWaterTintTex, 1);
+  gl.uniform1f(uWaterLayer, waterLayer);
+  gl.uniform2f(uWaterTintOrigin, 0, 0);
+  gl.uniform2f(uWaterTintInvSize, 1, 1);
+  gl.uniform1f(uWaterTintStep, 0);
   gl.uniform1f(uDebugSolid, window.mcDebugSolid ? 1.0 : 0.0);
   gl.useProgram(leafProgram);
   gl.uniform1i(leafTex, 0);
   gl.uniform1f(leafDebugSolid, window.mcDebugSolid ? 1.0 : 0.0);
 
-  const getBlockId = (wx, wy, wz) => getBlockIdAt(chunkDatas, size, wx, wy, wz);
+  const getBlockId = (wx, wy, wz) =>
+    getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, airLongId);
   const player = createPlayerController({
     canvas,
     worldMinY,
@@ -906,6 +1301,12 @@ function renderTestChunk({
     const cx = Math.floor(player.state.position[0] / size);
     const cz = Math.floor(player.state.position[2] / size);
     const renderDistance = window.mcRenderDistance ?? 2;
+    if (hasWaterTintLookup &&
+      (waterTintState.centerCx !== cx ||
+        waterTintState.centerCz !== cz ||
+        waterTintState.renderDistance !== renderDistance)) {
+      rebuildWaterTintTexture(cx, cz, renderDistance);
+    }
     const nextCenterKey = `${cx},0,${cz}`;
     let missing = false;
     const desiredKeys = new Set();
@@ -1010,15 +1411,23 @@ function renderTestChunk({
       built += 1;
     }
 
-    if (lightDirty) {
+    processLocalLightQueue(desiredKeys);
+
+    if (!missing && lightDirty) {
       if (!useFixedLight) {
         const sourceKeys = dirtyLightKeys.size > 0
           ? Array.from(expandLightKeys(dirtyLightKeys))
           : Array.from(desiredKeys);
         const replaceAll = dirtyLightKeys.size === 0;
-        rebuildLightMaps(sourceKeys, replaceAll);
-        const updateKeys = dirtyLightKeys.size > 0 ? sourceKeys : Array.from(desiredKeys);
+        const updateKeys = rebuildLightMaps(
+          sourceKeys,
+          replaceAll,
+          worldMinY,
+          worldMaxY,
+        );
         for (const key of updateKeys) {
+          if (!desiredKeys.has(key)) continue;
+          if (!chunkMeshes.has(key)) continue;
           const res = updateChunkColors(key);
           if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
             console.error("[lighting] failed to update chunk colors", key, res);
@@ -1154,14 +1563,12 @@ function renderTestChunk({
     const keys = setBlockIdAt(chunkDatas, size, wx, wy, wz, id);
     if (!Array.isArray(keys) || keys.length === 0) return false;
     markEditedVoxelSections(wx, wy, wz, keys);
-    for (const key of keys) {
-      markLightDirty(key);
-    }
+    enqueueLightEdit(wx, wy, wz, keys);
     return true;
   };
 
   const raycastBlocks = (origin, dir, maxDist = 10, step = 0.05) => {
-    const res = window.mcRaycastBlocks(chunkDatas, size, origin, dir, maxDist, step, mcAirLongId);
+    const res = window.mcRaycastBlocks(chunkDatas, size, origin, dir, maxDist, step, airLongId);
     if (!res) return null;
     const block = res.block;
     const prev = res.prev == null ? null : res.prev;
@@ -1173,7 +1580,7 @@ function renderTestChunk({
     if (!hit) return null;
     const currentId = getBlockId(hit.block[0], hit.block[1], hit.block[2]);
     if (!Number.isFinite(currentId)) return null;
-    if (currentId === mcAirLongId) return null;
+    if (currentId === airLongId) return null;
     const decoded = unpackLongId(currentId);
     const renderBlock = typeof window.mcGetRenderBlockByLongId === "function"
       ? window.mcGetRenderBlockByLongId(blockRegistry, currentId)
@@ -1181,7 +1588,7 @@ function renderTestChunk({
     const block = renderBlock && renderBlock.block ? renderBlock.block : null;
     const isSelectable = block && typeof window.mcBlockIsSelectable === "function"
       ? window.mcBlockIsSelectable(block)
-      : currentId !== mcAirLongId;
+      : currentId !== airLongId;
     if (!isSelectable) return null;
     return { pos: hit.block, id: decoded.id, state: decoded.state, longId: currentId };
   };
@@ -1216,9 +1623,7 @@ function renderTestChunk({
         const keys = applyUse(chunkDatas, size, action);
         if (Array.isArray(keys)) {
           markEditedVoxelSections(hit.block[0], hit.block[1], hit.block[2], keys);
-          for (const key of keys) {
-            markLightDirty(key);
-          }
+          enqueueLightEdit(hit.block[0], hit.block[1], hit.block[2], keys);
         }
       }
     } else if (event.button === 2) {
@@ -1248,9 +1653,7 @@ function renderTestChunk({
         );
         if (Array.isArray(keys)) {
           markEditedVoxelSections(hit.prev[0], hit.prev[1], hit.prev[2], keys);
-          for (const key of keys) {
-            markLightDirty(key);
-          }
+          enqueueLightEdit(hit.prev[0], hit.prev[1], hit.prev[2], keys);
         }
       }
     }
@@ -1290,6 +1693,11 @@ function renderTestChunk({
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, textureArray);
+    if (waterTintTexture) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
+      gl.activeTexture(gl.TEXTURE0);
+    }
 
     const now = performance.now();
     const delta = Math.min(0.05, (now - player.state.lastTime) / 1000);
@@ -1324,6 +1732,19 @@ function renderTestChunk({
     const fogNear = fogFar * 0.55;
     gl.uniform1f(uFogNear, fogNear);
     gl.uniform1f(uFogFar, fogFar);
+    if (waterTintState.valid && waterTintState.width > 0 && waterTintState.height > 0) {
+      gl.uniform2f(uWaterTintOrigin, waterTintState.originX, waterTintState.originZ);
+      gl.uniform2f(
+        uWaterTintInvSize,
+        1 / waterTintState.width,
+        1 / waterTintState.height,
+      );
+      gl.uniform1f(uWaterTintStep, waterTintState.step);
+    } else {
+      gl.uniform2f(uWaterTintOrigin, 0, 0);
+      gl.uniform2f(uWaterTintInvSize, 1, 1);
+      gl.uniform1f(uWaterTintStep, 0);
+    }
 
     const maxVisibleDist = (renderDistance + 1.2) * size;
     const maxVisibleDistSq = maxVisibleDist * maxVisibleDist;

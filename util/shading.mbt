@@ -2,11 +2,11 @@
 /// Face-based shade factor for axis-aligned block faces.
 pub fn face_shade_scale(nx : Int, ny : Int, nz : Int) -> Float {
   if nz != 0 {
-    0.8F
+    0.84F
   } else if nx != 0 {
-    0.6F
+    0.72F
   } else if ny == -1 {
-    0.5F
+    0.62F
   } else {
     1.0F
   }
@@ -23,6 +23,11 @@ let light_level_scale_table : Array[Float] = {
 }
 
 ///|
+/// Lift darkness without flattening low-light gradients.
+/// 0.0 keeps the original curve, higher values brighten shadows.
+const LIGHT_LIFT_BASE : Float = 0.18F
+
+///|
 /// Convert a block light level (0-15) to a scalar multiplier.
 pub fn light_level_scale(level : Int) -> Float {
   let idx = if level < 0 {
@@ -32,5 +37,6 @@ pub fn light_level_scale(level : Int) -> Float {
   } else {
     level
   }
-  light_level_scale_table[idx]
+  let raw = light_level_scale_table[idx]
+  LIGHT_LIFT_BASE + (1.0F - LIGHT_LIFT_BASE) * raw
 }

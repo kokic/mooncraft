@@ -5,8 +5,8 @@ pub enum UseOnAction {
     wx~ : Int,
     wy~ : Int,
     wz~ : Int,
-    expected_name~ : String?,
-    new_name~ : String,
+    expected~ : @util.UniqueName?,
+    neo~ : @util.UniqueName,
     require_above_air~ : Bool
   )
   PlaceBlock(
@@ -16,15 +16,15 @@ pub enum UseOnAction {
     place_wx~ : Int,
     place_wy~ : Int,
     place_wz~ : Int,
-    name~ : String,
+    name~ : @util.UniqueName,
     require_air~ : Bool
   )
-  Batch(actions~ : Array[UseOnAction])
+  Batch(Array[UseOnAction])
 }
 
 ///|
 pub enum UseAction {
   None
   BreakBlock(wx~ : Int, wy~ : Int, wz~ : Int)
-  Batch(actions~ : Array[UseAction])
+  Batch(Array[UseAction])
 }

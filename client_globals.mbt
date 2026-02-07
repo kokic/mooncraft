@@ -6,6 +6,57 @@ fn[V] set_global(name : String, value : V) -> Unit {
 }
 
 ///|
+fn water_tint_for_sample(
+  biome : @biome.Biome,
+  sample : @biome.BiomeSample,
+) -> @util.Rgba {
+  match biome {
+    @biome.FrozenRiver => @genus.frozen_water_tint
+    @biome.River =>
+      if sample.temperature < -0.22 {
+        @genus.frozen_water_tint
+      } else if sample.humidity > 0.48 && sample.temperature > 0.18 {
+        @genus.mangrove_swamp_river_water_tint
+      } else if sample.humidity > 0.34 {
+        @genus.swamp_water_tint
+      } else {
+        @genus.default_water_tint
+      }
+    @biome.Ocean =>
+      if sample.temperature > 0.56 {
+        @genus.warm_ocean_water_tint
+      } else if sample.temperature > 0.20 {
+        @genus.lukewarm_ocean_water_tint
+      } else if sample.temperature < -0.24 {
+        @genus.frozen_water_tint
+      } else {
+        @genus.cold_ocean_water_tint
+      }
+    @biome.DeepOcean =>
+      if sample.temperature < -0.18 {
+        @genus.frozen_water_tint
+      } else {
+        @genus.cold_ocean_water_tint
+      }
+    @biome.Desert | @biome.DesertLakes => @genus.warm_ocean_water_tint
+    @biome.Beach =>
+      if sample.temperature > 0.35 {
+        @genus.lukewarm_ocean_water_tint
+      } else {
+        @genus.default_water_tint
+      }
+    @biome.Mountains | @biome.WindsweptHills => @genus.cold_ocean_water_tint
+    @biome.Forest =>
+      if sample.humidity > 0.44 {
+        @genus.swamp_water_tint
+      } else {
+        @genus.default_water_tint
+      }
+    _ => @genus.default_water_tint
+  }
+}
+
+///|
 /// Register scalar config and initial world state for JS bootstrap.
 fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   set_global("mcChunkSize", @level.CHUNK_X_SIZE)
@@ -22,6 +73,13 @@ fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   set_global("mcInventoryGridX", @player.INVENTORY_GRID_X)
   set_global("mcInventoryGridY", @player.INVENTORY_GRID_Y)
   set_global("mcAirLongId", @block.AIR_LONG_ID)
+  set_global("mcWaterTintGridStep", 4)
+  set_global("mcSpawnChunkX", @player.SPAWN_CHUNK_X)
+  set_global("mcSpawnChunkZ", @player.SPAWN_CHUNK_Z)
+  set_global("mcSpawnLocalX", @player.SPAWN_LOCAL_X)
+  set_global("mcSpawnLocalZ", @player.SPAWN_LOCAL_Z)
+  set_global("mcSpawnSurfaceOffset", @player.SPAWN_SURFACE_OFFSET)
+  set_global("mcSpawnFallbackY", @player.SPAWN_FALLBACK_Y)
 
   // Leaf shader pipeline assets.
   set_global("mcOakLeavesVertexShader", @genus.leaf_vertex_shader)
@@ -42,6 +100,7 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcCollectHotbarItems", @player.collect_hotbar_items)
   set_global("mcCollectInventoryItems", @player.collect_inventory_items)
   set_global("mcCameraFromYawPitch", @player.camera_from_yaw_pitch)
+  set_global("mcComputeSpawnPosition", @player.compute_spawn_position)
   set_global("mcTorchShapeBoxByState", @genus.Torch::shape_box_by_state)
   set_global("mcCreateBlockRegistry", @block.BlockRegistry::create)
   set_global("mcGetRenderBlockByLongId", @block.BlockRegistry::get_by_long_id)
@@ -58,7 +117,6 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcBuildWorldMeshSplit", @block.build_world_mesh_split)
   set_global("mcBuildWorldLight", @level.build_world_light)
   set_global("mcBuildUiItemMesh", @block.build_ui_item_mesh)
-  set_global("mcComputeSpawnPosition", @level.compute_spawn_position)
   set_global("mcRaycastBlocks", @level.raycast_blocks)
   set_global("mcGetBlockId", @level.get_block_id)
   set_global("mcSetBlockId", @level.set_block_id)
@@ -74,6 +132,12 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGetBiomeName", fn(wx : Int, wz : Int) -> String {
     let biome = @biome.biome_at(world.noise, wx, wz)
     @biome.name(biome)
+  })
+  set_global("mcGetWaterTint", fn(wx : Int, wz : Int) -> Array[Double] {
+    let sample = @biome.sample(world.noise, wx, wz)
+    let biome = @biome.biome_from_sample(sample)
+    let (r, g, b, a) = water_tint_for_sample(biome, sample)
+    [r.to_double(), g.to_double(), b.to_double(), a.to_double()]
   })
   let gen_chunk = fn(x : Int, y : Int, z : Int) -> Array[UInt] {
     world.generate_chunk(x, y, z).tile_map

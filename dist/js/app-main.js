@@ -13,19 +13,13 @@ async function bootstrap() {
   assert_webgl2();
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
-
+  
   window.mcBlocks = blockRegistry;
   window.mcTextures = textures;
-  
-  // console.log("blocks ready:", blockRegistry);
-  // console.log("textures ready:", textures);
 
   const chunkData = window.mcChunkData;
   const chunkSize = window.mcChunkSize;
   const chunkGenerator = window.mcGenChunk;
-
-  // console.log("mcChunkData type:", chunkData?.constructor?.name, "length:", chunkData?.length);
-  // console.log("mcChunkSize:", chunkSize);
 
   renderTestChunk({
     blockRegistry,

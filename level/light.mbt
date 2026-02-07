@@ -2,8 +2,16 @@
 const MAX_LIGHT : Int = 15
 
 ///|
-/// Fixed lighting ignores skylight/torchlight and uses full brightness.
+/// Fixed lighting ignores skylight / torchlight and uses full brightness.
 pub const USE_FIXED_LIGHT : Bool = true
+
+///|
+/// Keep only vertical skylight blocking (cheap and stable).
+pub const ENABLE_SKY_FLOOD_FILL : Bool = true
+
+///|
+/// Torch flood fill is visually subtle but expensive.
+pub const ENABLE_TORCH_LIGHTING : Bool = true
 
 ///|
 /// Smooth lighting blends neighboring light values to reduce hard steps.
@@ -130,6 +138,7 @@ pub fn build_world_light(
   let total = dim_x * dim_y * dim_z
   let opacity : Array[Int] = Array::make(total, 15)
   let luminance : Array[Int] = Array::make(total, 0)
+  let loaded : Array[Bool] = Array::make(total, false)
   let index_of = fn(rx : Int, ry : Int, rz : Int) -> Int {
     (ry * dim_z + rz) * dim_x + rx
   }
@@ -154,6 +163,7 @@ pub fn build_world_light(
             Some((op, lum)) => {
               opacity[idx] = op
               luminance[idx] = lum
+              loaded[idx] = true
             }
             None => ()
           }
@@ -162,7 +172,6 @@ pub fn build_world_light(
     }
   }
   let sky : Array[Int] = Array::make(total, 0)
-  let torch : Array[Int] = Array::make(total, 0)
   let dirs : Array[(Int, Int, Int)] = [
     (1, 0, 0),
     (-1, 0, 0),
@@ -171,130 +180,166 @@ pub fn build_world_light(
     (0, 0, 1),
     (0, 0, -1),
   ]
-  let sky_qx : Array[Int] = []
-  let sky_qy : Array[Int] = []
-  let sky_qz : Array[Int] = []
-  let sky_push = fn(rx : Int, ry : Int, rz : Int) -> Unit {
-    sky_qx.push(rx)
-    sky_qy.push(ry)
-    sky_qz.push(rz)
-  }
-  let top_y = dim_y - 1
-  for rx in 0..<dim_x {
-    for rz in 0..<dim_z {
-      let idx = index_of(rx, top_y, rz)
-      let block_opacity = opacity[idx]
-      if block_opacity >= 15 {
-        continue
-      }
-      let light = if block_opacity == 0 {
-        15
-      } else {
-        clamp_light(15 - block_opacity - 1)
-      }
-      sky[idx] = light
-      if light > 0 {
-        sky_push(rx, top_y, rz)
+  if ENABLE_SKY_FLOOD_FILL {
+    let sky_qx : Array[Int] = []
+    let sky_qy : Array[Int] = []
+    let sky_qz : Array[Int] = []
+    let sky_push = fn(rx : Int, ry : Int, rz : Int) -> Unit {
+      sky_qx.push(rx)
+      sky_qy.push(ry)
+      sky_qz.push(rz)
+    }
+    let top_y = dim_y - 1
+    for rx in 0..<dim_x {
+      for rz in 0..<dim_z {
+        let idx = index_of(rx, top_y, rz)
+        let block_opacity = if loaded[idx] { opacity[idx] } else { 15 }
+        if block_opacity >= 15 {
+          continue
+        }
+        let light = if block_opacity == 0 {
+          15
+        } else {
+          clamp_light(15 - block_opacity - 1)
+        }
+        sky[idx] = light
+        if light > 0 {
+          sky_push(rx, top_y, rz)
+        }
       }
     }
-  }
-  let mut sky_head = 0
-  while sky_head < sky_qx.length() {
-    let rx = sky_qx[sky_head]
-    let ry = sky_qy[sky_head]
-    let rz = sky_qz[sky_head]
-    sky_head = sky_head + 1
-    let idx = index_of(rx, ry, rz)
-    let current = sky[idx]
-    if current <= 0 {
-      continue
+    let mut sky_head = 0
+    while sky_head < sky_qx.length() {
+      let rx = sky_qx[sky_head]
+      let ry = sky_qy[sky_head]
+      let rz = sky_qz[sky_head]
+      sky_head = sky_head + 1
+      let idx = index_of(rx, ry, rz)
+      let current = sky[idx]
+      if current <= 0 {
+        continue
+      }
+      for dir in dirs {
+        let (dx, dy, dz) = dir
+        let nrx = rx + dx
+        let nry = ry + dy
+        let nrz = rz + dz
+        if nrx < 0 ||
+          nrx >= dim_x ||
+          nry < 0 ||
+          nry >= dim_y ||
+          nrz < 0 ||
+          nrz >= dim_z {
+          continue
+        }
+        let nidx = index_of(nrx, nry, nrz)
+        if !loaded[nidx] {
+          continue
+        }
+        let block_opacity = opacity[nidx]
+        if block_opacity >= 15 {
+          continue
+        }
+        let next = if current == 15 && dy == -1 && block_opacity == 0 {
+          15
+        } else {
+          clamp_light(current - block_opacity - 1)
+        }
+        if next > sky[nidx] {
+          sky[nidx] = next
+          if next > 0 {
+            sky_push(nrx, nry, nrz)
+          }
+        }
+      }
     }
-    for dir in dirs {
-      let (dx, dy, dz) = dir
-      let nrx = rx + dx
-      let nry = ry + dy
-      let nrz = rz + dz
-      if nrx < 0 ||
-        nrx >= dim_x ||
-        nry < 0 ||
-        nry >= dim_y ||
-        nrz < 0 ||
-        nrz >= dim_z {
-        continue
-      }
-      let nidx = index_of(nrx, nry, nrz)
-      let block_opacity = opacity[nidx]
-      if block_opacity >= 15 {
-        continue
-      }
-      let next = if current == 15 && dy == -1 && block_opacity == 0 {
-        15
-      } else {
-        clamp_light(current - block_opacity - 1)
-      }
-      if next > sky[nidx] {
-        sky[nidx] = next
-        if next > 0 {
-          sky_push(nrx, nry, nrz)
+  } else {
+    // Fast path: vertical skylight only (full block opacity casts obvious shadows).
+    for rx in 0..<dim_x {
+      for rz in 0..<dim_z {
+        let mut current = 15
+        let mut ry = dim_y - 1
+        while ry >= 0 {
+          let idx = index_of(rx, ry, rz)
+          if !loaded[idx] {
+            current = 0
+            sky[idx] = 0
+            ry = ry - 1
+            continue
+          }
+          let block_opacity = opacity[idx]
+          if block_opacity >= 15 {
+            current = 0
+            sky[idx] = 0
+          } else {
+            if block_opacity > 0 {
+              current = clamp_light(current - block_opacity - 1)
+            }
+            sky[idx] = current
+          }
+          ry = ry - 1
         }
       }
     }
   }
-  let torch_qx : Array[Int] = []
-  let torch_qy : Array[Int] = []
-  let torch_qz : Array[Int] = []
-  let torch_push = fn(rx : Int, ry : Int, rz : Int) -> Unit {
-    torch_qx.push(rx)
-    torch_qy.push(ry)
-    torch_qz.push(rz)
-  }
-  for ry in 0..<dim_y {
-    for rz in 0..<dim_z {
-      for rx in 0..<dim_x {
-        let idx = index_of(rx, ry, rz)
-        let lum = luminance[idx]
-        if lum > 0 {
-          let light = clamp_light(lum)
-          torch[idx] = light
-          torch_push(rx, ry, rz)
+  let torch : Array[Int] = Array::make(total, 0)
+  if ENABLE_TORCH_LIGHTING {
+    let torch_qx : Array[Int] = []
+    let torch_qy : Array[Int] = []
+    let torch_qz : Array[Int] = []
+    let torch_push = fn(rx : Int, ry : Int, rz : Int) -> Unit {
+      torch_qx.push(rx)
+      torch_qy.push(ry)
+      torch_qz.push(rz)
+    }
+    for ry in 0..<dim_y {
+      for rz in 0..<dim_z {
+        for rx in 0..<dim_x {
+          let idx = index_of(rx, ry, rz)
+          let lum = luminance[idx]
+          if lum > 0 {
+            let light = clamp_light(lum)
+            torch[idx] = light
+            torch_push(rx, ry, rz)
+          }
         }
       }
     }
-  }
-  let mut torch_head = 0
-  while torch_head < torch_qx.length() {
-    let rx = torch_qx[torch_head]
-    let ry = torch_qy[torch_head]
-    let rz = torch_qz[torch_head]
-    torch_head = torch_head + 1
-    let idx = index_of(rx, ry, rz)
-    let current = torch[idx]
-    if current <= 0 {
-      continue
-    }
-    for dir in dirs {
-      let (dx, dy, dz) = dir
-      let nrx = rx + dx
-      let nry = ry + dy
-      let nrz = rz + dz
-      if nrx < 0 ||
-        nrx >= dim_x ||
-        nry < 0 ||
-        nry >= dim_y ||
-        nrz < 0 ||
-        nrz >= dim_z {
+    let mut torch_head = 0
+    while torch_head < torch_qx.length() {
+      let rx = torch_qx[torch_head]
+      let ry = torch_qy[torch_head]
+      let rz = torch_qz[torch_head]
+      torch_head = torch_head + 1
+      let idx = index_of(rx, ry, rz)
+      let current = torch[idx]
+      if current <= 0 {
         continue
       }
-      let nidx = index_of(nrx, nry, nrz)
-      let block_opacity = opacity[nidx]
-      if block_opacity >= 15 {
-        continue
-      }
-      let next = clamp_light(current - block_opacity - 1)
-      if next > torch[nidx] {
-        torch[nidx] = next
-        if next > 0 {
-          torch_push(nrx, nry, nrz)
+      for dir in dirs {
+        let (dx, dy, dz) = dir
+        let nrx = rx + dx
+        let nry = ry + dy
+        let nrz = rz + dz
+        if nrx < 0 ||
+          nrx >= dim_x ||
+          nry < 0 ||
+          nry >= dim_y ||
+          nrz < 0 ||
+          nrz >= dim_z {
+          continue
+        }
+        let nidx = index_of(nrx, nry, nrz)
+        let block_opacity = opacity[nidx]
+        if block_opacity >= 15 {
+          continue
+        }
+        let next = clamp_light(current - block_opacity - 1)
+        if next > torch[nidx] {
+          torch[nidx] = next
+          if next > 0 {
+            torch_push(nrx, nry, nrz)
+          }
         }
       }
     }
@@ -302,7 +347,7 @@ pub fn build_world_light(
   let light : Array[Int] = Array::make(total, 0)
   for i in 0..<total {
     let sky_val = sky[i]
-    let torch_val = torch[i]
+    let torch_val = if ENABLE_TORCH_LIGHTING { torch[i] } else { 0 }
     light[i] = if sky_val > torch_val { sky_val } else { torch_val }
   }
   let light_out = if ENABLE_SMOOTH_LIGHTING {

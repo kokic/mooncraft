@@ -1,8 +1,5 @@
 ///|
-fn face_from_hit(
-  block : Array[Int],
-  prev : Array[Int],
-) -> @shape.FaceName? {
+fn face_from_hit(block : Array[Int], prev : Array[Int]) -> @shape.FaceName? {
   if block.length() < 3 || prev.length() < 3 {
     None
   } else {
@@ -65,7 +62,7 @@ pub fn use_item_on(
               place_wx=prev[0],
               place_wy=prev[1],
               place_wz=prev[2],
-              name=name,
+              name~,
               require_air=true,
             )
         }

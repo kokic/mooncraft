@@ -69,6 +69,17 @@ pub fn Item::use_on(
   match item.archetype {
     ItemArchetype::Tool(kind=ToolKind::Shovel, ..) =>
       shovel_use_on(stack, x, y, z, face)
+    _ if item.name == "bucket" =>
+      Batch([
+        ReplaceBlock(
+          wx=x,
+          wy=y,
+          wz=z,
+          expected=Some("water"),
+          neo="air",
+          require_above_air=true,
+        ),
+      ])
     _ => default_use_on(stack, x, y, z, face)
   }
 }

@@ -95,7 +95,7 @@ pub fn apply_use_on_action(
 ) -> Array[String] {
   match action {
     @item.UseOnAction::None => []
-    @item.UseOnAction::Batch(actions~) => {
+    @item.UseOnAction::Batch(actions) => {
       let out : Array[String] = []
       for sub in actions {
         for key in apply_use_on_action(chunk_map, size, sub) {
@@ -108,8 +108,8 @@ pub fn apply_use_on_action(
       wx~,
       wy~,
       wz~,
-      expected_name~,
-      new_name~,
+      expected=expected_name,
+      neo=new_name,
       require_above_air~,
     ) => {
       let current = get_block_id(chunk_map, size, wx, wy, wz)

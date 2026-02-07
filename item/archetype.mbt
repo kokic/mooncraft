@@ -11,8 +11,8 @@ pub fn shovel_use_on(
       wx=x,
       wy=y,
       wz=z,
-      expected_name=Some("grass"),
-      new_name="grass_path",
+      expected=Some("grass"),
+      neo="grass_path",
       require_above_air=true,
     )
   } else {

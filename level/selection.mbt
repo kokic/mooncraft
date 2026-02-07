@@ -1,5 +1,5 @@
 ///|
-pub struct SpawnResult {
+pub(all) struct SpawnResult {
   position : Array[Double]
   surface_y : Int
 }
@@ -73,7 +73,7 @@ fn get_block_at(
 }
 
 ///|
-fn find_surface_y(
+pub fn find_surface_y(
   chunk_map : @ffi.JsValue,
   size : Int,
   chunk_min_y : Int,
@@ -82,7 +82,6 @@ fn find_surface_y(
   chunk_z : Int,
   local_x : Int,
   local_z : Int,
-  air_id : UInt,
 ) -> Int? {
   for cy = chunk_max_y; cy >= chunk_min_y; {
     let key = chunk_key_by_chunk_xyz(chunk_x, cy, chunk_z)
@@ -91,7 +90,7 @@ fn find_surface_y(
       Some(data) =>
         for y = size - 1; y >= 0; {
           let idx = (y * size + local_z) * size + local_x
-          if data[idx] != air_id {
+          if data[idx] != @block.AIR_LONG_ID {
             return Some(cy * size + y)
           }
           continue y - 1
@@ -102,39 +101,6 @@ fn find_surface_y(
   } else {
     None
   }
-}
-
-///|
-pub fn compute_spawn_position(
-  chunk_map : @ffi.JsValue,
-  size : Int,
-  chunk_min_y : Int,
-  chunk_max_y : Int,
-  chunk_x : Int,
-  chunk_z : Int,
-  local_x : Int,
-  local_z : Int,
-  surface_offset : Int,
-  fallback_y : Int,
-  air_id : UInt,
-) -> SpawnResult {
-  let surface_y = find_surface_y(
-    chunk_map, size, chunk_min_y, chunk_max_y, chunk_x, chunk_z, local_x, local_z,
-    air_id,
-  )
-  let base_y = match surface_y {
-    Some(v) => v
-    None => fallback_y
-  }
-  let spawn_y = base_y + surface_offset
-  let px = local_x.to_double() + 0.5
-  let py = spawn_y.to_double()
-  let pz = local_z.to_double() + 0.5
-  let surface_out = match surface_y {
-    Some(v) => v
-    None => -1
-  }
-  SpawnResult::{ position: [px, py, pz], surface_y: surface_out }
 }
 
 ///|
@@ -169,21 +135,21 @@ pub fn raycast_blocks(
     } else if sx > 0 {
       (bx.to_double() + 1.0 - origin[0]) / dx
     } else {
-      (origin[0] - bx.to_double()) / (-dx)
+      (origin[0] - bx.to_double()) / -dx
     }
     let mut t_max_y = if sy == 0 {
       inf
     } else if sy > 0 {
       (by.to_double() + 1.0 - origin[1]) / dy
     } else {
-      (origin[1] - by.to_double()) / (-dy)
+      (origin[1] - by.to_double()) / -dy
     }
     let mut t_max_z = if sz == 0 {
       inf
     } else if sz > 0 {
       (bz.to_double() + 1.0 - origin[2]) / dz
     } else {
-      (origin[2] - bz.to_double()) / (-dz)
+      (origin[2] - bz.to_double()) / -dz
     }
     let t_delta_x = if sx == 0 { inf } else { 1.0 / dx.abs() }
     let t_delta_y = if sy == 0 { inf } else { 1.0 / dy.abs() }
@@ -198,6 +164,9 @@ pub fn raycast_blocks(
           match @block.lookup_by_long_id(id) {
             Some(block) =>
               match block.shape {
+                @block.Shape::Liquid =>
+                  // Treat liquids as pass-through for selection/raycast.
+                  allow_hit = false
                 shape if shape.is_torch_genus() => {
                   let box = @genus.Torch::shape_box_by_state(block.state)
                   let bmin_f = box.min

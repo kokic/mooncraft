@@ -66,15 +66,6 @@ pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
 }
 
 ///|
-/// True if the block should be selectable (outlined) in UI.
-pub fn Block::is_selectable(block : Block) -> Bool {
-  match block.shape {
-    Air => false
-    _ => true
-  }
-}
-
-///|
 pub let fallback_texture : String = "missing_tile"
 
 ///|

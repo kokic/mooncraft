@@ -1,12 +1,19 @@
 ///|
+pub type UniqueNamePredicate = (@util.UniqueName) -> Bool
+
+///|
 pub enum UseOnAction {
   None
+  // ReplaceItem(
+  //   expected~ : UniqueNamePredicate,
+  //   neo~ : UniqueNamePredicate
+  // )
   ReplaceBlock(
     wx~ : Int,
     wy~ : Int,
     wz~ : Int,
-    expected~ : @util.UniqueName?,
-    neo~ : @util.UniqueName,
+    expected~ : UniqueNamePredicate,
+    neo~ : UniqueNamePredicate,
     require_above_air~ : Bool
   )
   PlaceBlock(

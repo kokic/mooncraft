@@ -53,7 +53,6 @@ pub let blocks : Array[Block] = [
     occlusion_cull=false,
     same_block_cull=true,
     alpha_mode=AlphaMode::Translucent,
-    material=Material::Normal,
   ),
   Block::create(
     "lava",
@@ -68,6 +67,23 @@ pub let blocks : Array[Block] = [
   // Artifact
   Block::create("bricks", ["bricks"]),
   ..Block::create_with_classic("gold_block", ["gold_block"]),
+  Block::create("pumpkin", ["pumpkin_top", "pumpkin_top", "pumpkin_side"]),
+  ..create_facing_group(
+    "carved_pumpkin",
+    [
+      "carved_pumpkin", "pumpkin_side", "pumpkin_top", "pumpkin_top", "pumpkin_side",
+      "pumpkin_side",
+    ],
+    facing=Facing::Horizontal,
+  ),
+  ..create_facing_group(
+    "piston_sticky",
+    [
+      "piston_top_sticky", "piston_bottom", "piston_side", "piston_side", "piston_side",
+      "piston_side",
+    ],
+    facing=Facing::Six,
+  ),
 
   // Desert
   Block::create("sand", ["sand"]),
@@ -100,10 +116,11 @@ pub let blocks : Array[Block] = [
 
   // Trees
   ..["oak", "dark_oak", "birch", "acacia", "jungle", "spruce"]
-  .map(v => create_log_group("classic.\{v}_log", [
-    "classic/\{v}_log_top",
-    "classic/\{v}_log",
-  ]))
+  .map(v => create_facing_group(
+    "classic.\{v}_log",
+    ["classic/\{v}_log_top", "classic/\{v}_log"],
+    facing=Facing::Axis,
+  ))
   .flatten(),
   ..Block::create_with_classic(
     "oak_leaves",
@@ -192,34 +209,73 @@ fn create_torch_group(
 }
 
 ///|
-fn create_log(
+fn unique_name_by_facing(
+  base : String,
+  facing : Facing,
+  state : UInt,
+) -> String {
+  match facing {
+    Facing::Axis => @genus.Log::unique_name(base, state)
+    Facing::Horizontal => @genus.HorizontalFacing::unique_name(base, state)
+    Facing::Six => @genus.SixFacing::unique_name(base, state)
+    Facing::None => base
+  }
+}
+
+///|
+fn create_facing(
   base : String,
   id : UInt,
   state : UInt,
   faces : FixedArray[String],
+  facing : Facing,
+  shape? : Shape = Shape::Cube,
   category? : @item.Category = @item.Block,
 ) -> Block {
   Block::create(
-    @genus.Log::unique_name(base, state),
+    unique_name_by_facing(base, facing, state),
     id~,
     state~,
-    shape=Shape::Log,
+    facing~,
+    shape~,
     category~,
     faces,
   )
 }
 
 ///|
-fn create_log_group(
+fn create_facing_group(
   base : String,
   id? : UInt = alloc_id(),
   faces : FixedArray[String],
+  facing? : Facing = Facing::None,
+  shape? : Shape = Shape::Cube,
 ) -> Array[Block] {
-  [
-    create_log(base, id, 0, faces),
-    create_log(base, id, 1, faces, category=@item.None),
-    create_log(base, id, 2, faces, category=@item.None),
-  ]
+  match facing {
+    Facing::Axis =>
+      [
+        create_facing(base, id, 0, faces, facing, shape~),
+        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
+      ]
+    Facing::Horizontal =>
+      [
+        create_facing(base, id, 0, faces, facing, shape~),
+        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 3, faces, facing, shape~, category=@item.None),
+      ]
+    Facing::Six =>
+      [
+        create_facing(base, id, 0, faces, facing, shape~),
+        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 3, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 4, faces, facing, shape~, category=@item.None),
+        create_facing(base, id, 5, faces, facing, shape~, category=@item.None),
+      ]
+    Facing::None => [create_facing(base, id, 0, faces, facing, shape~)]
+  }
 }
 
 ///|
@@ -232,6 +288,7 @@ fn Block::create_with_classic(
   opacity? : Int = 15,
   alpha_mode? : AlphaMode = AlphaMode::Opaque,
   shape? : Shape = Shape::Cube,
+  facing? : Facing = Facing::None,
   material? : Material = Material::Normal,
   category? : @item.Category = @item.Block,
   faces : FixedArray[String],
@@ -247,6 +304,7 @@ fn Block::create_with_classic(
       opacity~,
       alpha_mode~,
       shape~,
+      facing~,
       material~,
       category~,
       faces,
@@ -261,6 +319,7 @@ fn Block::create_with_classic(
       opacity~,
       alpha_mode~,
       shape~,
+      facing~,
       material~,
       category~,
       faces.map(s => "classic/" + s),

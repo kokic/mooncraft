@@ -8,6 +8,7 @@ pub(all) struct SpawnResult {
 pub struct RaycastResult {
   block : Array[Int]
   prev : @ffi.JsValue
+  click : (Float, Float, Float)
 }
 
 ///|
@@ -73,6 +74,17 @@ fn get_block_at(
 }
 
 ///|
+fn clamp_click_offset(v : Double) -> Float {
+  if v <= 0.0 {
+    0.0
+  } else if v >= 1.0 {
+    1.0
+  } else {
+    Float::from_double(v)
+  }
+}
+
+///|
 pub fn find_surface_y(
   chunk_map : @ffi.JsValue,
   size : Int,
@@ -112,6 +124,7 @@ pub fn raycast_blocks(
   max_dist : Double,
   _step : Double,
   air_id : UInt,
+  include_liquid_hit : Bool,
 ) -> RaycastResult? {
   if origin.length() < 3 || dir.length() < 3 {
     None
@@ -165,8 +178,9 @@ pub fn raycast_blocks(
             Some(block) =>
               match block.shape {
                 @block.Shape::Liquid =>
-                  // Treat liquids as pass-through for selection/raycast.
-                  allow_hit = false
+                  // Keep liquids transparent for general selection, but allow
+                  // tools/items (e.g. bucket) to opt in.
+                  allow_hit = include_liquid_hit
                 shape if shape.is_torch_genus() => {
                   let box = @genus.Torch::shape_box_by_state(block.state)
                   let bmin_f = box.min
@@ -192,7 +206,15 @@ pub fn raycast_blocks(
               Some((lx, ly, lz)) => @ffi.JsValue::cast_from([lx, ly, lz])
               None => @ffi.JsValue::null()
             }
-            return Some(RaycastResult::{ block: [bx, by, bz], prev })
+            let hit_x = origin[0] + dx * traveled
+            let hit_y = origin[1] + dy * traveled
+            let hit_z = origin[2] + dz * traveled
+            let click = (
+              clamp_click_offset(hit_x - bx.to_double()),
+              clamp_click_offset(hit_y - by.to_double()),
+              clamp_click_offset(hit_z - bz.to_double()),
+            )
+            return Some(RaycastResult::{ block: [bx, by, bz], prev, click })
           } else {
             last_pos = Some((bx, by, bz))
           }

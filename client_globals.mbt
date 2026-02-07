@@ -6,57 +6,6 @@ fn[V] set_global(name : String, value : V) -> Unit {
 }
 
 ///|
-fn water_tint_for_sample(
-  biome : @biome.Biome,
-  sample : @biome.BiomeSample,
-) -> @util.Rgba {
-  match biome {
-    @biome.FrozenRiver => @genus.frozen_water_tint
-    @biome.River =>
-      if sample.temperature < -0.22 {
-        @genus.frozen_water_tint
-      } else if sample.humidity > 0.48 && sample.temperature > 0.18 {
-        @genus.mangrove_swamp_river_water_tint
-      } else if sample.humidity > 0.34 {
-        @genus.swamp_water_tint
-      } else {
-        @genus.default_water_tint
-      }
-    @biome.Ocean =>
-      if sample.temperature > 0.56 {
-        @genus.warm_ocean_water_tint
-      } else if sample.temperature > 0.20 {
-        @genus.lukewarm_ocean_water_tint
-      } else if sample.temperature < -0.24 {
-        @genus.frozen_water_tint
-      } else {
-        @genus.cold_ocean_water_tint
-      }
-    @biome.DeepOcean =>
-      if sample.temperature < -0.18 {
-        @genus.frozen_water_tint
-      } else {
-        @genus.cold_ocean_water_tint
-      }
-    @biome.Desert | @biome.DesertLakes => @genus.warm_ocean_water_tint
-    @biome.Beach =>
-      if sample.temperature > 0.35 {
-        @genus.lukewarm_ocean_water_tint
-      } else {
-        @genus.default_water_tint
-      }
-    @biome.Mountains | @biome.WindsweptHills => @genus.cold_ocean_water_tint
-    @biome.Forest =>
-      if sample.humidity > 0.44 {
-        @genus.swamp_water_tint
-      } else {
-        @genus.default_water_tint
-      }
-    _ => @genus.default_water_tint
-  }
-}
-
-///|
 /// Register scalar config and initial world state for JS bootstrap.
 fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   set_global("mcChunkSize", @level.CHUNK_X_SIZE)
@@ -124,7 +73,9 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcApplyUseOnAction", @level.apply_use_on_action_with_player)
   set_global("mcApplyUseAction", @level.apply_use_action)
   set_global("mcGetBlockShapeDesc", @block.get_shape_desc)
-  set_global("mcComputePlacementState", @block.compute_placement_state)
+  set_global("mcComputePlacementState", fn(long_id : UInt, block : Array[Int], prev : Array[Int]) -> UInt {
+    @block.compute_placement_state(long_id, block, prev)
+  })
   set_global("mcMovePlayer", @player.move_player)
   set_global("mcUseItemOn", @item.use_item_on)
   set_global("mcUseItem", @item.use_item)
@@ -136,7 +87,7 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGetWaterTint", fn(wx : Int, wz : Int) -> Array[Double] {
     let sample = @biome.sample(world.noise, wx, wz)
     let biome = @biome.biome_from_sample(sample)
-    let (r, g, b, a) = water_tint_for_sample(biome, sample)
+    let (r, g, b, a) = @genus.Water::tint_for_sample(biome, sample)
     [r.to_double(), g.to_double(), b.to_double(), a.to_double()]
   })
   let gen_chunk = fn(x : Int, y : Int, z : Int) -> Array[UInt] {

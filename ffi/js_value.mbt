@@ -67,6 +67,6 @@ pub impl Eq for JsValue with equal(self, other) -> Bool {
 extern "js" fn JsValue::raw_get(self : Self, key : Self) -> Self = "(obj, key) => obj[key]"
 
 ///|
-fn[T] JsValue::get(self : Self, key : String) -> T {
+pub fn[T] JsValue::get(self : Self, key : String) -> T {
   self.raw_get(JsValue::cast_from(key)).cast_to()
 }

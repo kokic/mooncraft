@@ -405,7 +405,7 @@ pub fn build_chunk_mesh(
         tint_g = tg
         tint_b = tb
         tint_a = ta
-        let model = block.block.shape.model()
+        let model = model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
@@ -876,7 +876,7 @@ pub fn build_chunk_mesh_split(
         if block.block.shape is Shape::Air {
           continue
         }
-        let model = block.block.shape.model()
+        let model = model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
@@ -1118,7 +1118,7 @@ pub fn build_chunk_colors_split(
         if block.block.shape is Shape::Air {
           continue
         }
-        let model = block.block.shape.model()
+        let model = model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
@@ -1283,7 +1283,7 @@ pub fn build_chunk_colors(
         tint_g = tg
         tint_b = tb
         tint_a = ta
-        let model = block.block.shape.model()
+        let model = model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,

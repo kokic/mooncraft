@@ -7,10 +7,8 @@ pub fn use_item(
   if block.length() < 3 {
     UseAction::None
   } else {
-    UseAction::BreakBlock(
-      wx=block[0],
-      wy=block[1],
-      wz=block[2],
-    )
+    UseAction::Batch([
+      UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2]),
+    ])
   }
 }

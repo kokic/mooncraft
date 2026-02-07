@@ -7,6 +7,7 @@ let default_flat_layer_blocks : Array[String] = [
 ///|
 /// Flat world generation with configurable layers.
 fn fill_flat(
+  world : World,
   chunk : Chunk,
   flat_layer_names? : Array[String] = default_flat_layer_blocks,
 ) -> Chunk {
@@ -27,6 +28,17 @@ fn fill_flat(
         }
       }
     }
+  }
+  if layer_count > 0 {
+    let surface_y = layer_count - 1
+    let set_block = fn(wx : Int, wy : Int, wz : Int, id : UInt) -> Unit {
+      Chunk::set_block(chunk, wx, wy, wz, id)
+    }
+    @feature.place_crop_circle_texts_flat(
+      set_block,
+      world.seed.to_int(),
+      surface_y,
+    )
   }
   chunk
 }

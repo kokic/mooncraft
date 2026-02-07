@@ -30,6 +30,7 @@ pub fn use_item_on(
   category : String,
   block : Array[Int],
   prev : Array[Int],
+  click : (Float, Float, Float),
 ) -> UseOnAction {
   if block.length() < 3 || prev.length() < 3 {
     UseOnAction::None
@@ -48,6 +49,7 @@ pub fn use_item_on(
                   block[1],
                   block[2],
                   face,
+                  click,
                 )
             }
         }

@@ -1,6 +1,6 @@
 ///|
 fn main {
-  let world = @level.World::new(world_type=@level.WorldType::Finite)
+  let world = @level.World::new(world_type=@level.WorldType::Infinite)
   let chunk = world.generate_chunk(0, 0, 0)
 
   // let surface = @level.surface_height(world, 0, 0)

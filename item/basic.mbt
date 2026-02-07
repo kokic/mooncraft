@@ -53,6 +53,7 @@ fn default_use_on(
   _ : Int,
   _ : Int,
   _ : @shape.FaceName,
+  _ : (Float, Float, Float),
 ) -> UseOnAction {
   UseOnAction::None
 }
@@ -65,22 +66,23 @@ pub fn Item::use_on(
   y : Int,
   z : Int,
   face : @shape.FaceName,
+  click : (Float, Float, Float),
 ) -> UseOnAction {
   match item.archetype {
     ItemArchetype::Tool(kind=ToolKind::Shovel, ..) =>
-      shovel_use_on(stack, x, y, z, face)
+      shovel_use_on(stack, x, y, z, face, click)
     _ if item.name == "bucket" =>
       Batch([
         ReplaceBlock(
           wx=x,
           wy=y,
           wz=z,
-          expected=Some("water"),
-          neo="air",
-          require_above_air=true,
+          expected=name => name == "water",
+          neo=name => name == "air",
+          require_above_air=false,
         ),
       ])
-    _ => default_use_on(stack, x, y, z, face)
+    _ => default_use_on(stack, x, y, z, face, click)
   }
 }
 

@@ -14,6 +14,7 @@ pub struct Block {
   opacity : Int
   alpha_mode : AlphaMode
   shape : Shape
+  facing : Facing
   material : Material
   category : @item.Category
   faces : TextureNames
@@ -33,6 +34,7 @@ fn Block::create(
   opacity? : Int = 15,
   alpha_mode? : AlphaMode = AlphaMode::Opaque,
   shape? : Shape = Shape::Cube,
+  facing? : Facing = Facing::None,
   material? : Material = Material::Normal,
   category? : @item.Category = @item.Block,
   faces : FixedArray[String],
@@ -42,6 +44,15 @@ fn Block::create(
     1 => TextureNames::isotropic(faces[0])
     2 => TextureNames::axial(faces[0], faces[1])
     3 => TextureNames::top_bottom(faces[0], faces[1], faces[2])
+    6 =>
+      TextureNames::new(
+        pos_x=faces[0],
+        neg_x=faces[1],
+        pos_y=faces[2],
+        neg_y=faces[3],
+        pos_z=faces[4],
+        neg_z=faces[5],
+      )
     _ => panic()
   }
   Block::{
@@ -54,6 +65,7 @@ fn Block::create(
     opacity,
     alpha_mode,
     shape,
+    facing,
     material,
     category,
     faces,

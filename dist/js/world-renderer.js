@@ -12,7 +12,7 @@ import {
   mat4Mul,
 } from "./math3d.js";
 
-const UPDATE_LABEL = `(9:47)`
+const UPDATE_LABEL = `(3:00)`
 const DEFAULT_MESH_SECTION_SIZE = 8;
 
 function getBlockShapeDesc(longId) {
@@ -1286,10 +1286,13 @@ function renderTestChunk({
       if (Array.isArray(keys)) return keys;
     }
     const keys = [];
-    for (let dx = -renderDistance; dx <= renderDistance; dx += 1) {
-      for (let dz = -renderDistance; dz <= renderDistance; dz += 1) {
-        for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
-          keys.push(`${cx + dx},${cy},${cz + dz}`);
+    for (let ring = 0; ring <= renderDistance; ring += 1) {
+      for (let dx = -ring; dx <= ring; dx += 1) {
+        for (let dz = -ring; dz <= ring; dz += 1) {
+          if (Math.abs(dx) !== ring && Math.abs(dz) !== ring) continue;
+          for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
+            keys.push(`${cx + dx},${cy},${cz + dz}`);
+          }
         }
       }
     }
@@ -1567,12 +1570,22 @@ function renderTestChunk({
     return true;
   };
 
-  const raycastBlocks = (origin, dir, maxDist = 10, step = 0.05) => {
-    const res = window.mcRaycastBlocks(chunkDatas, size, origin, dir, maxDist, step, airLongId);
+  const raycastBlocks = (origin, dir, maxDist = 10, step = 0.05, includeLiquidHit = false) => {
+    const res = window.mcRaycastBlocks(
+      chunkDatas,
+      size,
+      origin,
+      dir,
+      maxDist,
+      step,
+      airLongId,
+      includeLiquidHit,
+    );
     if (!res) return null;
     const block = res.block;
     const prev = res.prev == null ? null : res.prev;
-    return { block, prev };
+    const click = res.click == null ? { _0: 0.5, _1: 0.5, _2: 0.5 } : res.click;
+    return { block, prev, click };
   };
 
   const updateOutline = (camera) => {
@@ -1604,9 +1617,9 @@ function renderTestChunk({
       player.state.yaw,
       player.state.pitch,
     );
-    const hit = raycastBlocks(raycastCamera.position, raycastCamera.direction);
-    if (!hit) return;
     if (event.button === 0) {
+      const hit = raycastBlocks(raycastCamera.position, raycastCamera.direction);
+      if (!hit) return;
       const slotIndex = typeof hotbar.getSelectedIndex === "function"
         ? hotbar.getSelectedIndex()
         : (window.mcHotbarSelectedIndex ?? 0);
@@ -1627,7 +1640,6 @@ function renderTestChunk({
         }
       }
     } else if (event.button === 2) {
-      if (!hit.prev) return;
       const slotIndex = typeof hotbar.getSelectedIndex === "function"
         ? hotbar.getSelectedIndex()
         : (window.mcHotbarSelectedIndex ?? 0);
@@ -1639,10 +1651,19 @@ function renderTestChunk({
         return;
       }
       if (category !== "item" && category !== "block") return;
+      const includeLiquidHit = selectedItem.name === "bucket";
+      const hit = raycastBlocks(
+        raycastCamera.position,
+        raycastCamera.direction,
+        10,
+        0.05,
+        includeLiquidHit,
+      );
+      if (!hit || !hit.prev) return;
       const useItemOn = window.mcUseItemOn;
       const applyUseOn = window.mcApplyUseOnAction;
       if (typeof useItemOn === "function" && typeof applyUseOn === "function") {
-        const action = useItemOn(selectedItem.name, category, hit.block, hit.prev);
+        const action = useItemOn(selectedItem.name, category, hit.block, hit.prev, hit.click);
         const keys = applyUseOn(
           chunkDatas,
           size,

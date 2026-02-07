@@ -7,10 +7,58 @@ fn resolve_block_long_id(name : String) -> UInt? {
 }
 
 ///|
+fn block_name_matches(long_id : UInt, predicate : @item.UniqueNamePredicate) -> Bool {
+  match @block.lookup_by_long_id(long_id) {
+    Some(block) => predicate(block.name)
+    None => false
+  }
+}
+
+///|
+fn resolve_block_long_id_by_predicate(
+  predicate : @item.UniqueNamePredicate,
+) -> UInt? {
+  let mut found : UInt? = None
+  for block in @block.blocks {
+    if predicate(block.name) {
+      match found {
+        Some(_) =>
+          // Ambiguous predicate: refuse replacement to keep behavior deterministic.
+          return None
+        None => found = Some(block.long_id())
+      }
+    }
+  }
+  found
+}
+
+///|
 fn is_air_at(chunk_map : @ffi.JsValue, size : Int, wx : Int, wy : Int, wz : Int) -> Bool {
   match get_block_id(chunk_map, size, wx, wy, wz) {
     Some(id) => id == @block.AIR_LONG_ID
     None => false
+  }
+}
+
+///|
+fn can_replace_at(
+  chunk_map : @ffi.JsValue,
+  size : Int,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Bool {
+  match get_block_id(chunk_map, size, wx, wy, wz) {
+    None => false
+    Some(id) =>
+      if id == @block.AIR_LONG_ID {
+        true
+      } else {
+        match @block.lookup_by_long_id(id) {
+          Some(block) => block.shape is @block.Shape::Liquid
+          None => false
+        }
+      }
   }
 }
 
@@ -104,12 +152,13 @@ pub fn apply_use_on_action(
       }
       out
     }
+    // @item.UseOnAction::ReplaceItem(expected=_, neo=_) => []
     @item.UseOnAction::ReplaceBlock(
       wx~,
       wy~,
       wz~,
-      expected=expected_name,
-      neo=new_name,
+      expected=expected_predicate,
+      neo=new_predicate,
       require_above_air~,
     ) => {
       let current = get_block_id(chunk_map, size, wx, wy, wz)
@@ -119,18 +168,11 @@ pub fn apply_use_on_action(
           if require_above_air && !is_air_at(chunk_map, size, wx, wy + 1, wz) {
             []
           } else {
-            let expected_ok = match expected_name {
-              None => true
-              Some(name) =>
-                match resolve_block_long_id(name) {
-                  Some(expected_id) => expected_id == current_id
-                  None => false
-                }
-            }
+            let expected_ok = block_name_matches(current_id, expected_predicate)
             if !expected_ok {
               []
             } else {
-              match resolve_block_long_id(new_name) {
+              match resolve_block_long_id_by_predicate(new_predicate) {
                 None => []
                 Some(new_id) => set_block_id(chunk_map, size, wx, wy, wz, new_id)
               }
@@ -149,7 +191,7 @@ pub fn apply_use_on_action(
       name~,
       require_air~,
     ) => {
-      if require_air && !is_air_at(chunk_map, size, place_wx, place_wy, place_wz) {
+      if require_air && !can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) {
         []
       } else {
         match resolve_block_long_id(name) {
@@ -157,7 +199,12 @@ pub fn apply_use_on_action(
           Some(base_id) => {
             let block = [target_wx, target_wy, target_wz]
             let prev = [place_wx, place_wy, place_wz]
-            let placement_state = @block.compute_placement_state(base_id, block, prev)
+            let placement_state = @block.compute_placement_state(
+              base_id,
+              block,
+              prev,
+              player_pos=player_pos,
+            )
             let (raw_id, _) = @util.unpack_long_id(base_id)
             let long_id = @util.pack_long_id(raw_id, placement_state)
             if can_place_block(

@@ -2,7 +2,6 @@
 pub enum Shape {
   Air
   Cube
-  Log
   GrassPath
   Liquid
   Cactus
@@ -20,16 +19,25 @@ pub fn Shape::is_torch_genus(shape : Shape) -> Bool {
 }
 
 ///|
-fn Shape::model(shape : Shape) -> @shape.Model {
+fn model_by_shape(shape : Shape) -> @shape.Model {
   match shape {
     Shape::GrassPath => @genus.grass_path_model
     Shape::Liquid => @genus.liquid_model
     Shape::Cactus => @genus.cactus_model
-    Shape::Log => @genus.log_model
     Shape::Torch => @genus.torch_model
     Shape::RedstoneTorch => @genus.redstone_torch_model
     Shape::RedstoneTorchClassic => @genus.redstone_torch_classic_model
     _ => @genus.default_model
+  }
+}
+
+///|
+fn model_by_block(block : Block) -> @shape.Model {
+  match block.facing {
+    Facing::Axis => @genus.log_model
+    Facing::Horizontal => @genus.horizontal_facing_model
+    Facing::Six => @genus.six_facing_model
+    Facing::None => model_by_shape(block.shape)
   }
 }
 
@@ -55,12 +63,8 @@ fn shape_desc_by_block(block : Block) -> @shape.Source {
       }
     Shape::Liquid =>
       @shape.Source::{
-        boxes: [
-          @shape.Box::{
-            min: [0.0F, 0.0F, 0.0F],
-            max: [1.0F, @genus.LIQUID_MAX_Y, 1.0F],
-          },
-        ],
+        // Liquids should not block entities or placement collision checks.
+        boxes: [],
         facing: -1,
       }
     Shape::Cactus =>

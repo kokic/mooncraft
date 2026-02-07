@@ -330,7 +330,21 @@ fn surface_height_with_params(
     terrain_biome,
     surface_params,
   )
-  let mut height = surface_plain.to_double()
+  let is_mountain_surface = terrain_biome is @biome.Mountains ||
+    terrain_biome is @biome.WindsweptHills
+  let mountain_base_plain = if is_mountain_surface {
+    let ground_biome = fallback_dry_land_biome(sample)
+    let ground_params = @biome.params(ground_biome)
+    plain_height_with_biome(world, wx, wz, sample, ground_biome, ground_params)
+      .to_double()
+  } else {
+    surface_plain.to_double()
+  }
+  let mut height = if is_mountain_surface {
+    mountain_base_plain + 1.0
+  } else {
+    surface_plain.to_double()
+  }
   if terrain_biome is @biome.Ocean || terrain_biome is @biome.DeepOcean {
     let seabed = @biome.fbm2d(noise, x * 0.012, z * 0.012, 3, 2.0, 0.5).abs() * 3.5
     if terrain_biome is @biome.DeepOcean {
@@ -385,16 +399,30 @@ fn surface_height_with_params(
     } else {
       0.48
     }
+    let foothill_base = if is_mountain_surface {
+      0.02
+    } else {
+      0.11
+    }
     let foothill = foothill_mask *
       (1.0 - mountain_mask) *
       surface_params.mountain_amp *
-      (0.11 + ridged_shape * 0.10)
+      (foothill_base + ridged_shape * 0.10)
     let mountain_shape = mountain_mask * (0.55 + mountain_mask * 0.45)
     let mountain_core = mountain_shape *
       (ridged_shape * ridged_shape * 0.86 + ridged_shape * 0.14) *
       surface_params.mountain_amp *
       (0.50 + (1.0 - erosion_t) * 0.82) *
       biome_uplift
+    let summit_mask = mountain_mask * mountain_mask
+    let summit_boost = if is_mountain_surface {
+      summit_mask *
+      surface_params.mountain_amp *
+      (0.06 + ridged_shape * 0.18 + peaks * 0.14) *
+      (0.45 + (1.0 - erosion_t) * 0.45)
+    } else {
+      0.0
+    }
     let jagged = noise.gen2d((x - warp_x) * 0.024, (z + warp_z) * 0.024) *
       (foothill_mask * 0.45 + mountain_mask * 0.55) *
       1.45
@@ -405,7 +433,16 @@ fn surface_height_with_params(
       0.0
     }
     let river_carve = river_t * river_t * river_strength
-    height = height + foothill + mountain_core + jagged - river_carve
+    let relief = foothill + mountain_core + summit_boost + jagged - river_carve
+    if is_mountain_surface {
+      if relief > 0.0 {
+        height = mountain_base_plain + 1.0 + relief
+      } else {
+        height = mountain_base_plain + 1.0
+      }
+    } else {
+      height = height + relief
+    }
   }
   if surface_biome is @biome.Beach {
     let beach_cap = SEA_LEVEL.to_double() + 2.0
@@ -447,6 +484,9 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
 
 ///|
 fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
+  if world.kind is WorldType::Finite {
+    return finite_terrain_column(world, wx, wz)
+  }
   let sample = @biome.sample(world.noise, wx, wz)
   let biome = @biome.biome_from_sample(sample)
   let surface_biome = surface_biome_from_column(world, sample, biome)
@@ -603,7 +643,7 @@ pub fn World::generate_chunk(
 ) -> Chunk {
   let chunk = Chunk::new(chunk_x, chunk_y, chunk_z)
   match world.kind {
-    WorldType::Flat => fill_flat(chunk)
+    WorldType::Flat => fill_flat(world, chunk)
     WorldType::Infinite => fill_infinite(world, chunk)
     WorldType::PreClassic =>
       if is_chunk_in_preclassic_world(chunk_x, chunk_y, chunk_z) {

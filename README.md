@@ -57,3 +57,13 @@ Replace `Infinite` with one of:
 - Add more structure / feature variety beyond current tree + nether spire coverage
 - Continue optimizing chunk update / light update hot paths under frequent block edits
 - Expand pre-classic specific content (materials / structure presets) for stronger era identity
+
+## Asset Copyright Notice (Minecraft EULA)
+
+- Files under `dist/assets` may contain textures or other resources derived from Minecraft.
+- Minecraft and all related assets and intellectual property are owned by Mojang Studios / Microsoft.
+- This project is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Mojang Studios or Microsoft.
+- Use and redistribution of these assets must comply with the Minecraft EULA.
+- If you plan to publish or commercialize this project, replace `dist/assets` resources with original or properly licensed assets.
+
+Reference: https://www.minecraft.net/eula

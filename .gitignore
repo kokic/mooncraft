@@ -8,7 +8,6 @@ target
 .moonagent/
 .local/
 .old-demo/
-dist/assets/
 dist/js/release/
 dist/.moon-lock
 dev/

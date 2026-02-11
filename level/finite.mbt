@@ -138,13 +138,14 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   let z = wz.to_double()
   let erosion_t = finite_clamp01((sample.erosion + 1.0) * 0.5)
   let rolling = @biome.fbm2d(
-    world.noise,
-    x * FINITE_ROLLING_FREQ,
-    z * FINITE_ROLLING_FREQ,
-    4,
-    2.0,
-    0.5,
-  ) * FINITE_ROLLING_AMP
+      world.noise,
+      x * FINITE_ROLLING_FREQ,
+      z * FINITE_ROLLING_FREQ,
+      4,
+      2.0,
+      0.5,
+    ) *
+    FINITE_ROLLING_AMP
   let detail = world.noise.gen2d(x * FINITE_DETAIL_FREQ, z * FINITE_DETAIL_FREQ) *
     FINITE_DETAIL_AMP
   let climate = sample.humidity * 1.15 - sample.temperature.abs() * 0.50
@@ -156,14 +157,14 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   match surface_biome {
     @biome.Mountains =>
       surface = surface +
-      FINITE_MOUNTAIN_BONUS +
-      sample.ridge * FINITE_MOUNTAIN_RIDGE_BONUS -
-      erosion_t * FINITE_MOUNTAIN_EROSION_PENALTY
+        FINITE_MOUNTAIN_BONUS +
+        sample.ridge * FINITE_MOUNTAIN_RIDGE_BONUS -
+        erosion_t * FINITE_MOUNTAIN_EROSION_PENALTY
     @biome.WindsweptHills =>
       surface = surface +
-      FINITE_WINDSWEPT_BONUS +
-      sample.ridge * 3.2 -
-      erosion_t * 2.0
+        FINITE_WINDSWEPT_BONUS +
+        sample.ridge * 3.2 -
+        erosion_t * 2.0
     @biome.Forest => surface = surface + 0.8
     @biome.Desert => surface = surface - 0.8
     @biome.DesertLakes => surface = surface - 1.4
@@ -189,14 +190,24 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   if plain < min_h - 2 {
     plain = min_h - 2
   }
-  TerrainColumn::{ wx, wz, sample, biome, surface_biome, plain, surface: surface_i }
+  TerrainColumn::{
+    wx,
+    wz,
+    sample,
+    biome,
+    surface_biome,
+    plain,
+    surface: surface_i,
+  }
 }
 
 ///|
 fn finite_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let detail = world.noise.gen2d(x / FINITE_DIRT_SCALE, z / FINITE_DIRT_SCALE).abs()
+  let detail = world.noise
+    .gen2d(x / FINITE_DIRT_SCALE, z / FINITE_DIRT_SCALE)
+    .abs()
   2 + (detail * 2.0).floor().to_int()
 }
 
@@ -212,7 +223,11 @@ fn finite_sand_depth(world : World, wx : Int, wz : Int) -> Int {
 }
 
 ///|
-fn finite_density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double {
+fn finite_density_at_column(
+  world : World,
+  column : TerrainColumn,
+  wy : Int,
+) -> Double {
   let y = wy.to_double()
   let surface = column.surface.to_double()
   if y > surface {
@@ -224,15 +239,26 @@ fn finite_density_at_column(world : World, column : TerrainColumn, wy : Int) -> 
     let z = column.wz.to_double()
     let vertical = surface - y
     let cave_main = world.noise
-      .gen3d(x * FINITE_CAVE_FREQ_A, y * FINITE_CAVE_FREQ_A, z * FINITE_CAVE_FREQ_A)
+      .gen3d(
+        x * FINITE_CAVE_FREQ_A,
+        y * FINITE_CAVE_FREQ_A,
+        z * FINITE_CAVE_FREQ_A,
+      )
       .abs()
     let cave_aux = world.noise
-      .gen3d((x + 271.0) * FINITE_CAVE_FREQ_B, y * FINITE_CAVE_FREQ_B, (z - 433.0) * FINITE_CAVE_FREQ_B)
+      .gen3d(
+        (x + 271.0) * FINITE_CAVE_FREQ_B,
+        y * FINITE_CAVE_FREQ_B,
+        (z - 433.0) * FINITE_CAVE_FREQ_B,
+      )
       .abs()
     let cave_mix = cave_main * 0.72 + cave_aux * 0.28
     let cave_threshold = FINITE_CAVE_THRESHOLD + column.sample.erosion * 0.015
-    let cave_region = world.noise
-      .gen3d((x - 311.0) * FINITE_CAVE_REGION_FREQ, y * FINITE_CAVE_REGION_FREQ, (z + 619.0) * FINITE_CAVE_REGION_FREQ)
+    let cave_region = world.noise.gen3d(
+      (x - 311.0) * FINITE_CAVE_REGION_FREQ,
+      y * FINITE_CAVE_REGION_FREQ,
+      (z + 619.0) * FINITE_CAVE_REGION_FREQ,
+    )
     if wy < column.surface - 7 &&
       cave_mix < cave_threshold &&
       cave_region > FINITE_CAVE_REGION_THRESHOLD {
@@ -253,12 +279,7 @@ fn finite_density_at_column(world : World, column : TerrainColumn, wy : Int) -> 
 }
 
 ///|
-fn ranges_overlap(
-  min_a : Int,
-  max_a : Int,
-  min_b : Int,
-  max_b : Int,
-) -> Bool {
+fn ranges_overlap(min_a : Int, max_a : Int, min_b : Int, max_b : Int) -> Bool {
   !(max_a < min_b || max_b < min_a)
 }
 

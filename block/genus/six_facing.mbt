@@ -156,7 +156,9 @@ let source_face_table : Array[@shape.FaceName] = {
   )
   for state in all_states {
     for face in all_faces {
-      table[table_index(state, face)] = calc_source_face_for_world_face(face, state)
+      table[table_index(state, face)] = calc_source_face_for_world_face(
+        face, state,
+      )
     }
   }
   table
@@ -242,6 +244,7 @@ fn dir_eq(a : (Int, Int, Int), b : (Int, Int, Int)) -> Bool {
   ax == bx && ay == by && az == bz
 }
 
+///|
 fn dir_dot(a : (Int, Int, Int), b : (Int, Int, Int)) -> Int {
   let (ax, ay, az) = a
   let (bx, by, bz) = b
@@ -257,7 +260,10 @@ fn dir_cross(a : (Int, Int, Int), b : (Int, Int, Int)) -> (Int, Int, Int) {
 
 ///|
 /// Rotate `dir` around axis `axis` by +90° (right-hand rule).
-fn rotate_dir_90(axis : (Int, Int, Int), dir : (Int, Int, Int)) -> (Int, Int, Int) {
+fn rotate_dir_90(
+  axis : (Int, Int, Int),
+  dir : (Int, Int, Int),
+) -> (Int, Int, Int) {
   let dot = dir_dot(axis, dir)
   let (cx, cy, cz) = dir_cross(axis, dir)
   let (ax, ay, az) = axis
@@ -294,7 +300,10 @@ fn source_face_roll_quarters(face : @shape.FaceName) -> Int {
 ///|
 /// Extra per-world-face correction:
 /// when facing ±Y, only world Z side faces need +180deg.
-fn world_face_extra_roll_quarters(state : UInt, world_face : @shape.FaceName) -> Int {
+fn world_face_extra_roll_quarters(
+  state : UInt,
+  world_face : @shape.FaceName,
+) -> Int {
   match state.reinterpret_as_int() {
     2 | 3 =>
       match world_face {
@@ -317,7 +326,10 @@ fn face_uv_axes(face : @shape.FaceName) -> ((Int, Int, Int), (Int, Int, Int)) {
 ///|
 /// Solve texture transform flags so six-way facing keeps texture orientation
 /// consistent with the oriented source face.
-fn calc_uv_transform(world_face : @shape.FaceName, state : UInt) -> (Bool, Bool, Bool) {
+fn calc_uv_transform(
+  world_face : @shape.FaceName,
+  state : UInt,
+) -> (Bool, Bool, Bool) {
   let source_face = SixFacing::source_face_for_world_face(world_face, state)
   let (source_u_raw, source_v_raw) = face_uv_axes(source_face)
   let source_u0 = rotate_dir_by_state(state, source_u_raw)
@@ -362,7 +374,10 @@ fn calc_uv_transform(world_face : @shape.FaceName, state : UInt) -> (Bool, Bool,
 
 ///|
 let uv_transform_table : Array[(Bool, Bool, Bool)] = {
-  let table = Array::make(SIX_FACING_FACE_COUNT * SIX_FACING_FACE_COUNT, (false, false, false))
+  let table = Array::make(
+    SIX_FACING_FACE_COUNT * SIX_FACING_FACE_COUNT,
+    (false, false, false),
+  )
   for state in all_states {
     for face in all_faces {
       table[table_index(state, face)] = calc_uv_transform(face, state)
@@ -372,12 +387,18 @@ let uv_transform_table : Array[(Bool, Bool, Bool)] = {
 }
 
 ///|
-fn solve_uv_transform(world_face : @shape.FaceName, state : UInt) -> (Bool, Bool, Bool) {
+fn solve_uv_transform(
+  world_face : @shape.FaceName,
+  state : UInt,
+) -> (Bool, Bool, Bool) {
   uv_transform_table[table_index(state, world_face)]
 }
 
 ///|
-fn uv_rect_with_flips(flip_u : Bool, flip_v : Bool) -> (Float, Float, Float, Float) {
+fn uv_rect_with_flips(
+  flip_u : Bool,
+  flip_v : Bool,
+) -> (Float, Float, Float, Float) {
   let u0 = if flip_u { 1.0F } else { 0.0F }
   let u1 = if flip_u { 0.0F } else { 1.0F }
   let v0 = if flip_v { 1.0F } else { 0.0F }

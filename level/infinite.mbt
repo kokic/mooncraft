@@ -49,6 +49,7 @@ fn clamp_depth(depth : Int) -> Int {
   }
 }
 
+///|
 fn desert_lake_fill_depth(
   world : World,
   wx : Int,
@@ -73,22 +74,30 @@ fn desert_lake_fill_depth(
   let center_x = lerp_int(
     7,
     DESERT_LAKE_CELL - 7,
-    noise01(world.noise.gen2d((cx * 31.0 + 9.0) * 0.25, (cz * 29.0 - 4.0) * 0.25)),
+    noise01(
+      world.noise.gen2d((cx * 31.0 + 9.0) * 0.25, (cz * 29.0 - 4.0) * 0.25),
+    ),
   )
   let center_z = lerp_int(
     7,
     DESERT_LAKE_CELL - 7,
-    noise01(world.noise.gen2d((cx * 11.0 - 7.0) * 0.25, (cz * 41.0 + 2.0) * 0.25)),
+    noise01(
+      world.noise.gen2d((cx * 11.0 - 7.0) * 0.25, (cz * 41.0 + 2.0) * 0.25),
+    ),
   )
   let radius_x = lerp_int(
     DESERT_LAKE_RADIUS_MIN,
     DESERT_LAKE_RADIUS_MAX,
-    noise01(world.noise.gen2d((cx * 13.0 + 8.0) * 0.21, (cz * 59.0 - 1.0) * 0.21)),
+    noise01(
+      world.noise.gen2d((cx * 13.0 + 8.0) * 0.21, (cz * 59.0 - 1.0) * 0.21),
+    ),
   )
   let radius_z = lerp_int(
     DESERT_LAKE_RADIUS_MIN,
     DESERT_LAKE_RADIUS_MAX,
-    noise01(world.noise.gen2d((cx * 61.0 - 8.0) * 0.21, (cz * 17.0 + 7.0) * 0.21)),
+    noise01(
+      world.noise.gen2d((cx * 61.0 - 8.0) * 0.21, (cz * 17.0 + 7.0) * 0.21),
+    ),
   )
   let nx = (local_x - center_x).to_double() / radius_x.to_double()
   let nz = (local_z - center_z).to_double() / radius_z.to_double()
@@ -99,7 +108,9 @@ fn desert_lake_fill_depth(
   let base_depth = lerp_int(
     DESERT_LAKE_DEPTH_MIN,
     DESERT_LAKE_DEPTH_MAX,
-    noise01(world.noise.gen2d((cx * 23.0 + 10.0) * 0.19, (cz * 67.0 - 3.0) * 0.19)),
+    noise01(
+      world.noise.gen2d((cx * 23.0 + 10.0) * 0.19, (cz * 67.0 - 3.0) * 0.19),
+    ),
   )
   clamp_depth(2 + (base_depth.to_double() * basin).round().to_int())
 }
@@ -148,7 +159,8 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
         surface
       }
       let inland_depth = match biome {
-        @biome.DesertLakes => desert_lake_fill_depth(world, wx, wz, top_solid_wy)
+        @biome.DesertLakes =>
+          desert_lake_fill_depth(world, wx, wz, top_solid_wy)
         _ => 0
       }
       let inland_top_wy = surface
@@ -166,9 +178,11 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
         } else if use_inland_water {
           chunk.update_tile_map(rx, ry, rz, water)
         } else if density <= 0.0 {
-          if (biome is @biome.Ocean ||
-            biome is @biome.DeepOcean ||
-            biome is @biome.Beach) &&
+          if (
+              biome is @biome.Ocean ||
+              biome is @biome.DeepOcean ||
+              biome is @biome.Beach
+            ) &&
             wy <= SEA_LEVEL &&
             wy > surface {
             chunk.update_tile_map(rx, ry, rz, water)
@@ -196,11 +210,13 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
               }
             _ => chunk.update_tile_map(rx, ry, rz, grass)
           }
-        } else if (biome is @biome.Desert ||
-          biome is @biome.DesertLakes ||
-          biome is @biome.Beach ||
-          biome is @biome.Ocean ||
-          biome is @biome.DeepOcean) &&
+        } else if (
+            biome is @biome.Desert ||
+            biome is @biome.DesertLakes ||
+            biome is @biome.Beach ||
+            biome is @biome.Ocean ||
+            biome is @biome.DeepOcean
+          ) &&
           wy >= top_solid_wy - sand_depth {
           chunk.update_tile_map(rx, ry, rz, sand)
         } else if (biome is @biome.Desert || biome is @biome.DesertLakes) &&

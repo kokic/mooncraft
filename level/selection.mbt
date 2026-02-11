@@ -106,11 +106,11 @@ pub fn find_surface_y(
             return Some(cy * size + y)
           }
           continue y - 1
-        } else {
+        } nobreak {
           continue cy - 1
         }
     }
-  } else {
+  } nobreak {
     None
   }
 }

@@ -289,7 +289,15 @@ pub fn sample(noise : @util.PerlinNoise, wx : Int, wz : Int) -> BiomeSample {
     2.0,
     0.5,
   ).abs()
-  BiomeSample::{ temperature, humidity, continental, erosion, weirdness, ridge, river }
+  BiomeSample::{
+    temperature,
+    humidity,
+    continental,
+    erosion,
+    weirdness,
+    ridge,
+    river,
+  }
 }
 
 ///|

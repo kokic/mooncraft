@@ -80,15 +80,18 @@ fn preclassic_surface_height(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let rolling = @biome.fbm2d(
-    world.noise,
-    x * PRECLASSIC_ROLLING_FREQ,
-    z * PRECLASSIC_ROLLING_FREQ,
-    4,
-    2.0,
-    0.5,
-  ) * PRECLASSIC_ROLLING_AMP
-  let detail = world.noise
-    .gen2d(x * PRECLASSIC_DETAIL_FREQ, z * PRECLASSIC_DETAIL_FREQ) *
+      world.noise,
+      x * PRECLASSIC_ROLLING_FREQ,
+      z * PRECLASSIC_ROLLING_FREQ,
+      4,
+      2.0,
+      0.5,
+    ) *
+    PRECLASSIC_ROLLING_AMP
+  let detail = world.noise.gen2d(
+      x * PRECLASSIC_DETAIL_FREQ,
+      z * PRECLASSIC_DETAIL_FREQ,
+    ) *
     PRECLASSIC_DETAIL_AMP
   let min_h = PRECLASSIC_MIN_Y + 3
   let max_h = PRECLASSIC_MAX_Y - 2
@@ -105,7 +108,9 @@ fn preclassic_surface_height(world : World, wx : Int, wz : Int) -> Int {
 fn preclassic_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let t = world.noise.gen2d(x / PRECLASSIC_DIRT_SCALE, z / PRECLASSIC_DIRT_SCALE).abs()
+  let t = world.noise
+    .gen2d(x / PRECLASSIC_DIRT_SCALE, z / PRECLASSIC_DIRT_SCALE)
+    .abs()
   2 + (t * 2.0).floor().to_int()
 }
 
@@ -121,8 +126,11 @@ fn preclassic_is_sand_patch(
   } else {
     let x = wx.to_double()
     let z = wz.to_double()
-    world.noise
-      .gen2d(x * PRECLASSIC_SAND_PATCH_FREQ, z * PRECLASSIC_SAND_PATCH_FREQ) > 0.66
+    world.noise.gen2d(
+      x * PRECLASSIC_SAND_PATCH_FREQ,
+      z * PRECLASSIC_SAND_PATCH_FREQ,
+    ) >
+    0.66
   }
 }
 
@@ -155,7 +163,8 @@ fn preclassic_should_carve_cave(
       )
       .abs()
     let mix = cave_a * 0.68 + cave_b * 0.32
-    let threshold = PRECLASSIC_CAVE_THRESHOLD + (surface - wy).to_double() * 0.0008
+    let threshold = PRECLASSIC_CAVE_THRESHOLD +
+      (surface - wy).to_double() * 0.0008
     mix < threshold
   }
 }
@@ -208,10 +217,6 @@ fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
       }
     }
   }
-  place_oak_trees_in_chunk(
-    world,
-    chunk,
-    is_grass=long_id => long_id == grass,
-  )
+  place_oak_trees_in_chunk(world, chunk, is_grass=long_id => long_id == grass)
   chunk
 }

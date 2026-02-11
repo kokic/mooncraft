@@ -62,9 +62,12 @@ fn axis_from_dir(dx : Int, dy : Int, dz : Int) -> Int {
 pub fn Log::rotate_uv(face : @shape.FaceGeom, state : UInt) -> Bool {
   let axis = Log::axis_from_state(state)
   let is_end_face = match axis {
-    1 => face.name is @shape.FaceName::PosX || face.name is @shape.FaceName::NegX
-    2 => face.name is @shape.FaceName::PosZ || face.name is @shape.FaceName::NegZ
-    _ => face.name is @shape.FaceName::PosY || face.name is @shape.FaceName::NegY
+    1 =>
+      face.name is @shape.FaceName::PosX || face.name is @shape.FaceName::NegX
+    2 =>
+      face.name is @shape.FaceName::PosZ || face.name is @shape.FaceName::NegZ
+    _ =>
+      face.name is @shape.FaceName::PosY || face.name is @shape.FaceName::NegY
   }
   if is_end_face || face.corners.length() < 4 {
     false
@@ -115,7 +118,11 @@ pub let log_model : @shape.Model = @shape.Model::{
     Log::rotate_uv(face, info.state)
   },
   double_sided: double_sided_false,
-  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+  face_visible: fn(
+    info : @shape.FaceSource,
+    face : @shape.FaceGeom,
+    occlusion : @shape.FaceOcclusion,
+  ) {
     face_visible_default(face_box_none, info, face, occlusion)
   },
   emit_mesh: emit_mesh_none,

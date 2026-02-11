@@ -352,7 +352,15 @@ fn emit_redstone_classic_mesh(
   push_face_rev : @shape.FaceEmitter,
 ) -> Bool {
   let layer_f = Float::from_int(info.faces.pos_x)
-  Torch::append_classic_mesh(info.state, layer_f, bx, by, bz, push_face_rev, push_face)
+  Torch::append_classic_mesh(
+    info.state,
+    layer_f,
+    bx,
+    by,
+    bz,
+    push_face_rev,
+    push_face,
+  )
   true
 }
 
@@ -372,7 +380,11 @@ pub let redstone_torch_model : @shape.Model = @shape.Model::{
   uv_rect: uv_rect_default,
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
-  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+  face_visible: fn(
+    info : @shape.FaceSource,
+    face : @shape.FaceGeom,
+    occlusion : @shape.FaceOcclusion,
+  ) {
     face_visible_default(face_box_none, info, face, occlusion)
   },
   emit_mesh: emit_redstone_torch_mesh,
@@ -386,7 +398,11 @@ pub let redstone_torch_classic_model : @shape.Model = @shape.Model::{
   uv_rect: uv_rect_default,
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
-  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+  face_visible: fn(
+    info : @shape.FaceSource,
+    face : @shape.FaceGeom,
+    occlusion : @shape.FaceOcclusion,
+  ) {
     face_visible_default(face_box_none, info, face, occlusion)
   },
   emit_mesh: emit_redstone_classic_mesh,

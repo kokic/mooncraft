@@ -56,7 +56,11 @@ pub let grass_path_model : @shape.Model = @shape.Model::{
   },
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
-  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+  face_visible: fn(
+    info : @shape.FaceSource,
+    face : @shape.FaceGeom,
+    occlusion : @shape.FaceOcclusion,
+  ) {
     face_visible_default(grass_path_face_box, info, face, occlusion)
   },
   emit_mesh: emit_mesh_none,

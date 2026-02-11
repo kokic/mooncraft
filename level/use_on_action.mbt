@@ -7,7 +7,10 @@ fn resolve_block_long_id(name : String) -> UInt? {
 }
 
 ///|
-fn block_name_matches(long_id : UInt, predicate : @item.UniqueNamePredicate) -> Bool {
+fn block_name_matches(
+  long_id : UInt,
+  predicate : @item.UniqueNamePredicate,
+) -> Bool {
   match @block.lookup_by_long_id(long_id) {
     Some(block) => predicate(block.name)
     None => false
@@ -33,7 +36,13 @@ fn resolve_block_long_id_by_predicate(
 }
 
 ///|
-fn is_air_at(chunk_map : @ffi.JsValue, size : Int, wx : Int, wy : Int, wz : Int) -> Bool {
+fn is_air_at(
+  chunk_map : @ffi.JsValue,
+  size : Int,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Bool {
   match get_block_id(chunk_map, size, wx, wy, wz) {
     Some(id) => id == @block.AIR_LONG_ID
     None => false
@@ -159,12 +168,12 @@ pub fn apply_use_on_action(
       wz~,
       expected=expected_predicate,
       neo=new_predicate,
-      require_above_air~,
+      require_above_air~
     ) => {
       let current = get_block_id(chunk_map, size, wx, wy, wz)
       match current {
         None => []
-        Some(current_id) => {
+        Some(current_id) =>
           if require_above_air && !is_air_at(chunk_map, size, wx, wy + 1, wz) {
             []
           } else {
@@ -174,11 +183,11 @@ pub fn apply_use_on_action(
             } else {
               match resolve_block_long_id_by_predicate(new_predicate) {
                 None => []
-                Some(new_id) => set_block_id(chunk_map, size, wx, wy, wz, new_id)
+                Some(new_id) =>
+                  set_block_id(chunk_map, size, wx, wy, wz, new_id)
               }
             }
           }
-        }
       }
     }
     @item.UseOnAction::PlaceBlock(
@@ -189,9 +198,10 @@ pub fn apply_use_on_action(
       place_wy~,
       place_wz~,
       name~,
-      require_air~,
-    ) => {
-      if require_air && !can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) {
+      require_air~
+    ) =>
+      if require_air &&
+        !can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) {
         []
       } else {
         match resolve_block_long_id(name) {
@@ -203,27 +213,23 @@ pub fn apply_use_on_action(
               base_id,
               block,
               prev,
-              player_pos=player_pos,
+              player_pos~,
             )
             let (raw_id, _) = @util.unpack_long_id(base_id)
             let long_id = @util.pack_long_id(raw_id, placement_state)
             if can_place_block(
-                long_id,
-                player_pos,
-                entity_height,
-                entity_radius,
-                place_wx,
-                place_wy,
+                long_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
                 place_wz,
               ) {
-              set_block_id(chunk_map, size, place_wx, place_wy, place_wz, long_id)
+              set_block_id(
+                chunk_map, size, place_wx, place_wy, place_wz, long_id,
+              )
             } else {
               []
             }
           }
         }
       }
-    }
   }
 }
 
@@ -240,8 +246,8 @@ pub fn apply_use_on_action_with_player(
     chunk_map,
     size,
     action,
-    player_pos=player_pos,
-    entity_height=entity_height,
-    entity_radius=entity_radius,
+    player_pos~,
+    entity_height~,
+    entity_radius~,
   )
 }

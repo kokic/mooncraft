@@ -30,13 +30,7 @@ const LIGHT_LIFT_BASE : Float = 0.18F
 ///|
 /// Convert a block light level (0-15) to a scalar multiplier.
 pub fn light_level_scale(level : Int) -> Float {
-  let idx = if level < 0 {
-    0
-  } else if level > 15 {
-    15
-  } else {
-    level
-  }
+  let idx = if level < 0 { 0 } else if level > 15 { 15 } else { level }
   let raw = light_level_scale_table[idx]
   LIGHT_LIFT_BASE + (1.0F - LIGHT_LIFT_BASE) * raw
 }

@@ -161,6 +161,7 @@ fn smoothstep(edge0 : Double, edge1 : Double, value : Double) -> Double {
   }
 }
 
+///|
 fn fallback_land_biome(sample : @biome.BiomeSample) -> @biome.Biome {
   if sample.temperature > FALLBACK_DESERT_TEMP_THRESHOLD &&
     sample.humidity < FALLBACK_DESERT_HUMID_MAX {
@@ -221,7 +222,9 @@ fn water_height_hint(sample : @biome.BiomeSample) -> Double {
 fn water_context_factor(sample : @biome.BiomeSample) -> Double {
   let hint = water_height_hint(sample)
   let near_sea = clamp01((WATER_CONTEXT_MAX_HINT - hint) / WATER_CONTEXT_FADE)
-  let rugged = clamp01(sample.ridge * 1.25 + max0(sample.continental) * 0.95 - 0.70)
+  let rugged = clamp01(
+    sample.ridge * 1.25 + max0(sample.continental) * 0.95 - 0.70,
+  )
   clamp01(near_sea * (1.0 - rugged))
 }
 
@@ -258,8 +261,14 @@ fn plain_height_with_biome(
   } else {
     sample.continental * 42.0
   }
-  let macro_hill = @biome.fbm2d(noise, x * HILL_FREQ, z * HILL_FREQ, 4, 2.0, 0.5)
-    .abs() *
+  let macro_hill = @biome.fbm2d(
+      noise,
+      x * HILL_FREQ,
+      z * HILL_FREQ,
+      4,
+      2.0,
+      0.5,
+    ).abs() *
     HILL_AMP
   let plains_wave = if biome is @biome.Ocean ||
     biome is @biome.DeepOcean ||
@@ -323,20 +332,14 @@ fn surface_height_with_params(
   let terrain_biome = terrain_biome_for_height(sample, surface_biome)
   let surface_params = @biome.params(terrain_biome)
   let surface_plain = plain_height_with_biome(
-    world,
-    wx,
-    wz,
-    sample,
-    terrain_biome,
-    surface_params,
+    world, wx, wz, sample, terrain_biome, surface_params,
   )
   let is_mountain_surface = terrain_biome is @biome.Mountains ||
     terrain_biome is @biome.WindsweptHills
   let mountain_base_plain = if is_mountain_surface {
     let ground_biome = fallback_dry_land_biome(sample)
     let ground_params = @biome.params(ground_biome)
-    plain_height_with_biome(world, wx, wz, sample, ground_biome, ground_params)
-      .to_double()
+    plain_height_with_biome(world, wx, wz, sample, ground_biome, ground_params).to_double()
   } else {
     surface_plain.to_double()
   }
@@ -346,7 +349,8 @@ fn surface_height_with_params(
     surface_plain.to_double()
   }
   if terrain_biome is @biome.Ocean || terrain_biome is @biome.DeepOcean {
-    let seabed = @biome.fbm2d(noise, x * 0.012, z * 0.012, 3, 2.0, 0.5).abs() * 3.5
+    let seabed = @biome.fbm2d(noise, x * 0.012, z * 0.012, 3, 2.0, 0.5).abs() *
+      3.5
     if terrain_biome is @biome.DeepOcean {
       height = height - seabed * 1.8
     } else {
@@ -361,31 +365,28 @@ fn surface_height_with_params(
       ) *
       MOUNTAIN_WARP_AMP
     let ridge_a = 1.0 -
-      @biome
-        .fbm2d(
-          noise,
-          (x + warp_x) * MOUNTAIN_RIDGE_FREQ_A,
-          (z + warp_z) * MOUNTAIN_RIDGE_FREQ_A,
-          4,
-          2.0,
-          0.5,
-        )
-        .abs()
+      @biome.fbm2d(
+        noise,
+        (x + warp_x) * MOUNTAIN_RIDGE_FREQ_A,
+        (z + warp_z) * MOUNTAIN_RIDGE_FREQ_A,
+        4,
+        2.0,
+        0.5,
+      ).abs()
     let ridge_b = 1.0 -
-      @biome
-        .fbm2d(
-          noise,
-          (x - warp_z * 0.35) * MOUNTAIN_RIDGE_FREQ_B,
-          (z + warp_x * 0.35) * MOUNTAIN_RIDGE_FREQ_B,
-          3,
-          2.0,
-          0.5,
-        )
-        .abs()
+      @biome.fbm2d(
+        noise,
+        (x - warp_z * 0.35) * MOUNTAIN_RIDGE_FREQ_B,
+        (z + warp_x * 0.35) * MOUNTAIN_RIDGE_FREQ_B,
+        3,
+        2.0,
+        0.5,
+      ).abs()
     let ridge = clamp01(ridge_a * 0.68 + ridge_b * 0.32)
     let peaks = @biome.fbm2d(noise, x * PV_FREQ, z * PV_FREQ, 3, 2.0, 0.5).abs()
-    let mountain_signal =
-      sample.ridge * 1.34 + peaks * 0.26 + max0(sample.continental) * 0.18 -
+    let mountain_signal = sample.ridge * 1.34 +
+      peaks * 0.26 +
+      max0(sample.continental) * 0.18 -
       0.86
     let foothill_mask = smoothstep(0.08, 0.42, mountain_signal)
     let mountain_mask = smoothstep(0.30, 0.92, mountain_signal)
@@ -399,11 +400,7 @@ fn surface_height_with_params(
     } else {
       0.48
     }
-    let foothill_base = if is_mountain_surface {
-      0.02
-    } else {
-      0.11
-    }
+    let foothill_base = if is_mountain_surface { 0.02 } else { 0.11 }
     let foothill = foothill_mask *
       (1.0 - mountain_mask) *
       surface_params.mountain_amp *
@@ -426,7 +423,9 @@ fn surface_height_with_params(
     let jagged = noise.gen2d((x - warp_x) * 0.024, (z + warp_z) * 0.024) *
       (foothill_mask * 0.45 + mountain_mask * 0.55) *
       1.45
-    let river_t = clamp01((RIVER_CARVE_WIDTH - sample.river) / RIVER_CARVE_WIDTH)
+    let river_t = clamp01(
+      (RIVER_CARVE_WIDTH - sample.river) / RIVER_CARVE_WIDTH,
+    )
     let river_strength = if surface_biome is @biome.Beach {
       surface_params.river_carve.to_double() * 0.22
     } else {
@@ -492,12 +491,7 @@ fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   let surface_biome = surface_biome_from_column(world, sample, biome)
   let params = @biome.params(surface_biome)
   let plain = plain_height_with_biome(
-    world,
-    wx,
-    wz,
-    sample,
-    surface_biome,
-    params,
+    world, wx, wz, sample, surface_biome, params,
   )
   let surface = surface_height_with_params(world, wx, wz, sample, surface_biome)
   TerrainColumn::{ wx, wz, sample, biome, surface_biome, plain, surface }
@@ -537,17 +531,24 @@ fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double 
     1.0
   } else {
     let vertical = surface - y
-    let cave_cheese = world.noise.gen3d(x * CAVE_FREQ, y * CAVE_FREQ, z * CAVE_FREQ).abs()
+    let cave_cheese = world.noise
+      .gen3d(x * CAVE_FREQ, y * CAVE_FREQ, z * CAVE_FREQ)
+      .abs()
     let cave_spaghetti = world.noise
       .gen3d((x + 313.0) * 0.062, y * 0.073, (z - 719.0) * 0.062)
       .abs()
     let cave_noodle = world.noise
       .gen3d((x - 991.0) * 0.087, y * 0.091, (z + 557.0) * 0.087)
       .abs()
-    let cave_mix = cave_cheese * 0.55 + cave_spaghetti * 0.32 + cave_noodle * 0.23
+    let cave_mix = cave_cheese * 0.55 +
+      cave_spaghetti * 0.32 +
+      cave_noodle * 0.23
     let cave_threshold = CAVE_THRESHOLD + sample.erosion * 0.02
-    let cave_region = world.noise
-      .gen3d((x + 557.0) * CAVE_REGION_FREQ, y * CAVE_REGION_FREQ, (z - 881.0) * CAVE_REGION_FREQ)
+    let cave_region = world.noise.gen3d(
+      (x + 557.0) * CAVE_REGION_FREQ,
+      y * CAVE_REGION_FREQ,
+      (z - 881.0) * CAVE_REGION_FREQ,
+    )
     let cave_limit = if biome is @biome.Ocean ||
       biome is @biome.DeepOcean ||
       biome is @biome.River ||
@@ -567,12 +568,11 @@ fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double 
       cave_region > CAVE_REGION_THRESHOLD {
       -1.0
     } else {
-      let overhang = world.noise
-        .gen3d(
-          (x + 113.0) * TERRAIN_3D_FREQ,
-          y * TERRAIN_3D_FREQ,
-          (z - 83.0) * TERRAIN_3D_FREQ,
-        )
+      let overhang = world.noise.gen3d(
+        (x + 113.0) * TERRAIN_3D_FREQ,
+        y * TERRAIN_3D_FREQ,
+        (z - 83.0) * TERRAIN_3D_FREQ,
+      )
       let carve = overhang.abs() * (TERRAIN_3D_AMP + sample.weirdness * 1.3)
       let mut density = vertical
       if y > plain + 2.0 {

@@ -73,7 +73,11 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcApplyUseOnAction", @level.apply_use_on_action_with_player)
   set_global("mcApplyUseAction", @level.apply_use_action)
   set_global("mcGetBlockShapeDesc", @block.get_shape_desc)
-  set_global("mcComputePlacementState", fn(long_id : UInt, block : Array[Int], prev : Array[Int]) -> UInt {
+  set_global("mcComputePlacementState", fn(
+    long_id : UInt,
+    block : Array[Int],
+    prev : Array[Int],
+  ) -> UInt {
     @block.compute_placement_state(long_id, block, prev)
   })
   set_global("mcMovePlayer", @player.move_player)

@@ -1,8 +1,0 @@
-{
-  "import": [
-    "kokic/mooncraft/item", 
-    "kokic/mooncraft/util",
-    "kokic/mooncraft/block/genus", 
-    "kokic/mooncraft/block/shape"
-  ]
-}

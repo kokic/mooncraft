@@ -82,7 +82,9 @@ pub fn HorizontalFacing::face_layer(
   state : UInt,
   world_face : @shape.FaceName,
 ) -> Int {
-  let source_face = HorizontalFacing::source_face_for_world_face(world_face, state)
+  let source_face = HorizontalFacing::source_face_for_world_face(
+    world_face, state,
+  )
   match source_face {
     @shape.FaceName::PosX => faces.pos_x
     @shape.FaceName::NegX => faces.neg_x

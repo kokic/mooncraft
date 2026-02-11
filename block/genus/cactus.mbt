@@ -73,7 +73,11 @@ pub let cactus_model : @shape.Model = @shape.Model::{
   },
   rotate_uv: rotate_uv_none,
   double_sided: fn(_info : @shape.FaceSource) { Cactus::double_sided() },
-  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+  face_visible: fn(
+    info : @shape.FaceSource,
+    face : @shape.FaceGeom,
+    occlusion : @shape.FaceOcclusion,
+  ) {
     face_visible_default(cactus_face_box, info, face, occlusion)
   },
   emit_mesh: emit_mesh_none,

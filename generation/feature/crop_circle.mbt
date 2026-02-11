@@ -1,10 +1,6 @@
 ///|
 pub let crop_circle_texts : Array[String] = [
-  "Spore",
-  "Jerry",
-  "Yorkin",
-  "Herobrine",
-  "Also try Minecraft"
+  "Spore", "Jerry", "Yorkin", "Herobrine", "Also try Minecraft",
 ]
 
 ///|
@@ -175,13 +171,16 @@ pub fn place_crop_circle_texts_flat(
     let text = crop_circle_texts[i]
     let width = text_pixel_width(text)
     let x_span = CROP_TEXT_X_MAX - CROP_TEXT_X_MIN - width
-    let x_rand = (hash01(world_seed, i * 97 + 17) * x_span.to_double()).floor().to_int()
+    let x_rand = (hash01(world_seed, i * 97 + 17) * x_span.to_double())
+      .floor()
+      .to_int()
     let x = CROP_TEXT_X_MIN + x_rand
     let lane_z = CROP_TEXT_Z_START + i * CROP_TEXT_Z_STEP
     let jitter_span = CROP_TEXT_Z_JITTER * 2 + 1
     let z_jitter = (hash01(world_seed, i * 131 + 59) * jitter_span.to_double())
       .floor()
-      .to_int() - CROP_TEXT_Z_JITTER
+      .to_int() -
+      CROP_TEXT_Z_JITTER
     let z = lane_z + z_jitter
     place_pixel_text(set_block, text, x, surface_y, z, filler)
   }

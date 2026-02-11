@@ -46,10 +46,7 @@ fn shape_desc_by_block(block : Block) -> @shape.Source {
   match block.shape {
     shape if shape.is_torch_genus() => {
       let box = @genus.Torch::shape_box_by_state(block.state)
-      @shape.Source::{
-        boxes: [box],
-        facing: block.state.reinterpret_as_int(),
-      }
+      @shape.Source::{ boxes: [box], facing: block.state.reinterpret_as_int() }
     }
     Shape::GrassPath =>
       @shape.Source::{

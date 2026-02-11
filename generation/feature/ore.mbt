@@ -9,11 +9,13 @@ fn ore_noise(
   oy : Double,
   oz : Double,
 ) -> Double {
-  noise.gen3d(
+  noise
+  .gen3d(
     wx.to_double() * freq + ox,
     wy.to_double() * freq + oy,
     wz.to_double() * freq + oz,
-  ).abs()
+  )
+  .abs()
 }
 
 ///|

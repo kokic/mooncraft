@@ -1,3 +1,4 @@
+///|
 pub type Water
 
 ///|
@@ -35,7 +36,6 @@ pub let pale_garden_river_water_tint : @util.Rgba = @util.rgba("#76889d")
 
 ///|
 pub let classic_water_tint : @util.Rgba = @util.rgba("#3341bd")
-
 
 ///|
 pub fn Water::tint_for_sample(

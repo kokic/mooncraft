@@ -60,7 +60,7 @@ fn face_on_block_boundary(
   info : @shape.FaceSource,
   face : @shape.FaceName,
 ) -> Bool {
-  match (face_box)(info, face) {
+  match face_box(info, face) {
     None => true
     Some((min, max)) => {
       let (min_x, min_y, min_z) = min
@@ -130,7 +130,11 @@ pub let default_model : @shape.Model = @shape.Model::{
   uv_rect: uv_rect_default,
   rotate_uv: rotate_uv_none,
   double_sided: double_sided_false,
-  face_visible: fn(info : @shape.FaceSource, face : @shape.FaceGeom, occlusion : @shape.FaceOcclusion) {
+  face_visible: fn(
+    info : @shape.FaceSource,
+    face : @shape.FaceGeom,
+    occlusion : @shape.FaceOcclusion,
+  ) {
     face_visible_default(face_box_none, info, face, occlusion)
   },
   emit_mesh: emit_mesh_none,

@@ -116,11 +116,13 @@ pub let blocks : Array[Block] = [
 
   // Trees
   ..["oak", "dark_oak", "birch", "acacia", "jungle", "spruce"]
-  .map(v => create_facing_group(
-    "classic.\{v}_log",
-    ["classic/\{v}_log_top", "classic/\{v}_log"],
-    facing=Facing::Axis,
-  ))
+  .map(v => {
+    create_facing_group(
+      "classic.\{v}_log",
+      ["classic/\{v}_log_top", "classic/\{v}_log"],
+      facing=Facing::Axis,
+    )
+  })
   .flatten(),
   ..Block::create_with_classic(
     "oak_leaves",

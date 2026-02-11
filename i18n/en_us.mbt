@@ -22,8 +22,10 @@ fn capitalize_spaces_style(s : StringView) -> String {
 ///|
 fn humanize_name(name : String) -> String {
   match name {
-    s if s.has_prefix("classic.") => capitalize_spaces_style(try! name[8:]) + " (Classic)"
-    s if s.has_prefix("pre-classic.") => capitalize_spaces_style(try! name[12:]) + " (pre-Classic)"
+    s if s.has_prefix("classic.") =>
+      capitalize_spaces_style(try! name[8:]) + " (Classic)"
+    s if s.has_prefix("pre-classic.") =>
+      capitalize_spaces_style(try! name[12:]) + " (pre-Classic)"
     _ => capitalize_spaces_style(name)
   }
 }

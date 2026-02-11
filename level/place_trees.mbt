@@ -82,11 +82,7 @@ pub fn should_place_oak(
   } else {
     let cell_x = @util.floor_div(wx, params.min_spacing)
     let cell_z = @util.floor_div(wz, params.min_spacing)
-    let (ox, oz) = sample_oak_cell_offset(
-      cell_x,
-      cell_z,
-      params.min_spacing,
-    )
+    let (ox, oz) = sample_oak_cell_offset(cell_x, cell_z, params.min_spacing)
     let target_x = cell_x * params.min_spacing + ox
     let target_z = cell_z * params.min_spacing + oz
     if wx != target_x || wz != target_z {
@@ -97,8 +93,9 @@ pub fn should_place_oak(
         target_z.to_double() * params.freq,
       )
       let cell_jitter = @util.Noise::fast(
-        cell_x * 961748927 + cell_z * 982451653 + 719,
-      ) * 0.22
+          cell_x * 961748927 + cell_z * 982451653 + 719,
+        ) *
+        0.22
       density + cell_jitter > params.threshold
     }
   }
@@ -181,7 +178,7 @@ fn find_tree_base_ry(chunk : Chunk, rx : Int, rz : Int, air : UInt) -> Int? {
       return Some(ry)
     }
     continue ry - 1
-  } else {
+  } nobreak {
     None
   }
 }
@@ -191,8 +188,9 @@ pub fn place_oak_trees_in_chunk(
   world : World,
   chunk : Chunk,
   params? : PlacementParams = plains_tree_params,
-  is_grass? : (UInt) -> Bool = long_id => long_id ==
-    @block.lookup_by_name("grass").unwrap().id,
+  is_grass? : (UInt) -> Bool = long_id => {
+    long_id == @block.lookup_by_name("grass").unwrap().id
+  },
 ) -> Unit {
   apply_pending_to_chunk(chunk)
   let region = ChunkRegion::new(chunk)
@@ -234,8 +232,9 @@ pub fn place_oak_trees_in_chunk(
 pub fn place_biome_trees_in_chunk(
   world : World,
   chunk : Chunk,
-  is_grass? : (UInt) -> Bool = long_id => long_id ==
-    @block.lookup_by_name("grass").unwrap().id,
+  is_grass? : (UInt) -> Bool = long_id => {
+    long_id == @block.lookup_by_name("grass").unwrap().id
+  },
 ) -> Unit {
   apply_pending_to_chunk(chunk)
   let region = ChunkRegion::new(chunk)

@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/hashmap",
+  "kokic/mooncraft/ffi",
+  "kokic/mooncraft/level",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/player",
+  "kokic/mooncraft/block/genus",
+  "kokic/mooncraft/util",
+  "kokic/mooncraft/biome",
+  "kokic/mooncraft/i18n",
+  "kokic/mooncraft/item",
+}
+
+options(
+  "is-main": true,
+)

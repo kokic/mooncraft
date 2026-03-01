@@ -1,0 +1,20 @@
+[
+  {
+    "id": "zombie_0",
+    "url": "./assets/models/zombie.gltf",
+    "texture": "./assets/images/entity/zombie.png",
+    "position": [0, 68, 0],
+    "animation": "animation.zombie.walk",
+    "speed": 1.0,
+    "loop": true
+  },
+  {
+    "id": "zombie_1",
+    "url": "./assets/models/zombie.gltf",
+    "texture": "./assets/images/entity/zombie.png",
+    "position": [2, 68, 0],
+    "animation": "animation.zombie.attack",
+    "speed": 1.0,
+    "loop": true
+  }
+]

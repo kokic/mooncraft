@@ -11,3 +11,4 @@ target
 dist/js/release/
 dist/.moon-lock
 dev/
+AGENTS.md

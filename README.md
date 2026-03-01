@@ -16,6 +16,92 @@ moon build --target-dir ./dist
 miniserve dist --index index.html --port 8089 --media-type image --upload-files assets
 ```
 
+### Entity glTF (experimental)
+
+You can load entity models by providing `dist/assets/models/entities.json`:
+
+```json
+[
+  {
+    "id": "pig_0",
+    "url": "./assets/models/pig.gltf",
+    "texture": "./assets/images/entity/pig.png",
+    "materialTextures": {
+      "Body": "./assets/images/entity/pig.png"
+    },
+    "position": [8, 70, 8],
+    "rotation": [0, 0, 0, 1],
+    "scale": [1, 1, 1],
+    "animation": "Walk",
+    "speed": 1.0,
+    "loop": true
+  }
+]
+```
+
+You can also bypass the manifest and inject at runtime:
+
+```js
+window.mcGltfEntities = [
+  {
+    url: "./assets/models/zombie.gltf",
+    texture: "./assets/images/entity/zombie.png",
+    animation: "animation.zombie.walk",
+    position: [0, 68, 0],
+  },
+];
+```
+
+Optional manifest path override:
+
+```js
+window.mcGltfEntityManifestUrl = "./assets/models/my-entities.json";
+```
+
+Runtime API (available after renderer init):
+
+```js
+// by entity id from config, or numeric index
+await window.mcGltfEntityApi.setAnimation("zombie_0", "animation.zombie.walk");
+await window.mcGltfEntityApi.setTexture("zombie_0", "./assets/images/entity/zombie.png");
+
+// disable animation
+await window.mcGltfEntityApi.setAnimation("zombie_0", "none");
+```
+
+MoonBit-side entity API:
+
+- `@entity.install_demo_entities()` publishes `mcGltfEntities`
+- `@entity.start_zombie_animation_demo()` starts the zombie animation cycle
+- `@entity.set_animation(id, clip)` / `@entity.set_texture(id, path)` call JS runtime API from MBT
+
+Observable demo (with animation):
+
+```js
+// moonbit `main` now auto-starts zombie animation demo by default.
+// manual JS controls are still available:
+await window.mcStartEntityAnimationDemo("zombie_0", 1500);
+window.mcStopEntityAnimationDemo();
+```
+
+Current implementation is aimed at Blockbench-exported glTF:
+
+- static mesh nodes
+- node TRS animation channels (`translation` / `rotation` / `scale`)
+- `STEP` / `LINEAR` interpolation
+- `CUBICSPLINE` is currently downgraded to value-key linear blending
+- `.gltf` (external textures) and `.glb` (embedded image bufferView) texture loading
+- entity textures default to `NEAREST` sampling (gltf sampler can override)
+- if a model has no embedded texture reference, specify `texture`, `textures`,
+  or `materialTextures`
+  in config explicitly
+- `materialTextures` supports material-name overrides (recommended for multi-skin assets)
+- entities missing both embedded texture and config texture are skipped
+- `textures` supports material-index overrides (array or object map); object
+  keys that are not numeric are treated as material names
+- `animation: false` or `animation: "none"` disables clip autoplay
+- runtime API: `setAnimation(entityId, clip)` and `setTexture(entityId, path)`
+
 ### World Type
 
 You can switch world type by editing `client.mbt`:

@@ -4,6 +4,7 @@ import {
   "kokic/mooncraft/level",
   "kokic/mooncraft/block",
   "kokic/mooncraft/player",
+  "kokic/mooncraft/entity",
   "kokic/mooncraft/block/genus",
   "kokic/mooncraft/util",
   "kokic/mooncraft/biome",

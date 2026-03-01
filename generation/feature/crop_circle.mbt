@@ -1,6 +1,7 @@
 ///|
 pub let crop_circle_texts : Array[String] = [
-  "Spore", "Jerry", "Yorkin", "Herobrine", "Also try Minecraft",
+  "Spore", "Jerry", "Yorkin", "Herobrine", "knifefire", "Guest0x0", "Also try Minecraft",
+  "Also try Manosaba",
 ]
 
 ///|

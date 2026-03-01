@@ -11,6 +11,11 @@ import {
   mat4LookAt,
   mat4Mul,
 } from "./math3d.js";
+import {
+  DEFAULT_MANIFEST_URL as DEFAULT_GLTF_ENTITY_MANIFEST_URL,
+  createGltfEntityRenderer,
+  loadEntityConfigs,
+} from "./gltf-entity-renderer.js";
 
 const UPDATE_LABEL = `(3:00)`
 const DEFAULT_MESH_SECTION_SIZE = 8;
@@ -1048,6 +1053,34 @@ function renderTestChunk({
     };
 
   const textureArray = createTextureArray(gl, textures);
+  const gltfEntityRenderer = createGltfEntityRenderer(gl);
+  const gltfManifestUrl = typeof window.mcGltfEntityManifestUrl === "string" &&
+    window.mcGltfEntityManifestUrl.length > 0
+    ? window.mcGltfEntityManifestUrl
+    : DEFAULT_GLTF_ENTITY_MANIFEST_URL;
+  const gltfEntitiesReady = loadEntityConfigs({
+    direct: window.mcGltfEntities,
+    manifestUrl: gltfManifestUrl,
+  })
+    .then((configs) => gltfEntityRenderer.loadFromConfigs(configs))
+    .catch((err) => {
+      console.warn("[gltf] entity config load failed", err);
+      return gltfEntityRenderer.loadFromConfigs([]);
+    });
+  window.mcGltfEntityApi = {
+    setAnimation(entityId, clip) {
+      return gltfEntitiesReady.then(() => gltfEntityRenderer.setAnimation(entityId, clip));
+    },
+    setTexture(entityId, path) {
+      return gltfEntitiesReady.then(() => gltfEntityRenderer.setTexture(entityId, path));
+    },
+    getEntityIds() {
+      return gltfEntityRenderer.getEntityIds();
+    },
+    getInstanceCount() {
+      return gltfEntityRenderer.getInstanceCount();
+    },
+  };
   const rawWaterLayer = textures?.textureIndex?.get("water_still");
   const waterLayer = Number.isFinite(Number(rawWaterLayer))
     ? Number(rawWaterLayer)
@@ -1726,6 +1759,7 @@ function renderTestChunk({
     if (!inventoryOpen) {
       player.update(delta);
     }
+    gltfEntityRenderer.update(delta);
     rebuildMeshIfNeeded();
 
     const eyeHeight = 1.65;
@@ -1853,6 +1887,15 @@ function renderTestChunk({
       gl.depthMask(true);
       gl.disable(gl.BLEND);
     }
+
+    gltfEntityRenderer.render({
+      viewMatrix,
+      viewProjMatrix: mvpMatrix,
+      cameraPosition: camera.position,
+      fogColor: [0.6, 0.8, 1.0],
+      fogNear,
+      fogFar,
+    });
 
     if (outlineBlock) {
       gl.useProgram(outlineProgram);

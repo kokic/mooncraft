@@ -8,4 +8,5 @@ fn main {
   // chunk.set_block(0, surface + 4, 0, @block.lookup_by_name("cactus").unwrap().id)
 
   register_globals(world, chunk.tile_map)
+  @entity.start_zombie_animation_demo()
 }

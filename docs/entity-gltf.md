@@ -1,0 +1,110 @@
+# Entity glTF (experimental)
+
+You can load entity models by providing `dist/assets/models/entities.json`:
+
+```json
+[
+  {
+    "id": "pig_0",
+    "url": "./assets/models/pig.gltf",
+    "texture": "./assets/images/entity/pig.png",
+    "materialTextures": {
+      "Body": "./assets/images/entity/pig.png"
+    },
+    "position": [8, 70, 8],
+    "rotation": [0, 0, 0, 1],
+    "scale": [1, 1, 1],
+    "animation": "Walk",
+    "speed": 1.0,
+    "loop": true
+  }
+]
+```
+
+You can also bypass the manifest and inject at runtime:
+
+```js
+window.mcGltfEntities = [
+  {
+    url: "./assets/models/zombie.gltf",
+    texture: "./assets/images/entity/zombie.png",
+    animation: "animation.zombie.walk",
+    position: [0, 68, 0],
+  },
+];
+```
+
+Optional manifest path override:
+
+```js
+window.mcGltfEntityManifestUrl = "./assets/models/my-entities.json";
+```
+
+Runtime API (available after renderer init):
+
+```js
+// by entity id from config, or numeric index
+await window.mcGltfEntityApi.setAnimation("zombie_0", "animation.zombie.walk");
+await window.mcGltfEntityApi.setTexture("zombie_0", "./assets/images/entity/zombie.png");
+
+// disable animation
+await window.mcGltfEntityApi.setAnimation("zombie_0", "none");
+```
+
+MoonBit-side unified entity API:
+
+- config publishing:
+  - `@entity.entity_config(...)`
+  - `@entity.publish_entities(entities)`
+  - `@entity.clear_entities()`
+- runtime controls:
+  - `@entity.set_animation(id, clip)`
+  - `@entity.set_texture(id, path)`
+  - `@entity.start_animation_cycle(id, clips, interval_ms=...)`
+  - `@entity.stop_animation_cycle()`
+- demo entrypoint:
+  - `@entity.install_default_zombie_demo(world)` (details centralized in `entity/demo_zombie.mbt`)
+- strong typed override fields:
+  - `texture_overrides : Array[@entity.TextureIndexOverride]`
+  - `material_texture_overrides : Array[@entity.MaterialTextureOverride]`
+- override helper constructors:
+  - `@entity.texture_index_override(index, texture)`
+  - `@entity.material_texture_override(material, texture)`
+
+MoonBit typed override example:
+
+```mbt
+let cfg = @entity.entity_config(
+  "zombie_skin_a",
+  "./assets/models/zombie.gltf",
+  texture_overrides=[@entity.texture_index_override(0, "./assets/images/entity/zombie.png")],
+  material_texture_overrides=[@entity.material_texture_override("Body", "./assets/images/entity/zombie.png")],
+  position=[0.0, 68.0, 0.0],
+  animation="animation.zombie.walk",
+)
+```
+
+Observable demo (with animation):
+
+```mbt
+// single demo entrypoint (demo details are centralized in entity/demo_zombie.mbt)
+@entity.install_default_zombie_demo(world)
+```
+
+Current implementation is aimed at Blockbench-exported glTF:
+
+- static mesh nodes
+- node TRS animation channels (`translation` / `rotation` / `scale`)
+- `STEP` / `LINEAR` interpolation
+- `CUBICSPLINE` is currently downgraded to value-key linear blending
+- `.gltf` (external textures) and `.glb` (embedded image bufferView) texture loading
+- entity textures default to `NEAREST` sampling (gltf sampler can override)
+- if a model has no embedded texture reference, specify `texture`, `textures`,
+  or `materialTextures`
+  in config explicitly
+- `materialTextures` supports material-name overrides (recommended for multi-skin assets)
+- entities missing both embedded texture and config texture are skipped
+- `textures` supports material-index overrides (array or object map); object
+  keys that are not numeric are treated as material names
+- `animation: false` or `animation: "none"` disables clip autoplay
+- runtime API: `setAnimation(entityId, clip)` and `setTexture(entityId, path)`

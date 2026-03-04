@@ -69,6 +69,7 @@ pub fn set_block_id(
           []
         } else {
           data[idx] = id
+          @ffi.notify_block_changed(wx, wy, wz, id)
           let keys : Array[String] = [key]
           let push_neighbor = fn(nx : Int, ny : Int, nz : Int) -> Unit {
             let nkey = chunk_key_by_chunk_xyz(nx, ny, nz)

@@ -1,5 +1,3 @@
 import {
   "kokic/mooncraft/ffi",
-  "kokic/mooncraft/level",
-  "kokic/mooncraft/player",
 }

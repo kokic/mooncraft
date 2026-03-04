@@ -604,6 +604,21 @@ pub fn World::new(
 }
 
 ///|
+pub fn World::seed(self : World) -> UInt64 {
+  self.seed
+}
+
+///|
+pub fn World::world_type(self : World) -> WorldType {
+  self.kind
+}
+
+///|
+pub fn World::world_type_name(self : World) -> String {
+  world_type_name(self.kind)
+}
+
+///|
 pub fn World::min_y(self : World) -> Int {
   match self.kind {
     WorldType::Finite => FINITE_MIN_Y

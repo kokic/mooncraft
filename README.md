@@ -16,10 +16,6 @@ moon build --release --target-dir ./dist
 miniserve dist --index index.html --port 8089 --media-type image --upload-files assets
 ```
 
-### Documentation
-
-- Entity Model Rendering: [docs/entity-gltf.md](./docs/entity-gltf.md)
-
 ### World Type
 
 You can switch world type by editing `client.mbt`:

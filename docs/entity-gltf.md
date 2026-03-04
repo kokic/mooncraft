@@ -63,7 +63,7 @@ MoonBit-side unified entity API:
   - `@entity.start_animation_cycle(id, clips, interval_ms=...)`
   - `@entity.stop_animation_cycle()`
 - demo entrypoint:
-  - `@entity.install_default_zombie_demo(world)` (details centralized in `entity/demo_zombie.mbt`)
+  - `@mob.install_default_demo(world)` (details centralized in `mob/`)
 - strong typed override fields:
   - `texture_overrides : Array[@entity.TextureIndexOverride]`
   - `material_texture_overrides : Array[@entity.MaterialTextureOverride]`
@@ -87,8 +87,8 @@ let cfg = @entity.entity_config(
 Observable demo (with animation):
 
 ```mbt
-// single demo entrypoint (demo details are centralized in entity/demo_zombie.mbt)
-@entity.install_default_zombie_demo(world)
+// single demo entrypoint (installs zombie + rabbit demo entities)
+@mob.install_default_demo(world)
 ```
 
 Current implementation is aimed at Blockbench-exported glTF:

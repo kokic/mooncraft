@@ -19,6 +19,31 @@ import {
 
 const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
+const HOTBAR_SLOT_COUNT = 9;
+const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v1";
+const DEFAULT_SAVE_SCHEMA_VERSION = 1;
+
+function normalizeGameMode(mode) {
+  return mode === "spectator" ? "spectator" : "creative";
+}
+
+function toFiniteInt(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.floor(num) : fallback;
+}
+
+function readJsonFromStorage(key) {
+  if (typeof key !== "string" || key.length === 0) return null;
+  try {
+    const raw = globalThis.localStorage?.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (err) {
+    console.warn("[save] failed to read local storage payload", err);
+    return null;
+  }
+}
 
 function getBlockShapeDesc(longId) {
   const value = window.mcGetBlockShapeDesc(longId);
@@ -33,7 +58,7 @@ function getTorchShapeBoxByState(state) {
   return value;
 }
 
-window.mcGameMode = "creative" // "spectator"
+window.mcGameMode = normalizeGameMode(window.mcGameMode);
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -398,9 +423,170 @@ function renderTestChunk({
   const spawnFallbackY = Number.isFinite(rawSpawnFallbackY)
     ? Math.floor(rawSpawnFallbackY)
     : size;
+  const saveStorageKey = typeof window.mcSaveStorageKey === "string" &&
+    window.mcSaveStorageKey.length > 0
+    ? window.mcSaveStorageKey
+    : DEFAULT_SAVE_STORAGE_KEY;
+  const saveSchemaVersionRaw = Number(window.mcSaveSchemaVersion ?? DEFAULT_SAVE_SCHEMA_VERSION);
+  const saveSchemaVersion = Number.isFinite(saveSchemaVersionRaw)
+    ? Math.max(1, Math.floor(saveSchemaVersionRaw))
+    : DEFAULT_SAVE_SCHEMA_VERSION;
+  const worldSeed = toFiniteInt(window.mcWorldSeed, 0);
+  const worldType = typeof window.mcWorldType === "string" &&
+    window.mcWorldType.length > 0
+    ? window.mcWorldType
+    : "Infinite";
+  const migrateSavePayload = (input) => {
+    if (!input || typeof input !== "object") return null;
+    const inputVersion = Number(input.version ?? 1);
+    const isLegacy = !Number.isFinite(inputVersion) || inputVersion < 1;
+    const rawWorld = isLegacy
+      ? (input.world ?? { seed: input.seed, worldType: input.worldType })
+      : input.world;
+    if (!rawWorld || typeof rawWorld !== "object") return null;
+    const seed = Number(rawWorld.seed);
+    if (!Number.isFinite(seed)) return null;
+    const worldTypeName = typeof rawWorld.worldType === "string"
+      ? rawWorld.worldType
+      : null;
+    if (!worldTypeName) return null;
+    const rawRuntime = isLegacy
+      ? (input.runtime ?? {
+        player: input.player,
+        hotbar: input.hotbar,
+        ui: { inventoryOpen: input.inventoryOpen },
+      })
+      : input.runtime;
+    const rawBlockDeltas = isLegacy
+      ? (input.blockDeltas ?? input.blocks ?? input.delta ?? [])
+      : (input.blockDeltas ?? []);
+    const blockDeltas = [];
+    if (Array.isArray(rawBlockDeltas)) {
+      for (const entry of rawBlockDeltas) {
+        if (!entry || typeof entry !== "object") continue;
+        const wx = Number(entry.wx);
+        const wy = Number(entry.wy);
+        const wz = Number(entry.wz);
+        const id = Number(entry.id);
+        if (!Number.isFinite(wx) || !Number.isFinite(wy) || !Number.isFinite(wz) || !Number.isFinite(id)) {
+          continue;
+        }
+        blockDeltas.push({
+          wx: Math.floor(wx),
+          wy: Math.floor(wy),
+          wz: Math.floor(wz),
+          id: Math.floor(id),
+        });
+      }
+    } else if (rawBlockDeltas && typeof rawBlockDeltas === "object") {
+      for (const [posKey, idValue] of Object.entries(rawBlockDeltas)) {
+        const coords = posKey.split(",");
+        if (coords.length !== 3) continue;
+        const wx = Number(coords[0]);
+        const wy = Number(coords[1]);
+        const wz = Number(coords[2]);
+        const id = Number(idValue);
+        if (!Number.isFinite(wx) || !Number.isFinite(wy) || !Number.isFinite(wz) || !Number.isFinite(id)) {
+          continue;
+        }
+        blockDeltas.push({
+          wx: Math.floor(wx),
+          wy: Math.floor(wy),
+          wz: Math.floor(wz),
+          id: Math.floor(id),
+        });
+      }
+    }
+    return {
+      version: saveSchemaVersion,
+      world: {
+        seed: Math.max(0, Math.floor(seed)),
+        worldType: worldTypeName,
+      },
+      runtime: rawRuntime && typeof rawRuntime === "object" ? rawRuntime : null,
+      blockDeltas,
+    };
+  };
+  const loadedSave = migrateSavePayload(readJsonFromStorage(saveStorageKey));
+  const saveWorldMatches = !!loadedSave &&
+    loadedSave.world.seed === worldSeed &&
+    loadedSave.world.worldType === worldType;
+  if (loadedSave && !saveWorldMatches) {
+    console.warn("[save] world metadata mismatch, ignoring runtime/chunk deltas", {
+      savedSeed: loadedSave.world.seed,
+      savedWorldType: loadedSave.world.worldType,
+      worldSeed,
+      worldType,
+    });
+  }
+  const loadedRuntimeSnapshot = saveWorldMatches ? loadedSave.runtime : null;
+  const loadedBlockDeltaEntries = saveWorldMatches ? loadedSave.blockDeltas : [];
+  const blockDeltasByWorld = new Map();
+  const blockDeltasByChunk = new Map();
+  let suppressAutosave = false;
+  let requestAutosave = () => { };
+  const worldPosKey = (wx, wy, wz) => `${wx},${wy},${wz}`;
+  const chunkKeyByWorld = (wx, wy, wz) => {
+    const cx = Math.floor(wx / size);
+    const cy = Math.floor(wy / size);
+    const cz = Math.floor(wz / size);
+    return `${cx},${cy},${cz}`;
+  };
+  const localIndexByWorld = (wx, wy, wz) => {
+    const cx = Math.floor(wx / size);
+    const cy = Math.floor(wy / size);
+    const cz = Math.floor(wz / size);
+    const lx = wx - cx * size;
+    const ly = wy - cy * size;
+    const lz = wz - cz * size;
+    if (lx < 0 || lx >= size || ly < 0 || ly >= size || lz < 0 || lz >= size) {
+      return -1;
+    }
+    return ((ly * size) + lz) * size + lx;
+  };
+  const recordBlockDelta = (wx, wy, wz, id, emitSave = true) => {
+    const bx = Number(wx);
+    const by = Number(wy);
+    const bz = Number(wz);
+    const longId = Number(id);
+    if (!Number.isFinite(bx) || !Number.isFinite(by) || !Number.isFinite(bz) || !Number.isFinite(longId)) {
+      return;
+    }
+    const ix = Math.floor(bx);
+    const iy = Math.floor(by);
+    const iz = Math.floor(bz);
+    const iid = Math.floor(longId);
+    const posKey = worldPosKey(ix, iy, iz);
+    blockDeltasByWorld.set(posKey, { wx: ix, wy: iy, wz: iz, id: iid });
+    const chunkKey = chunkKeyByWorld(ix, iy, iz);
+    const localIndex = localIndexByWorld(ix, iy, iz);
+    if (localIndex < 0) return;
+    let chunkEntries = blockDeltasByChunk.get(chunkKey);
+    if (!(chunkEntries instanceof Map)) {
+      chunkEntries = new Map();
+      blockDeltasByChunk.set(chunkKey, chunkEntries);
+    }
+    chunkEntries.set(localIndex, iid);
+    if (emitSave) requestAutosave();
+  };
+  const applyChunkBlockDeltas = (chunkKey, chunkDataArray) => {
+    const chunkEntries = blockDeltasByChunk.get(chunkKey);
+    if (!(chunkEntries instanceof Map)) return;
+    if (!chunkDataArray || typeof chunkDataArray.length !== "number") return;
+    for (const [index, id] of chunkEntries.entries()) {
+      if (!Number.isInteger(index) || index < 0 || index >= chunkDataArray.length) continue;
+      chunkDataArray[index] = id;
+    }
+  };
+  for (const entry of loadedBlockDeltaEntries) {
+    recordBlockDelta(entry.wx, entry.wy, entry.wz, entry.id, false);
+  }
   let data = normalizeChunkData(chunkData);
   const chunkDatas = new Map();
-  if (data) chunkDatas.set("0,0,0", data);
+  if (data) {
+    applyChunkBlockDeltas("0,0,0", data);
+    chunkDatas.set("0,0,0", data);
+  }
   const pendingChunks = new Set();
   const chunkQueue = [];
   let chunkQueueHead = 0;
@@ -974,6 +1160,7 @@ function renderTestChunk({
       if (data) {
         data = normalizeChunkData(data);
         if (data) {
+          applyChunkBlockDeltas(key, data);
           chunkDatas.set(key, data);
           markMeshDirty(key);
           markNeighborMeshDirty(key);
@@ -1016,6 +1203,7 @@ function renderTestChunk({
         let seedData = chunkGenerator(spawnChunkX, cy, spawnChunkZ);
         seedData = normalizeChunkData(seedData);
         if (!seedData) continue;
+        applyChunkBlockDeltas(key, seedData);
         chunkDatas.set(key, seedData);
         loaded += 1;
       }
@@ -1272,10 +1460,27 @@ function renderTestChunk({
     canvas,
     worldMinY,
     spawnPosition: spawn.position,
-    gameMode: window.mcGameMode,
+    gameMode: normalizeGameMode(window.mcGameMode),
     chunkMap: chunkDatas,
     chunkSize: size,
   });
+  const getGameMode = () => normalizeGameMode(window.mcGameMode);
+  const setGameMode = (mode) => {
+    const next = normalizeGameMode(mode);
+    const prev = getGameMode();
+    if (prev === next) {
+      return next;
+    }
+    window.mcGameMode = next;
+    if (typeof player.setGameMode === "function") {
+      player.setGameMode(next);
+    }
+    if (!suppressAutosave) {
+      requestAutosave();
+    }
+    return next;
+  };
+  setGameMode(window.mcGameMode);
 
   const debugHud = document.createElement("div");
   debugHud.style.position = "fixed";
@@ -1485,6 +1690,28 @@ function renderTestChunk({
     return out;
   };
 
+  const cloneTextureRef = (value) => ({
+    name: typeof value?.name === "string" ? value.name : "",
+  });
+
+  const cloneUiItem = (item) => {
+    if (!item || typeof item !== "object") return null;
+    return {
+      name: typeof item.name === "string" ? item.name : "air",
+      kind: typeof item.kind === "string" ? item.kind : "flat",
+      shape: typeof item.shape === "string" ? item.shape : "normal",
+      material: typeof item.material === "string" ? item.material : "normal",
+      category: typeof item.category === "string" ? item.category : "none",
+      top: cloneTextureRef(item.top),
+      side: cloneTextureRef(item.side),
+      bottom: cloneTextureRef(item.bottom),
+      texture: cloneTextureRef(item.texture),
+    };
+  };
+
+  const normalizeHotbarItems = (items) =>
+    padItems(Array.isArray(items) ? items.map(cloneUiItem) : [], HOTBAR_SLOT_COUNT);
+
   const reportMissingTextures = (items, scope) => {
     if (!textures?.textureIndex) return;
     const missing = new Set();
@@ -1509,11 +1736,112 @@ function renderTestChunk({
     }
   };
 
-  const hotbarItems = padItems(window.mcCollectHotbarItems?.() ?? [], 9);
-  reportMissingTextures(hotbarItems, "hotbar");
-  if (typeof hotbar.setItems === "function") {
-    hotbar.setItems(hotbarItems, textures);
-  }
+  const runtimeState = {
+    hotbarItems: normalizeHotbarItems(window.mcCollectHotbarItems?.() ?? []),
+    inventoryOpen: false,
+  };
+  window.mcInventoryOpen = runtimeState.inventoryOpen;
+  const uiItemsByName = new Map();
+  const uiItemKey = (name, category) => `${category ?? "none"}:${name ?? ""}`;
+  const indexUiItems = (items) => {
+    if (!Array.isArray(items)) return;
+    for (const entry of items) {
+      const item = cloneUiItem(entry);
+      if (!item) continue;
+      const key = uiItemKey(item.name, item.category);
+      if (!uiItemsByName.has(key)) {
+        uiItemsByName.set(key, item);
+      }
+      if (item.name && item.category !== "none") {
+        const fallbackKey = uiItemKey(item.name, "none");
+        if (!uiItemsByName.has(fallbackKey)) {
+          uiItemsByName.set(fallbackKey, item);
+        }
+      }
+    }
+  };
+  const resolveSavedHotbarItem = (entry) => {
+    if (!entry || typeof entry !== "object") return null;
+    if (typeof entry.kind === "string" &&
+      typeof entry.shape === "string" &&
+      typeof entry.material === "string") {
+      return cloneUiItem(entry);
+    }
+    const name = typeof entry.name === "string" ? entry.name : "";
+    if (name.length === 0) return null;
+    const category = typeof entry.category === "string" ? entry.category : "none";
+    const exact = uiItemsByName.get(uiItemKey(name, category));
+    if (exact) return cloneUiItem(exact);
+    const byBlock = uiItemsByName.get(uiItemKey(name, "block"));
+    if (byBlock) return cloneUiItem(byBlock);
+    const byItem = uiItemsByName.get(uiItemKey(name, "item"));
+    if (byItem) return cloneUiItem(byItem);
+    const byNone = uiItemsByName.get(uiItemKey(name, "none"));
+    return byNone ? cloneUiItem(byNone) : null;
+  };
+
+  const clampHotbarIndex = (index) => {
+    if (!Number.isFinite(Number(index))) return 0;
+    return Math.max(0, Math.min(HOTBAR_SLOT_COUNT - 1, Math.floor(Number(index))));
+  };
+
+  const getSelectedHotbarIndex = () => {
+    const raw = typeof hotbar.getSelectedIndex === "function"
+      ? hotbar.getSelectedIndex()
+      : (window.mcHotbarSelectedIndex ?? 0);
+    return clampHotbarIndex(raw);
+  };
+
+  const setHotbarItems = (items, emitSave = true) => {
+    runtimeState.hotbarItems = normalizeHotbarItems(
+      Array.isArray(items)
+        ? items.map((entry) => resolveSavedHotbarItem(entry))
+        : [],
+    );
+    indexUiItems(runtimeState.hotbarItems);
+    reportMissingTextures(runtimeState.hotbarItems, "hotbar");
+    if (typeof hotbar.setItems === "function") {
+      hotbar.setItems(runtimeState.hotbarItems, textures);
+    }
+    if (emitSave && !suppressAutosave) {
+      requestAutosave();
+    }
+  };
+
+  const setHotbarItem = (index, item, emitSave = true) => {
+    const slot = clampHotbarIndex(index);
+    const value = resolveSavedHotbarItem(item);
+    if (value && value.category == null) {
+      console.error("[hotbar] missing category on item", item);
+      return;
+    }
+    runtimeState.hotbarItems[slot] = value;
+    indexUiItems([value]);
+    if (typeof hotbar.setItem === "function") {
+      hotbar.setItem(slot, value, textures);
+    } else if (typeof hotbar.setItems === "function") {
+      hotbar.setItems(runtimeState.hotbarItems, textures);
+    }
+    if (emitSave && !suppressAutosave) {
+      requestAutosave();
+    }
+  };
+
+  const selectHotbarIndex = (index, emitSave = true) => {
+    const prev = getSelectedHotbarIndex();
+    const slot = clampHotbarIndex(index);
+    if (typeof hotbar.select === "function") {
+      hotbar.select(slot);
+    } else {
+      window.mcHotbarSelectedIndex = slot;
+    }
+    const next = getSelectedHotbarIndex();
+    if (emitSave && next !== prev && !suppressAutosave) {
+      requestAutosave();
+    }
+  };
+
+  setHotbarItems(runtimeState.hotbarItems, false);
 
   const inventoryColumns = window.mcInventoryGridX ?? 9;
   const inventoryRows = window.mcInventoryGridY ?? 6;
@@ -1521,9 +1849,9 @@ function renderTestChunk({
     window.mcCollectInventoryItems?.() ?? [],
     inventoryColumns * inventoryRows,
   );
-  let inventoryOpen = false;
+  indexUiItems(inventoryItems);
   let setInventoryOpen = (open) => {
-    inventoryOpen = open;
+    runtimeState.inventoryOpen = open === true;
   };
   reportMissingTextures(inventoryItems, "inventory");
   const inventory = createInventoryUI({
@@ -1533,33 +1861,31 @@ function renderTestChunk({
     columns: inventoryColumns,
     rows: inventoryRows,
     onSelect: (item) => {
-      const slotIndex = typeof hotbar.getSelectedIndex === "function"
-        ? hotbar.getSelectedIndex()
-        : (window.mcHotbarSelectedIndex ?? 0);
-      hotbarItems[slotIndex] = item;
+      const slotIndex = getSelectedHotbarIndex();
       const category = item?.category ?? null;
       if (category == null) {
         console.error("[hotbar] missing category on item", item);
+        return;
       }
-      if (typeof hotbar.setItem === "function") {
-        hotbar.setItem(slotIndex, item, textures);
-      } else if (typeof hotbar.setItems === "function") {
-        hotbar.setItems(hotbarItems, textures);
-      }
+      setHotbarItem(slotIndex, item);
     },
     onClose: () => {
       setInventoryOpen(false);
     },
     onToggle: () => {
-      setInventoryOpen(!inventoryOpen);
+      setInventoryOpen(!runtimeState.inventoryOpen);
     },
-    canToggle: () => window.mcGameMode === "creative",
+    canToggle: () => getGameMode() === "creative",
   });
-  setInventoryOpen = (open) => {
-    inventoryOpen = open;
-    window.mcInventoryOpen = open;
-    inventory.setOpen(open);
-    if (open) {
+  setInventoryOpen = (open, emitSave = true) => {
+    const next = open === true;
+    if (runtimeState.inventoryOpen === next) {
+      return;
+    }
+    runtimeState.inventoryOpen = next;
+    window.mcInventoryOpen = next;
+    inventory.setOpen(next);
+    if (next) {
       if (document.pointerLockElement) document.exitPointerLock();
       crosshair.style.display = "none";
     } else {
@@ -1567,7 +1893,190 @@ function renderTestChunk({
       canvas.focus();
       canvas.requestPointerLock();
     }
+    if (emitSave && !suppressAutosave) {
+      requestAutosave();
+    }
   };
+
+  const toSavedHotbarItem = (item) => {
+    if (!item || typeof item !== "object") return null;
+    if (typeof item.name !== "string" || item.name.length === 0) return null;
+    return {
+      name: item.name,
+      category: typeof item.category === "string" ? item.category : "none",
+    };
+  };
+
+  const captureRuntimeState = () => ({
+    version: 1,
+    gameMode: getGameMode(),
+    player: {
+      position: [...player.state.position],
+      yaw: player.state.yaw,
+      pitch: player.state.pitch,
+      gameMode: getGameMode(),
+    },
+    hotbar: {
+      selectedIndex: getSelectedHotbarIndex(),
+      items: runtimeState.hotbarItems.map(toSavedHotbarItem),
+    },
+    ui: {
+      inventoryOpen: runtimeState.inventoryOpen,
+    },
+  });
+
+  const applyRuntimeState = (snapshot, emitSave = true) => {
+    if (!snapshot || typeof snapshot !== "object") return false;
+    const prevSuppress = suppressAutosave;
+    if (!emitSave) {
+      suppressAutosave = true;
+    }
+    try {
+      const playerState = snapshot.player;
+      if (playerState && typeof playerState === "object") {
+        if (Array.isArray(playerState.position) && playerState.position.length >= 3) {
+          const px = Number(playerState.position[0]);
+          const py = Number(playerState.position[1]);
+          const pz = Number(playerState.position[2]);
+          if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(pz)) {
+            player.state.position[0] = px;
+            player.state.position[1] = py;
+            player.state.position[2] = pz;
+          }
+        }
+        const yaw = Number(playerState.yaw);
+        if (Number.isFinite(yaw)) {
+          player.state.yaw = yaw;
+        }
+        const pitch = Number(playerState.pitch);
+        if (Number.isFinite(pitch)) {
+          player.state.pitch = Math.max(-1.55, Math.min(1.55, pitch));
+        }
+        if (typeof playerState.gameMode === "string") {
+          setGameMode(playerState.gameMode);
+        }
+      }
+      if (typeof snapshot.gameMode === "string") {
+        setGameMode(snapshot.gameMode);
+      }
+      const hotbarState = snapshot.hotbar;
+      if (hotbarState && typeof hotbarState === "object") {
+        if (Array.isArray(hotbarState.items)) {
+          setHotbarItems(hotbarState.items, emitSave);
+        }
+        if (hotbarState.selectedIndex != null) {
+          selectHotbarIndex(hotbarState.selectedIndex, emitSave);
+        }
+      }
+      const uiState = snapshot.ui;
+      if (uiState && typeof uiState === "object" &&
+        typeof uiState.inventoryOpen === "boolean") {
+        setInventoryOpen(uiState.inventoryOpen, emitSave);
+      } else if (typeof snapshot.inventoryOpen === "boolean") {
+        setInventoryOpen(snapshot.inventoryOpen, emitSave);
+      }
+    } finally {
+      suppressAutosave = prevSuppress;
+    }
+    if (emitSave && !suppressAutosave) {
+      requestAutosave();
+    }
+    return true;
+  };
+
+  window.mcRuntimeState = {
+    capture: captureRuntimeState,
+    apply: applyRuntimeState,
+    getGameMode,
+    setGameMode,
+  };
+  window.mcCaptureRuntimeState = captureRuntimeState;
+  window.mcApplyRuntimeState = applyRuntimeState;
+  window.mcSetGameMode = setGameMode;
+
+  if (loadedRuntimeSnapshot && typeof loadedRuntimeSnapshot === "object") {
+    applyRuntimeState(loadedRuntimeSnapshot, false);
+  } else if (window.mcRuntimeStateBootstrap && typeof window.mcRuntimeStateBootstrap === "object") {
+    applyRuntimeState(window.mcRuntimeStateBootstrap, false);
+  }
+  const collectBlockDeltaEntries = () => Array.from(blockDeltasByWorld.values());
+  const buildSavePayload = () => ({
+    version: saveSchemaVersion,
+    world: {
+      seed: worldSeed,
+      worldType,
+      saveVersion: saveSchemaVersion,
+    },
+    runtime: captureRuntimeState(),
+    blockDeltas: collectBlockDeltaEntries(),
+  });
+  let saveDirty = false;
+  let pendingSaveTimer = null;
+  let lastSavedAt = 0;
+  const SAVE_THROTTLE_MS = 1500;
+  const SAVE_HEARTBEAT_MS = 5000;
+  const flushSave = (force = false) => {
+    if (!force && !saveDirty) return true;
+    try {
+      const payload = buildSavePayload();
+      globalThis.localStorage?.setItem(saveStorageKey, JSON.stringify(payload));
+      saveDirty = false;
+      lastSavedAt = Date.now();
+      return true;
+    } catch (err) {
+      console.warn("[save] failed to write local storage payload", err);
+      return false;
+    }
+  };
+  const scheduleSave = () => {
+    saveDirty = true;
+    if (pendingSaveTimer != null) return;
+    const elapsed = Date.now() - lastSavedAt;
+    const wait = Math.max(0, SAVE_THROTTLE_MS - elapsed);
+    pendingSaveTimer = setTimeout(() => {
+      pendingSaveTimer = null;
+      flushSave(false);
+      if (saveDirty) {
+        scheduleSave();
+      }
+    }, wait);
+  };
+  requestAutosave = scheduleSave;
+  window.mcOnBlockChanged = (wx, wy, wz, id) => {
+    recordBlockDelta(wx, wy, wz, id, true);
+  };
+  let runtimeFingerprint = "";
+  const computeRuntimeFingerprint = () => {
+    const runtime = captureRuntimeState();
+    const player = runtime?.player ?? {};
+    const hotbar = runtime?.hotbar ?? {};
+    const ui = runtime?.ui ?? {};
+    const pos = Array.isArray(player.position) ? player.position : [0, 0, 0];
+    const p0 = Number.isFinite(Number(pos[0])) ? Number(pos[0]).toFixed(2) : "0";
+    const p1 = Number.isFinite(Number(pos[1])) ? Number(pos[1]).toFixed(2) : "0";
+    const p2 = Number.isFinite(Number(pos[2])) ? Number(pos[2]).toFixed(2) : "0";
+    const yaw = Number.isFinite(Number(player.yaw)) ? Number(player.yaw).toFixed(3) : "0";
+    const pitch = Number.isFinite(Number(player.pitch)) ? Number(player.pitch).toFixed(3) : "0";
+    const mode = typeof runtime.gameMode === "string" ? runtime.gameMode : "creative";
+    const selectedIndex = toFiniteInt(hotbar.selectedIndex, 0);
+    const inventoryOpen = ui.inventoryOpen === true ? "1" : "0";
+    const hotbarNames = Array.isArray(hotbar.items)
+      ? hotbar.items.map((item) => `${item?.name ?? ""}:${item?.category ?? ""}`).join("|")
+      : "";
+    return `${mode}:${p0},${p1},${p2}:${yaw}:${pitch}:${selectedIndex}:${inventoryOpen}:${hotbarNames}`;
+  };
+  runtimeFingerprint = computeRuntimeFingerprint();
+  setInterval(() => {
+    const next = computeRuntimeFingerprint();
+    if (next !== runtimeFingerprint) {
+      runtimeFingerprint = next;
+      requestAutosave();
+    }
+  }, SAVE_HEARTBEAT_MS);
+  globalThis.addEventListener("beforeunload", () => {
+    flushSave(true);
+  });
+  requestAutosave();
   const markEditedVoxelSections = (wx, wy, wz, keys) => {
     const touched = markVoxelAndNeighborSectionsDirty(wx, wy, wz);
     if (!Array.isArray(keys)) return;
@@ -1653,10 +2162,8 @@ function renderTestChunk({
     if (event.button === 0) {
       const hit = raycastBlocks(raycastCamera.position, raycastCamera.direction);
       if (!hit) return;
-      const slotIndex = typeof hotbar.getSelectedIndex === "function"
-        ? hotbar.getSelectedIndex()
-        : (window.mcHotbarSelectedIndex ?? 0);
-      const selectedItem = hotbarItems[slotIndex];
+      const slotIndex = getSelectedHotbarIndex();
+      const selectedItem = runtimeState.hotbarItems[slotIndex];
       const category = selectedItem?.category ?? "none";
       if (selectedItem && selectedItem.category == null) {
         console.error("[hotbar] missing category on item", selectedItem);
@@ -1673,10 +2180,8 @@ function renderTestChunk({
         }
       }
     } else if (event.button === 2) {
-      const slotIndex = typeof hotbar.getSelectedIndex === "function"
-        ? hotbar.getSelectedIndex()
-        : (window.mcHotbarSelectedIndex ?? 0);
-      const selectedItem = hotbarItems[slotIndex];
+      const slotIndex = getSelectedHotbarIndex();
+      const selectedItem = runtimeState.hotbarItems[slotIndex];
       const category = selectedItem?.category ?? null;
       if (!selectedItem) return;
       if (category == null) {
@@ -1756,7 +2261,7 @@ function renderTestChunk({
     const now = performance.now();
     const delta = Math.min(0.05, (now - player.state.lastTime) / 1000);
     player.state.lastTime = now;
-    if (!inventoryOpen) {
+    if (!runtimeState.inventoryOpen) {
       player.update(delta);
     }
     gltfEntityRenderer.update(delta);

@@ -47,6 +47,7 @@ Runtime API (available after renderer init):
 await window.mcGltfEntityApi.setAnimation("zombie_0", "animation.zombie.walk");
 await window.mcGltfEntityApi.setTexture("zombie_0", "./assets/images/entity/zombie.png");
 await window.mcGltfEntityApi.setYaw("zombie_0", Math.PI * 0.5);
+await window.mcGltfEntityApi.setScale("zombie_0", 1.0, 1.0, 1.0);
 await window.mcGltfEntityApi.lookAtXz("zombie_0", 12, 8); // yaw only
 await window.mcGltfEntityApi.lookAtXyz("zombie_0", 12, 70, 8); // yaw + pitch
 
@@ -65,6 +66,7 @@ MoonBit-side unified entity API:
   - `@entity.set_texture(id, path)`
   - `@entity.set_rotation_quat(id, x, y, z, w)`
   - `@entity.set_yaw(id, yaw)`
+  - `@entity.set_scale(id, x, y, z)`
   - `@entity.look_at_xz(id, x, z)`
   - `@entity.look_at_xyz(id, x, y, z)`
   - `@entity.start_animation_cycle(id, clips, interval_ms=...)`
@@ -114,4 +116,10 @@ Current implementation is aimed at Blockbench-exported glTF:
 - `textures` supports material-index overrides (array or object map); object
   keys that are not numeric are treated as material names
 - `animation: false` or `animation: "none"` disables clip autoplay
-- runtime API: `setAnimation(entityId, clip)` and `setTexture(entityId, path)`
+- runtime API:
+  - `setAnimation(entityId, clip)`
+  - `setTexture(entityId, path)`
+  - `setYaw(entityId, yaw)`
+  - `setScale(entityId, x, y, z)`
+  - `lookAtXz(entityId, x, z)`
+  - `lookAtXyz(entityId, x, y, z)`

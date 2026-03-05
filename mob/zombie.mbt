@@ -17,7 +17,7 @@ fn demo_spawn_base_wxz() -> (Int, Int) {
 ///|
 fn zombie_0_wxz() -> (Int, Int) {
   let (base_wx, base_wz) = demo_spawn_base_wxz()
-  (base_wx + 4, base_wz + 4)
+  (base_wx + 8, base_wz + 8)
 }
 
 ///|

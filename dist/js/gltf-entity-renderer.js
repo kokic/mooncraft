@@ -1098,6 +1098,29 @@ function createGltfEntityRenderer(gl) {
     return applyLookRotation(inst, yawValue, pitch);
   };
 
+  const setScale = (entityId, x, y, z) => {
+    const inst = getInstanceById(entityId);
+    if (!inst) {
+      console.warn("[gltf] setScale: entity not found", entityId);
+      return false;
+    }
+    const sx = Number(x);
+    const sy = Number(y);
+    const sz = Number(z);
+    if (!Number.isFinite(sx) || !Number.isFinite(sy) || !Number.isFinite(sz)) {
+      console.warn("[gltf] setScale: invalid scale", [x, y, z], "entity:", inst.id);
+      return false;
+    }
+    if (Math.abs(sx) <= LOOK_EPSILON || Math.abs(sy) <= LOOK_EPSILON || Math.abs(sz) <= LOOK_EPSILON) {
+      console.warn("[gltf] setScale: zero scale is not allowed", [sx, sy, sz], "entity:", inst.id);
+      return false;
+    }
+    inst.modelScale[0] = sx;
+    inst.modelScale[1] = sy;
+    inst.modelScale[2] = sz;
+    return updateInstanceModel(inst);
+  };
+
   const lookAt = (entityId, tx, ty, tz, withPitch = true) => {
     const inst = getInstanceById(entityId);
     if (!inst) {
@@ -1388,6 +1411,7 @@ function createGltfEntityRenderer(gl) {
     setTexture,
     setRotationQuat,
     setYaw,
+    setScale,
     lookAtXz,
     lookAtXyz,
     getEntityIds,

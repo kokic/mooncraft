@@ -1269,6 +1269,9 @@ function renderTestChunk({
     setYaw(entityId, yaw) {
       return gltfEntitiesReady.then(() => gltfEntityRenderer.setYaw(entityId, yaw));
     },
+    setScale(entityId, x, y, z) {
+      return gltfEntitiesReady.then(() => gltfEntityRenderer.setScale(entityId, x, y, z));
+    },
     lookAtXz(entityId, x, z) {
       return gltfEntitiesReady.then(() => gltfEntityRenderer.lookAtXz(entityId, x, z));
     },

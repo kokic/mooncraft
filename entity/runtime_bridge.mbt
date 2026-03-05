@@ -112,6 +112,34 @@ pub extern "js" fn js_set_yaw(
   #| }
 
 ///|
+pub extern "js" fn js_set_scale(
+  entity_id : String,
+  x : Double,
+  y : Double,
+  z : Double,
+  timeout_ms : Int,
+) -> Unit =
+  #| (entityId, x, y, z, timeoutMs) => {
+  #|   const started = Date.now();
+  #|   const timeout = Math.max(0, timeoutMs | 0);
+  #|   const tick = () => {
+  #|     const api = globalThis.mcGltfEntityApi;
+  #|     if (api && typeof api.setScale === "function") {
+  #|       Promise.resolve(api.setScale(entityId, x, y, z)).catch((err) => {
+  #|         console.warn("[entity] setScale failed", entityId, [x, y, z], err);
+  #|       });
+  #|       return;
+  #|     }
+  #|     if (Date.now() - started <= timeout) {
+  #|       setTimeout(tick, 50);
+  #|     } else {
+  #|       console.warn("[entity] setScale api not ready", entityId);
+  #|     }
+  #|   };
+  #|   tick();
+  #| }
+
+///|
 pub extern "js" fn js_look_at_xz(
   entity_id : String,
   x : Double,
@@ -259,6 +287,17 @@ pub fn set_yaw(
   timeout_ms? : Int = DEFAULT_API_TIMEOUT_MS,
 ) -> Unit {
   js_set_yaw(entity_id, yaw, timeout_ms)
+}
+
+///|
+pub fn set_scale(
+  entity_id : String,
+  x : Double,
+  y : Double,
+  z : Double,
+  timeout_ms? : Int = DEFAULT_API_TIMEOUT_MS,
+) -> Unit {
+  js_set_scale(entity_id, x, y, z, timeout_ms)
 }
 
 ///|

@@ -59,6 +59,15 @@ pub fn[T : Mul + Sub] Vec3::cross(u : Vec3[T], v : Vec3[T]) -> Vec3[T] {
 pub type FVec3 = Vec3[Float]
 
 ///|
+pub fn FVec3::as_block_position(v : FVec3) -> FVec3 {
+  FVec3::new(
+    v.x / PIXEL_BLOCK_RATIO,
+    v.y / PIXEL_BLOCK_RATIO,
+    v.z / PIXEL_BLOCK_RATIO,
+  )
+}
+
+///|
 #alias(norm)
 pub fn FVec3::eulidian_norm(v : FVec3) -> Float {
   (v.x * v.x + v.y * v.y + v.z * v.z).sqrt()

@@ -82,32 +82,3 @@ pub fn zombie_demo_clips() -> Array[String] {
   ]
 }
 
-///|
-pub fn demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
-  let entities = zombie_demo_entities(world)
-  for rabbit in rabbit_demo_entities(world) {
-    entities.push(rabbit)
-  }
-  entities
-}
-
-///|
-/// Single entry for demo setup: install entities and start animation cycle.
-pub fn install_zombie_demo(
-  world : @level.World,
-  entity_id : String,
-  interval_ms? : Int = @entity.DEFAULT_DEMO_INTERVAL_MS,
-) -> Unit {
-  @entity.publish_entities(demo_entities(world))
-  @entity.start_animation_cycle(entity_id, zombie_demo_clips(), interval_ms=interval_ms)
-}
-
-///|
-pub fn install_default_demo(world : @level.World) -> Unit {
-  install_zombie_demo(world, "zombie_0")
-}
-
-///|
-pub fn install_default_zombie_demo(world : @level.World) -> Unit {
-  install_default_demo(world)
-}

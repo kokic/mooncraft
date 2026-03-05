@@ -2,7 +2,7 @@
 pub const RABBIT_MODEL_URL : String = "./assets/models/rabbit.gltf"
 
 ///|
-pub const RABBIT_TEXTURE_URL : String = "./assets/images/entity/moonbit.png"
+pub const RABBIT_TEXTURE_URL : String = "./assets/images/entity/rabbit_white.png"
 
 ///|
 pub const RABBIT_Y_BELOW_ZOMBIE : Double = 2.4

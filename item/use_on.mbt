@@ -32,6 +32,8 @@ pub fn use_item_on(
   prev : Array[Int],
   click : (Float, Float, Float),
 ) -> UseOnAction {
+  // STATUS: COMPLETE - dispatches current block placement and item-on-block
+  // actions. Inventory mutation/count handling is intentionally not modeled yet.
   if block.length() < 3 || prev.length() < 3 {
     UseOnAction::None
   } else {

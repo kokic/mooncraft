@@ -11,9 +11,17 @@ pub const RABBIT_Y_BELOW_ZOMBIE : Double = 2.4
 pub const RABBIT_Y_OFFSET : Double = ZOMBIE_Y_OFFSET - RABBIT_Y_BELOW_ZOMBIE
 
 ///|
-pub fn rabbit_demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
+pub fn rabbit_demo_entities(
+  world : @level.World,
+) -> Array[@entity.GltfEntityConfig] {
+  // STATUS: INCOMPLETE - display-only demo entity; no rabbit behavior is wired.
   let (rabbit_wx, rabbit_wz) = zombie_1_wxz()
-  let pos = surface_position(world, rabbit_wx, rabbit_wz, y_offset=RABBIT_Y_OFFSET)
+  let pos = surface_position(
+    world,
+    rabbit_wx,
+    rabbit_wz,
+    y_offset=RABBIT_Y_OFFSET,
+  )
   [
     @entity.entity_config(
       "rabbit_0",

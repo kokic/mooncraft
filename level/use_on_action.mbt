@@ -150,6 +150,11 @@ pub fn apply_use_on_action(
   entity_height? : Double = 0,
   entity_radius? : Double = 0,
 ) -> Array[String] {
+  // STATUS: COMPLETE - applies current place/replace actions and updates dirty
+  // chunk keys for the JS renderer.
+  // STATUS: NEEDS_ADJUSTMENT - Batch recursion currently omits player collision
+  // context for sub-actions; pass player args through before batching actions
+  // that can place solid blocks.
   match action {
     @item.UseOnAction::None => []
     @item.UseOnAction::Batch(actions) => {

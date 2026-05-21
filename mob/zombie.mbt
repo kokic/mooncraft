@@ -9,8 +9,10 @@ pub const ZOMBIE_Y_OFFSET : Double = 2.35
 
 ///|
 fn demo_spawn_base_wxz() -> (Int, Int) {
-  let base_wx = @player.SPAWN_CHUNK_X * @level.CHUNK_X_SIZE + @player.SPAWN_LOCAL_X
-  let base_wz = @player.SPAWN_CHUNK_Z * @level.CHUNK_Z_SIZE + @player.SPAWN_LOCAL_Z
+  let base_wx = @player.SPAWN_CHUNK_X * @level.CHUNK_X_SIZE +
+    @player.SPAWN_LOCAL_X
+  let base_wz = @player.SPAWN_CHUNK_Z * @level.CHUNK_Z_SIZE +
+    @player.SPAWN_LOCAL_Z
   (base_wx, base_wz)
 }
 
@@ -38,7 +40,11 @@ fn surface_position(
 }
 
 ///|
-pub fn zombie_demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
+pub fn zombie_demo_entities(
+  world : @level.World,
+) -> Array[@entity.GltfEntityConfig] {
+  // STATUS: NEEDS_ADJUSTMENT - demo placement and clip choices are hard-coded
+  // so model/animation coverage can be inspected before gameplay logic exists.
   let (wx0, wz0) = zombie_0_wxz()
   let (wx1, wz1) = zombie_1_wxz()
   [
@@ -74,11 +80,5 @@ pub fn zombie_demo_entities(world : @level.World) -> Array[@entity.GltfEntityCon
 
 ///|
 pub fn zombie_demo_clips() -> Array[String] {
-  [
-    "animation.zombie.walk",
-    "animation.zombie.attack",
-    "riding",
-    "none",
-  ]
+  ["animation.zombie.walk", "animation.zombie.attack", "riding", "none"]
 }
-

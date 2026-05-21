@@ -1,5 +1,7 @@
 ///|
 fn main {
+  // STATUS: NEEDS_ADJUSTMENT - bootstrap still wires one demo world and demo mobs
+  // directly; a menu/config path should own this once multiple play modes exist.
   let default_world_type = @level.WorldType::Infinite
   let default_world_type_name = @level.world_type_name(default_world_type)
   let seed = @ffi.load_saved_world_seed(@env.now())

@@ -17,6 +17,12 @@ pub(all) struct TerrainColumn {
 }
 
 ///|
+// STATUS: COMPLETE - Infinite/Finite/Flat/PreClassic generation paths share
+// this world model and chunk API.
+// STATUS: NEEDS_ADJUSTMENT - biome edge blending and structure/feature variety
+// are still coarse, matching the README next-step list.
+
+///|
 /// Highest world Y for Infinite/Flat worlds.
 pub const WORLD_MAX_Y : Int = 127
 

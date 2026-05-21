@@ -1,5 +1,7 @@
 ///|
 pub fn demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
+  // STATUS: INCOMPLETE - this is a static showcase layer, not the runtime mob
+  // system. No AI, persistence, collision, damage, or spawn rules are modeled.
   let entities = zombie_demo_entities(world)
 
   for entity in rabbit_demo_entities(world) {

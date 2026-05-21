@@ -1,4 +1,8 @@
 ///|
+// STATUS: COMPLETE - enough blocks are registered for current terrain,
+// rendering, and interaction demos.
+// STATUS: INCOMPLETE - this is not a full Minecraft registry; many categories
+// and block behaviors are data-only or absent.
 pub let blocks : Array[Block] = [
   // Basic
   Block::create(
@@ -19,6 +23,8 @@ pub let blocks : Array[Block] = [
 
   // Terrain
   Block::create("grass_snow", ["snow", "dirt", "grass_side_snowed"]),
+  // STATUS: NEEDS_ADJUSTMENT - the `classoc` prefix is likely a compatibility
+  // typo; keep it stable until save/registry references are audited.
   Block::create("classoc.grass_snow", [
     "classic/snow", "dirt", "classic/grass_side_snowed",
   ]),

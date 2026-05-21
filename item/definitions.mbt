@@ -1,4 +1,6 @@
 ///|
+// STATUS: INCOMPLETE - registry contains the playable/demo items only. Add
+// species-specific behavior before promoting bucket and spawn-egg placeholders.
 pub let items : Array[Item] = [
   Item::create(
     "iron_shovel",

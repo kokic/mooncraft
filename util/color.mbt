@@ -33,6 +33,8 @@ fn byte_to_unit(v : Int) -> Float {
 /// Parse `#RRGGBBAA`, `RRGGBBAA`, `#RRGGBB`, or `RRGGBB` to normalized RGBA.
 /// Panics when the string format is invalid.
 pub fn rgba(hex : String) -> Rgba {
+  // STATUS: COMPLETE - intended for trusted asset/config literals, not user
+  // input. Add a Result-returning parser before exposing it to runtime input.
   let hash : UInt16 = '#'
   let offset = if hex.length() > 0 && hex[0] == hash { 1 } else { 0 }
   let payload_len = hex.length() - offset

@@ -16,6 +16,9 @@ pub fn apply_use_action(
   size : Int,
   action : @item.UseAction,
 ) -> Array[String] {
+  // STATUS: COMPLETE - applies the current break-block action contract.
+  // STATUS: INCOMPLETE - item durability, harvest rules, drops, and event hooks
+  // are intentionally absent from this first interaction layer.
   match action {
     @item.UseAction::None => []
     @item.UseAction::Batch(actions) => {

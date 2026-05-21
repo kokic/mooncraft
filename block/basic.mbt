@@ -39,6 +39,8 @@ fn Block::create(
   category? : @item.Category = @item.Block,
   faces : FixedArray[String],
 ) -> Block {
+  // STATUS: COMPLETE - supported face layouts are 0/1/2/3/6 textures. The
+  // panic below catches invalid registry entries during development.
   let faces = match faces.length() {
     0 => TextureNames::new()
     1 => TextureNames::isotropic(faces[0])

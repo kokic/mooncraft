@@ -1,4 +1,7 @@
 ///|
+// STATUS: COMPLETE - fixed blueprint structure used by finite-world generation.
+// STATUS: NEEDS_ADJUSTMENT - placement is authored as one hard-coded structure;
+// add rotation/variants before reusing it as a general structure system.
 pub const NETHER_SPIRE_SIZE : Int = 17
 
 ///|

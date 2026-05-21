@@ -8,6 +8,9 @@ fn[V] set_global(name : String, value : V) -> Unit {
 ///|
 /// Register scalar config and initial world state for JS bootstrap.
 fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
+  // STATUS: COMPLETE - current JS bootstrap contract is centralized here.
+  // STATUS: NEEDS_ADJUSTMENT - render distance, update budgets, and debug flags
+  // are runtime tuning knobs but are still compiled into this setup path.
   set_global("mcUpdateLabel", "1:10")
   set_global("mcSaveSchemaVersion", 1)
   set_global("mcSaveStorageKey", @ffi.SAVE_STORAGE_KEY)
@@ -44,6 +47,8 @@ fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
 ///|
 /// Register JS-callable entry points that forward to MoonBit logic.
 fn register_api(world : @level.World) -> Unit {
+  // STATUS: COMPLETE - this is the intended boundary between MoonBit gameplay
+  // logic and the JS renderer/input loop. Keep exported names stable.
   set_global(
     "mcTorchStateFromPlacement",
     @genus.Torch::torch_state_from_placement,

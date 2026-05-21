@@ -4,6 +4,8 @@ pub fn use_item(
   _category : String,
   block : Array[Int],
 ) -> UseAction {
+  // STATUS: INCOMPLETE - left click currently means "break selected block" for
+  // every item. Durability, tool speed, drops, and non-block actions are absent.
   if block.length() < 3 {
     UseAction::None
   } else {

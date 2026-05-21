@@ -9,6 +9,7 @@ pub enum ItemArchetype {
 
 ///|
 pub enum ToolKind {
+  // STATUS: INCOMPLETE - only shovel behavior is implemented today.
   Shovel
   // Pickaxe
   // Axe
@@ -18,6 +19,7 @@ pub enum ToolKind {
 
 ///|
 pub enum ToolTier {
+  // STATUS: INCOMPLETE - item definitions currently exercise only iron tools.
   // Wood
   // Stone
   Iron
@@ -68,6 +70,8 @@ pub fn Item::use_on(
   face : @shape.FaceName,
   click : (Float, Float, Float),
 ) -> UseOnAction {
+  // STATUS: NEEDS_ADJUSTMENT - special cases are still keyed by names/archetypes
+  // here; move richer item behavior into species modules as they fill out.
   match item.archetype {
     ItemArchetype::Tool(kind=ToolKind::Shovel, ..) =>
       shovel_use_on(stack, x, y, z, face, click)

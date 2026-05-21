@@ -329,7 +329,7 @@ pub fn look_at_xzy(
   z : Double,
   timeout_ms? : Int = DEFAULT_API_TIMEOUT_MS,
 ) -> Unit {
-  look_at_xyz(entity_id, x, y, z, timeout_ms=timeout_ms)
+  look_at_xyz(entity_id, x, y, z, timeout_ms~)
 }
 
 ///|

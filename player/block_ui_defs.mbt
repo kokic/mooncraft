@@ -57,11 +57,7 @@ fn texture_or_fallback(name : String) -> UiTexture {
 
 ///|
 fn category_tag(category : @item.Category) -> String {
-  match category {
-    @item.Block => "block"
-    @item.Item => "item"
-    @item.None => "none"
-  }
+  category.tag()
 }
 
 ///|

@@ -37,40 +37,36 @@ pub fn use_item_on(
   if block.length() < 3 || prev.length() < 3 {
     UseOnAction::None
   } else {
-    match category {
-      "item" =>
-        match lookup_by_name(name) {
+    match UseTarget::from_wire(name, category) {
+      KnownItem(item) =>
+        match face_from_hit(block, prev) {
           None => UseOnAction::None
-          Some(item) =>
-            match face_from_hit(block, prev) {
-              None => UseOnAction::None
-              Some(face) =>
-                item.use_on(
-                  ItemStack::from_item(item),
-                  block[0],
-                  block[1],
-                  block[2],
-                  face,
-                  click,
-                )
-            }
+          Some(face) =>
+            item.use_on(
+              ItemStack::from_item(item),
+              block[0],
+              block[1],
+              block[2],
+              face,
+              click,
+            )
         }
-      "block" =>
+      KnownBlock(block_name) =>
         match face_from_hit(block, prev) {
           None => UseOnAction::None
           Some(_) =>
-            UseOnAction::PlaceBlock(
+            PlaceBlock(
               target_wx=block[0],
               target_wy=block[1],
               target_wz=block[2],
               place_wx=prev[0],
               place_wy=prev[1],
               place_wz=prev[2],
-              name~,
+              name=block_name,
               require_air=true,
             )
         }
-      _ => UseOnAction::None
+      Empty | Unknown => UseOnAction::None
     }
   }
 }

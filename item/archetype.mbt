@@ -12,8 +12,8 @@ pub fn shovel_use_on(
       wx=x,
       wy=y,
       wz=z,
-      expected=name => name == "grass" || name == "pre-classic.grass",
-      neo=name => name == "grass_path",
+      expected=BlockSelector::AnyOf(["grass", "pre-classic.grass"]),
+      neo=BlockSelector::Exact("grass_path"),
       require_above_air=true,
     )
   } else {

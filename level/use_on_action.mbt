@@ -7,23 +7,18 @@ fn resolve_block_long_id(name : String) -> UInt? {
 }
 
 ///|
-fn block_name_matches(
-  long_id : UInt,
-  predicate : @item.UniqueNamePredicate,
-) -> Bool {
+fn block_name_matches(long_id : UInt, selector : @item.BlockSelector) -> Bool {
   match @block.lookup_by_long_id(long_id) {
-    Some(block) => predicate(block.name)
+    Some(block) => selector.matches(block.name)
     None => false
   }
 }
 
 ///|
-fn resolve_block_long_id_by_predicate(
-  predicate : @item.UniqueNamePredicate,
-) -> UInt? {
+fn resolve_block_long_id_by_selector(selector : @item.BlockSelector) -> UInt? {
   let mut found : UInt? = None
   for block in @block.blocks {
-    if predicate(block.name) {
+    if selector.matches(block.name) {
       match found {
         Some(_) =>
           // Ambiguous predicate: refuse replacement to keep behavior deterministic.
@@ -186,7 +181,7 @@ pub fn apply_use_on_action(
             if !expected_ok {
               []
             } else {
-              match resolve_block_long_id_by_predicate(new_predicate) {
+              match resolve_block_long_id_by_selector(new_predicate) {
                 None => []
                 Some(new_id) =>
                   set_block_id(chunk_map, size, wx, wy, wz, new_id)

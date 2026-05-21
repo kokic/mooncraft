@@ -71,21 +71,11 @@ pub fn Item::use_on(
   click : (Float, Float, Float),
 ) -> UseOnAction {
   // STATUS: NEEDS_ADJUSTMENT - special cases are still keyed by names/archetypes
-  // here; move richer item behavior into species modules as they fill out.
+  // here; richer item behavior should move behind dedicated dispatch metadata.
   match item.archetype {
     ItemArchetype::Tool(kind=ToolKind::Shovel, ..) =>
       shovel_use_on(stack, x, y, z, face, click)
-    _ if item.name == "bucket" =>
-      Batch([
-        ReplaceBlock(
-          wx=x,
-          wy=y,
-          wz=z,
-          expected=name => name == "water",
-          neo=name => name == "air",
-          require_above_air=false,
-        ),
-      ])
+    _ if item.name == "bucket" => bucket_use_on(stack, x, y, z, face, click)
     _ => default_use_on(stack, x, y, z, face, click)
   }
 }

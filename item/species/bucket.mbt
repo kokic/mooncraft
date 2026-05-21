@@ -1,4 +1,4 @@
 ///|
-// STATUS: INCOMPLETE - bucket behavior is still implemented as a name-based
-// special case in `item/basic.mbt`. Move fill/empty logic here when species
-// modules become active.
+// STATUS: NEEDS_ADJUSTMENT - root `item/bucket.mbt` owns current bucket behavior
+// because parent/child package imports would otherwise be cyclic. Move this file
+// back into service if species packages become behavior providers.

@@ -1,4 +1,5 @@
 ///|
+#warnings("-unused_constructor")
 pub enum HumanoidJoint {
   Head
   Body
@@ -9,6 +10,7 @@ pub enum HumanoidJoint {
 }
 
 ///|
+#warnings("-unused_constructor")
 pub enum Joint {
   Human(HumanoidJoint)
   Custom(String)

@@ -2,7 +2,7 @@
 pub struct Vec2[T] {
   x : T
   y : T
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn[T] Vec2::new(x : T, y : T) -> Vec2[T] {

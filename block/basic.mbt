@@ -84,7 +84,7 @@ pub let fallback_texture : String = "missing_tile"
 
 ///|
 pub fn collect_texture_names() -> Array[String] {
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
   let out : Array[String] = [fallback_texture]
   seen[fallback_texture] = true
   for block in blocks {

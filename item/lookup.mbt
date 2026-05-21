@@ -1,6 +1,6 @@
 ///|
 let items_by_name : Map[@util.UniqueName, Item] = {
-  let out : Map[@util.UniqueName, Item] = Map::new()
+  let out : Map[@util.UniqueName, Item] = Map([])
   for item in items {
     if !out.contains(item.name) {
       out[item.name] = item

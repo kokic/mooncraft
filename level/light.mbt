@@ -30,7 +30,7 @@ fn clamp_light(value : Int) -> Int {
 
 ///|
 fn build_light_lookup() -> Map[Int, (Int, Int)] {
-  let lookup : Map[Int, (Int, Int)] = Map::new()
+  let lookup : Map[Int, (Int, Int)] = Map([])
   for entry in @block.collect_block_light_info() {
     if entry.length() >= 3 {
       lookup[entry[0]] = (entry[1], entry[2])
@@ -64,7 +64,7 @@ pub fn build_world_light(
   let lookup = build_light_lookup()
   let coords_all : Array[(String, Int, Int, Int)] = []
   let coords_loaded : Array[(String, Int, Int, Int)] = []
-  let chunk_data_by_key : Map[String, Array[UInt]] = Map::new()
+  let chunk_data_by_key : Map[String, Array[UInt]] = Map([])
   let mut min_cx = 0
   let mut min_cz = 0
   let mut max_cx = 0

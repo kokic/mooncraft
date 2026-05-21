@@ -16,7 +16,7 @@ pub fn BlockRegistry::create(
   texture_names : Array[String],
   texture_indices : Array[Int],
 ) -> BlockRegistry {
-  let texture_index : Map[String, Int] = Map::new()
+  let texture_index : Map[String, Int] = Map([])
   let len = if texture_names.length() < texture_indices.length() {
     texture_names.length()
   } else {
@@ -29,8 +29,8 @@ pub fn BlockRegistry::create(
       texture_index[name] = index
     }
   }
-  let blocks_by_name : Map[String, RenderBlock] = Map::new()
-  let blocks_by_long_id : Map[UInt, RenderBlock] = Map::new()
+  let blocks_by_name : Map[String, RenderBlock] = Map([])
+  let blocks_by_long_id : Map[UInt, RenderBlock] = Map([])
   for def in blocks {
     let resolve_layer = fn(tex_name : String?) -> Int {
       match tex_name {

@@ -3,7 +3,7 @@ pub struct ChunkBlockPos {
   x : Int
   y : Int
   z : Int
-} derive(Show)
+} derive(Debug)
 
 ///|
 const SHIFT_X = 4
@@ -57,7 +57,7 @@ pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
     parts.push(part)
   }
   let parse_int_or_zero = fn(sv : StringView) -> Int {
-    try @strconv.parse_int(sv) catch {
+    try @string.parse_int(sv) catch {
       _ => 0
     } noraise {
       v => v

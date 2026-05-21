@@ -3,7 +3,7 @@ pub struct Vec3[T] {
   x : T
   y : T
   z : T
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn[T] Vec3::new(x : T, y : T, z : T) -> Vec3[T] {

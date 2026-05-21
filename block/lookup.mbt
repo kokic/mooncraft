@@ -1,6 +1,6 @@
 ///|
 let blocks_by_name : Map[@util.UniqueName, Block] = {
-  let out : Map[@util.UniqueName, Block] = Map::new()
+  let out : Map[@util.UniqueName, Block] = Map([])
   for block in blocks {
     if !out.contains(block.name) {
       out[block.name] = block
@@ -11,7 +11,7 @@ let blocks_by_name : Map[@util.UniqueName, Block] = {
 
 ///|
 let blocks_by_long_id : Map[UInt, Block] = {
-  let out : Map[UInt, Block] = Map::new()
+  let out : Map[UInt, Block] = Map([])
   for block in blocks {
     out[block.long_id()] = block
   }

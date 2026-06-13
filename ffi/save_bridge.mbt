@@ -1,5 +1,5 @@
 ///|
-pub const SAVE_STORAGE_KEY : String = "mooncraft.save.v1"
+pub const SAVE_STORAGE_KEY : String = "mooncraft.save.v2"
 
 ///|
 pub extern "js" fn load_saved_world_seed(
@@ -13,7 +13,8 @@ pub extern "js" fn load_saved_world_seed(
   #|     const parsed = JSON.parse(raw);
   #|     const seed = parsed?.world?.seed;
   #|     if (typeof seed !== "number" || !Number.isFinite(seed)) return fallback;
-  #|     return Math.max(0, Math.floor(seed));
+  #|     const value = Math.max(0, Math.floor(seed));
+  #|     return BigInt.asUintN(64, BigInt(value));
   #|   } catch (_) {
   #|     return fallback;
   #|   }

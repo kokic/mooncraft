@@ -1,16 +1,16 @@
 ///|
 /// Linear Congruential Generator
 pub struct LCG {
-  priv mut seed : Int
+  priv mut seed : UInt
 }
 
 ///|
-pub fn LCG::LCG(seed? : UInt64 = @env.now()) -> LCG {
-  LCG::{ seed: seed.to_int(), }
+pub fn LCG::LCG(seed? : UInt = @env.now().to_uint()) -> LCG {
+  LCG::{ seed, }
 }
 
 ///|
-pub fn LCG::next(self : LCG, modulus? : Int) -> Int {
+pub fn LCG::next(self : LCG, modulus? : UInt) -> UInt {
   self.seed = 48271 * self.seed + 57
   match modulus {
     None => self.seed

@@ -1,6 +1,6 @@
 ///|
 pub struct World {
-  seed : UInt64
+  seed : UInt
   kind : WorldType
   noise : @util.PerlinNoise
 }
@@ -602,7 +602,7 @@ fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double 
 
 ///|
 pub fn World::new(
-  seed? : UInt64 = @env.now(),
+  seed? : UInt = @env.now().to_uint(),
   world_type? : WorldType = WorldType::PreClassic,
 ) -> World {
   let noise = @util.PerlinNoise::new(seed~)
@@ -610,7 +610,7 @@ pub fn World::new(
 }
 
 ///|
-pub fn World::seed(self : World) -> UInt64 {
+pub fn World::seed(self : World) -> UInt {
   self.seed
 }
 

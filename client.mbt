@@ -4,7 +4,7 @@ fn main {
   // directly; a menu/config path should own this once multiple play modes exist.
   let default_world_type = @level.WorldType::Infinite
   let default_world_type_name = @level.world_type_name(default_world_type)
-  let seed = @ffi.load_saved_world_seed(@env.now())
+  let seed = @ffi.load_saved_world_seed(@env.now().to_uint())
   let world_type_name = @ffi.load_saved_world_type(default_world_type_name)
   let world_type = @level.world_type_from_name(
     world_type_name,

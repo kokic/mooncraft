@@ -36,7 +36,7 @@ fn fill_flat(
     }
     @feature.place_crop_circle_texts_flat(
       set_block,
-      world.seed.to_int(),
+      world.seed.reinterpret_as_int(),
       surface_y,
     )
   }

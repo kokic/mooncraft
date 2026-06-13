@@ -3,9 +3,9 @@ pub const SAVE_STORAGE_KEY : String = "mooncraft.save.v2"
 
 ///|
 pub extern "js" fn load_saved_world_seed(
-  fallback : UInt64,
+  fallback : UInt,
   key? : String = SAVE_STORAGE_KEY,
-) -> UInt64 =
+) -> UInt =
   #| (fallback, key) => {
   #|   try {
   #|     const raw = globalThis.localStorage?.getItem(key);
@@ -14,7 +14,7 @@ pub extern "js" fn load_saved_world_seed(
   #|     const seed = parsed?.world?.seed;
   #|     if (typeof seed !== "number" || !Number.isFinite(seed)) return fallback;
   #|     const value = Math.max(0, Math.floor(seed));
-  #|     return BigInt.asUintN(64, BigInt(value));
+  #|     return value >>> 0;
   #|   } catch (_) {
   #|     return fallback;
   #|   }

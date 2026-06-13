@@ -31,7 +31,7 @@ pub struct Noise {
 
 ///|
 pub fn Noise::new(seed? : UInt64 = @env.now()) -> Noise {
-  let random = LCG::new(seed~)
+  let random = LCG(seed~)
   let permutations = Noise::build_permutations(random)
   Noise::{ seed, permutations }
 }
@@ -43,8 +43,7 @@ fn Noise::build_permutations(random : LCG) -> Array[Int] {
     perm[i] = i
   }
   for i in 0..<=255 {
-    let span = (256 - i).to_uint64()
-    let j = i + random.next(modulus=span).to_int()
+    let j = i + random.next(modulus=256-i)
     let t = perm[i]
     let v = perm[j]
     perm[i] = v

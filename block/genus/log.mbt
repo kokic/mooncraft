@@ -17,21 +17,9 @@ pub fn Log::log_state_from_placement(
   block : Array[Int],
   prev : Array[Int],
 ) -> UInt {
-  if block.length() < 3 || prev.length() < 3 {
-    0
-  } else {
-    let dx = block[0] - prev[0]
-    let dy = block[1] - prev[1]
-    let dz = block[2] - prev[2]
-    if dy != 0 {
-      0
-    } else if dx != 0 {
-      1
-    } else if dz != 0 {
-      2
-    } else {
-      0
-    }
+  match @shape.FaceName::from_adjacent_blocks(block, prev) {
+    Some(face) => @shape.FaceName::axis_index(face).reinterpret_as_uint()
+    None => 0
   }
 }
 

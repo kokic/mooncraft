@@ -79,27 +79,9 @@ pub fn SixFacing::face_from_state(state : UInt) -> @shape.FaceName {
 ///|
 /// Infer facing from hit data (`block` is target, `prev` is placement position).
 pub fn SixFacing::state_from_hit(block : Array[Int], prev : Array[Int]) -> UInt {
-  if block.length() < 3 || prev.length() < 3 {
-    0
-  } else {
-    let dx = block[0] - prev[0]
-    let dy = block[1] - prev[1]
-    let dz = block[2] - prev[2]
-    if dx == -1 {
-      0
-    } else if dx == 1 {
-      1
-    } else if dy == -1 {
-      2
-    } else if dy == 1 {
-      3
-    } else if dz == -1 {
-      4
-    } else if dz == 1 {
-      5
-    } else {
-      0
-    }
+  match @shape.FaceName::from_adjacent_blocks(block, prev) {
+    Some(face) => SixFacing::state_from_face(face)
+    None => 0
   }
 }
 
@@ -110,25 +92,14 @@ fn calc_source_face_for_world_face(
   world_face : @shape.FaceName,
   state : UInt,
 ) -> @shape.FaceName {
-  let world_dir = face_dir(world_face)
+  let world_dir = @shape.FaceName::normal(world_face)
   for source_face in all_faces {
-    if rotate_dir_by_state(state, face_dir(source_face)) == world_dir {
+    if rotate_dir_by_state(state, @shape.FaceName::normal(source_face)) ==
+      world_dir {
       return source_face
     }
   }
   world_face
-}
-
-///|
-fn face_index(face : @shape.FaceName) -> Int {
-  match face {
-    @shape.FaceName::PosX => 0
-    @shape.FaceName::NegX => 1
-    @shape.FaceName::PosY => 2
-    @shape.FaceName::NegY => 3
-    @shape.FaceName::PosZ => 4
-    @shape.FaceName::NegZ => 5
-  }
 }
 
 ///|
@@ -145,7 +116,7 @@ fn state_index(state : UInt) -> Int {
 
 ///|
 fn table_index(state : UInt, face : @shape.FaceName) -> Int {
-  state_index(state) * SIX_FACING_FACE_COUNT + face_index(face)
+  state_index(state) * SIX_FACING_FACE_COUNT + @shape.FaceName::index(face)
 }
 
 ///|
@@ -215,20 +186,8 @@ fn rotate_dir_by_state(state : UInt, dir : (Int, Int, Int)) -> (Int, Int, Int) {
 }
 
 ///|
-fn face_dir(face : @shape.FaceName) -> (Int, Int, Int) {
-  match face {
-    @shape.FaceName::PosX => (1, 0, 0)
-    @shape.FaceName::NegX => (-1, 0, 0)
-    @shape.FaceName::PosY => (0, 1, 0)
-    @shape.FaceName::NegY => (0, -1, 0)
-    @shape.FaceName::PosZ => (0, 0, 1)
-    @shape.FaceName::NegZ => (0, 0, -1)
-  }
-}
-
-///|
 fn face_geom_by_name(face : @shape.FaceName) -> @shape.FaceGeom {
-  @shape.faces[face_index(face)]
+  @shape.faces[@shape.FaceName::index(face)]
 }
 
 ///|
@@ -339,7 +298,10 @@ fn calc_uv_transform(
   } else {
     source_v0
   }
-  let roll_axis = rotate_dir_by_state(state, face_dir(source_face))
+  let roll_axis = rotate_dir_by_state(
+    state,
+    @shape.FaceName::normal(source_face),
+  )
   let roll = source_face_roll_quarters(source_face)
   let source_u = rotate_dir_about_axis_quarters(roll_axis, roll, source_u0)
   let source_v = rotate_dir_about_axis_quarters(roll_axis, roll, source_v_base)
@@ -350,7 +312,7 @@ fn calc_uv_transform(
     world_v_raw
   }
   let world_roll = world_face_extra_roll_quarters(state, world_face)
-  let world_axis = face_dir(world_face)
+  let world_axis = @shape.FaceName::normal(world_face)
   let world_u2 = rotate_dir_about_axis_quarters(world_axis, world_roll, world_u)
   let world_v2 = rotate_dir_about_axis_quarters(world_axis, world_roll, world_v)
   for rotate in [false, true] {

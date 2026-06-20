@@ -19,7 +19,7 @@ pub enum Joint {
 ///|
 pub trait Localizable {
   // unit: block
-  position(joint : Joint) -> @util.FVec3
+  fn position(joint : Joint) -> @util.FVec3
 }
 
 ///|

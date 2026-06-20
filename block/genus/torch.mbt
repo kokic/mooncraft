@@ -13,30 +13,25 @@ pub fn Torch::unique_name(base : String, state : UInt) -> String {
 }
 
 ///|
+fn torch_state_from_face(face : @shape.FaceName) -> UInt {
+  match face {
+    @shape.FaceName::PosZ => 1
+    @shape.FaceName::NegZ => 2
+    @shape.FaceName::PosX => 3
+    @shape.FaceName::NegX => 4
+    _ => 0
+  }
+}
+
+///|
 /// Infer torch placement state from the target block and the previous hit.
 pub fn Torch::torch_state_from_placement(
   block : Array[Int],
   prev : Array[Int],
 ) -> UInt {
-  if block.length() < 3 || prev.length() < 3 {
-    0
-  } else {
-    let dx = block[0] - prev[0]
-    let dy = block[1] - prev[1]
-    let dz = block[2] - prev[2]
-    if dy == 1 {
-      0
-    } else if dz == -1 {
-      1
-    } else if dz == 1 {
-      2
-    } else if dx == -1 {
-      3
-    } else if dx == 1 {
-      4
-    } else {
-      0
-    }
+  match @shape.FaceName::from_adjacent_blocks(block, prev) {
+    Some(face) => torch_state_from_face(face)
+    None => 0
   }
 }
 

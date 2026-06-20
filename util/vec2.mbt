@@ -10,17 +10,17 @@ pub fn[T] Vec2::new(x : T, y : T) -> Vec2[T] {
 }
 
 ///|
-pub impl[T : Add] Add for Vec2[T] with add(u, v) {
+pub impl[T : Add] Add for Vec2[T] with fn add(u, v) {
   Vec2::new(u.x + v.x, u.y + v.y)
 }
 
 ///|
-pub impl[T : Sub] Sub for Vec2[T] with sub(u, v) {
+pub impl[T : Sub] Sub for Vec2[T] with fn sub(u, v) {
   Vec2::new(u.x - v.x, u.y - v.y)
 }
 
 ///|
-pub impl[T : Neg] Neg for Vec2[T] with neg(u) {
+pub impl[T : Neg] Neg for Vec2[T] with fn neg(u) {
   Vec2::new(-u.x, -u.y)
 }
 
@@ -35,7 +35,9 @@ pub fn[T : Mul + Add] Vec2::dot(u : Vec2[T], v : Vec2[T]) -> T {
 }
 
 ///|
-pub impl[T : Mul] Mul for Vec2[T] with mul(u : Vec2[T], v : Vec2[T]) -> Vec2[T] {
+pub impl[T : Mul] Mul for Vec2[T] with fn mul(u : Vec2[T], v : Vec2[T]) -> Vec2[
+  T,
+] {
   Vec2::new(u.x * v.x, u.y * v.y)
 }
 
@@ -94,6 +96,6 @@ pub fn FVec2::almost_equal(u : FVec2, v : FVec2) -> Bool {
 }
 
 ///|
-pub impl Eq for FVec2 with equal(u, v) {
+pub impl Eq for FVec2 with fn equal(u, v) {
   u.x == v.x && u.y == v.y
 }

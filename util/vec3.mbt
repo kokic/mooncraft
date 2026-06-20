@@ -11,17 +11,21 @@ pub fn[T] Vec3::new(x : T, y : T, z : T) -> Vec3[T] {
 }
 
 ///|
-pub impl[T : Add] Add for Vec3[T] with add(u : Vec3[T], v : Vec3[T]) -> Vec3[T] {
+pub impl[T : Add] Add for Vec3[T] with fn add(u : Vec3[T], v : Vec3[T]) -> Vec3[
+  T,
+] {
   Vec3::new(u.x + v.x, u.y + v.y, u.z + v.z)
 }
 
 ///|
-pub impl[T : Sub] Sub for Vec3[T] with sub(u : Vec3[T], v : Vec3[T]) -> Vec3[T] {
+pub impl[T : Sub] Sub for Vec3[T] with fn sub(u : Vec3[T], v : Vec3[T]) -> Vec3[
+  T,
+] {
   Vec3::new(u.x - v.x, u.y - v.y, u.z - v.z)
 }
 
 ///|
-pub impl[T : Neg] Neg for Vec3[T] with neg(u) {
+pub impl[T : Neg] Neg for Vec3[T] with fn neg(u) {
   Vec3::new(-u.x, -u.y, -u.z)
 }
 
@@ -36,7 +40,9 @@ pub fn[T : Mul + Add] Vec3::dot(u : Vec3[T], v : Vec3[T]) -> T {
 }
 
 ///|
-pub impl[T : Mul] Mul for Vec3[T] with mul(u : Vec3[T], v : Vec3[T]) -> Vec3[T] {
+pub impl[T : Mul] Mul for Vec3[T] with fn mul(u : Vec3[T], v : Vec3[T]) -> Vec3[
+  T,
+] {
   Vec3::new(u.x * v.x, u.y * v.y, u.z * v.z)
 }
 
@@ -131,6 +137,6 @@ pub fn FVec3::almost_equal(u : FVec3, v : FVec3) -> Bool {
 }
 
 ///|
-pub impl Eq for FVec3 with equal(u, v) {
+pub impl Eq for FVec3 with fn equal(u, v) {
   u.x == v.x && u.y == v.y && u.z == v.z
 }

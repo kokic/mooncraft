@@ -35,7 +35,7 @@ pub extern "js" fn JsValue::to_json_string(self : JsValue) -> String =
   #| (self) => JSON.stringify(self)
 
 ///|
-pub impl Show for JsValue with output(self, logger) -> Unit {
+pub impl Show for JsValue with fn output(self, logger) -> Unit {
   logger.write_string(self.to_json_string())
 }
 
@@ -59,7 +59,7 @@ pub extern "js" fn JsValue::equal(a : JsValue, b : JsValue) -> Bool =
   #| (a, b) => Object.is(a, b)
 
 ///|
-pub impl Eq for JsValue with equal(self, other) -> Bool {
+pub impl Eq for JsValue with fn equal(self, other) -> Bool {
   JsValue::equal(self, other)
 }
 

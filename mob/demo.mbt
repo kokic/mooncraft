@@ -4,13 +4,13 @@ pub fn demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
   // system. No AI, persistence, collision, damage, or spawn rules are modeled.
   let entities = zombie_demo_entities(world)
 
-  for entity in rabbit_demo_entities(world) {
-    entities.push(entity)
-  }
+  // for entity in rabbit_demo_entities(world) {
+  //   entities.push(entity)
+  // }
 
-  for entity in snowman_demo_entities(world) {
-    entities.push(entity)
-  }
+  // for entity in snowman_demo_entities(world) {
+  //   entities.push(entity)
+  // }
 
   entities
 }

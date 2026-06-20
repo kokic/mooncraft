@@ -238,6 +238,8 @@ pub fn place_biome_trees_in_chunk(
 ) -> Unit {
   apply_pending_to_chunk(chunk)
   let region = ChunkRegion::new(chunk)
+
+  // blocks
   let air = @block.AIR_LONG_ID
   let grass_id = @block.lookup_by_name("grass").unwrap().id
   let dirt_id = @block.lookup_by_name("dirt").unwrap().id
@@ -249,6 +251,8 @@ pub fn place_biome_trees_in_chunk(
   let acacia_log = @block.lookup_by_name("classic.acacia_log").unwrap()
   let jungle_log = @block.lookup_by_name("classic.jungle_log").unwrap()
   let leaves_id = @block.lookup_by_name("oak_leaves").unwrap().id
+
+  // placement
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
@@ -289,16 +293,8 @@ pub fn place_biome_trees_in_chunk(
                     let (_, surface, _) = chunk.block_rxyz_to_block_xyz(
                       rx, base_ry, rz,
                     )
-                    let setter = fn(
-                      x : Int,
-                      y : Int,
-                      z : Int,
-                      id : UInt,
-                    ) -> Unit {
-                      region.set_block(x, y, z, id)
-                    }
                     @feature.place_oak_tree_genus(
-                      setter,
+                      (x, y, z, id) => region.set_block(x, y, z, id),
                       wx,
                       surface,
                       wz,

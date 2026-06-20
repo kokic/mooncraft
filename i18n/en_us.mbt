@@ -33,8 +33,5 @@ fn humanize_name(name : String) -> String {
 ///|
 /// Resolve display name from the map, falling back to a humanized name.
 pub fn item_display_name(name : String) -> String {
-  match item_display_names.get(name) {
-    Some(v) => v
-    None => humanize_name(name)
-  }
+  item_display_names.get(name).unwrap_or_else(() => humanize_name(name))
 }

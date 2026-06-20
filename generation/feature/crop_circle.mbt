@@ -122,17 +122,10 @@ fn glyph_for_code(code : UInt16) -> Array[String]? {
 fn text_pixel_width(text : String) -> Int {
   let mut width = 0
   for i in 0..<text.length() {
-    let glyph_width = match glyph_for_code(text[i]) {
-      Some(_) => GLYPH_ADVANCE
-      None => 3
-    }
+    let glyph_width = glyph_for_code(text[i]).map_or(3, _ => GLYPH_ADVANCE)
     width = width + glyph_width
   }
-  if width > 0 {
-    width - 1
-  } else {
-    0
-  }
+  (width - 1).max(0)
 }
 
 ///|

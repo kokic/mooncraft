@@ -2,13 +2,28 @@
 pub const SAVE_STORAGE_KEY : String = "mooncraft.save.v2"
 
 ///|
+pub extern "js" fn active_save_storage_key(
+  fallback? : String = SAVE_STORAGE_KEY,
+) -> String =
+  #| (fallback) => {
+  #|   const selected = globalThis.mcSelectedSaveStorageKey;
+  #|   return typeof selected === "string" && selected.length > 0
+  #|     ? selected
+  #|     : fallback;
+  #| }
+
+///|
 pub extern "js" fn load_saved_world_seed(
   fallback : UInt,
   key? : String = SAVE_STORAGE_KEY,
 ) -> UInt =
   #| (fallback, key) => {
   #|   try {
-  #|     const raw = globalThis.localStorage?.getItem(key);
+  #|     const selected = globalThis.mcSelectedSaveStorageKey;
+  #|     const storageKey = typeof selected === "string" && selected.length > 0
+  #|       ? selected
+  #|       : key;
+  #|     const raw = globalThis.localStorage?.getItem(storageKey);
   #|     if (!raw) return fallback;
   #|     const parsed = JSON.parse(raw);
   #|     const seed = parsed?.world?.seed;
@@ -27,7 +42,11 @@ pub extern "js" fn load_saved_world_type(
 ) -> String =
   #| (fallback, key) => {
   #|   try {
-  #|     const raw = globalThis.localStorage?.getItem(key);
+  #|     const selected = globalThis.mcSelectedSaveStorageKey;
+  #|     const storageKey = typeof selected === "string" && selected.length > 0
+  #|       ? selected
+  #|       : key;
+  #|     const raw = globalThis.localStorage?.getItem(storageKey);
   #|     if (!raw) return fallback;
   #|     const parsed = JSON.parse(raw);
   #|     const worldType = parsed?.world?.worldType;

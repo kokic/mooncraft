@@ -13,7 +13,7 @@ fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   // are runtime tuning knobs but are still compiled into this setup path.
   set_global("mcUpdateLabel", "1:10")
   set_global("mcSaveSchemaVersion", 1)
-  set_global("mcSaveStorageKey", @ffi.SAVE_STORAGE_KEY)
+  set_global("mcSaveStorageKey", @ffi.active_save_storage_key())
   set_global("mcWorldSeed", world.seed())
   set_global("mcWorldType", world.world_type_name())
   set_global("mcChunkSize", @level.CHUNK_X_SIZE)

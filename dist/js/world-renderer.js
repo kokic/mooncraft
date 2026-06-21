@@ -20,7 +20,7 @@ import {
 const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
-const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v1";
+const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v2";
 const DEFAULT_SAVE_SCHEMA_VERSION = 1;
 
 function normalizeGameMode(mode) {
@@ -2018,6 +2018,7 @@ function renderTestChunk({
   const collectBlockDeltaEntries = () => Array.from(blockDeltasByWorld.values());
   const buildSavePayload = () => ({
     version: saveSchemaVersion,
+    savedAt: Date.now(),
     world: {
       seed: worldSeed,
       worldType,

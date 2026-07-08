@@ -66,6 +66,34 @@ fn get_block_boxes_at(
 }
 
 ///|
+fn is_player_in_water(
+  chunk_map : @ffi.JsValue,
+  size : Int,
+  px : Double,
+  py : Double,
+  pz : Double,
+  entity_height : Double,
+  entity_radius : Double,
+) -> Bool {
+  let min_x = (px - entity_radius).floor().to_int()
+  let max_x = (px + entity_radius).floor().to_int()
+  let min_y = py.floor().to_int()
+  let max_y = (py + entity_height * 0.85).floor().to_int()
+  let min_z = (pz - entity_radius).floor().to_int()
+  let max_z = (pz + entity_radius).floor().to_int()
+  for wx in min_x..<=max_x {
+    for wy in min_y..<=max_y {
+      for wz in min_z..<=max_z {
+        if @level.is_water_at(chunk_map, size, wx, wy, wz) {
+          return true
+        }
+      }
+    }
+  }
+  false
+}
+
+///|
 fn move_axis(
   chunk_map : @ffi.JsValue,
   size : Int,
@@ -245,6 +273,17 @@ pub fn move_player(
   let forward = [@math.cos(yaw), 0.0, @math.sin(yaw)]
   let right = [-forward[2], 0.0, forward[0]]
   let mut velocity = speed * delta
+  if is_player_in_water(
+      chunk_map,
+      size,
+      position[0],
+      position[1],
+      position[2],
+      entity_height,
+      entity_radius,
+    ) {
+    velocity = velocity * 0.45
+  }
   if input.fast {
     velocity = velocity * 2.0
   }

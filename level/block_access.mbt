@@ -41,6 +41,21 @@ pub fn get_block_id(
 }
 
 ///|
+pub fn is_water_at(
+  chunk_map : @ffi.JsValue,
+  size : Int,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Bool {
+  get_block_id(chunk_map, size, wx, wy, wz)
+  .map(id => @block.lookup_by_long_id(id))
+  .bind(x => x)
+  .map(@block.Block::is_water)
+  .unwrap_or(false)
+}
+
+///|
 /// Update the block long_id at world coordinates (wx, wy, wz).
 /// Returns the list of chunk keys that need mesh rebuilds (self + neighbors).
 pub fn set_block_id(

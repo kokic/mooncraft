@@ -59,6 +59,8 @@ pub let blocks : Array[Block] = [
     occlusion_cull=false,
     same_block_cull=true,
     alpha_mode=AlphaMode::Translucent,
+    material=Material::Water,
+    opacity=1,
   ),
   Block::create(
     "lava",
@@ -342,4 +344,9 @@ pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
 ///|
 pub fn Block::is_air(block : Block) -> Bool {
   block.id == AIR_LONG_ID
+}
+
+///|
+pub fn Block::is_water(block : Block) -> Bool {
+  block.material.is_water()
 }

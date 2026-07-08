@@ -78,6 +78,7 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcBuildUiItemMesh", @block.build_ui_item_mesh)
   set_global("mcRaycastBlocks", @level.raycast_blocks)
   set_global("mcGetBlockId", @level.get_block_id)
+  set_global("mcIsWaterAt", @level.is_water_at)
   set_global("mcSetBlockId", @level.set_block_id)
   set_global("mcBuildChunkDataPadded", @level.build_chunk_data_padded)
   set_global("mcApplyUseOnAction", @level.apply_use_on_action_with_player)

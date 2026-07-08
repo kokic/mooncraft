@@ -17,10 +17,9 @@ pub fn Log::log_state_from_placement(
   block : Array[Int],
   prev : Array[Int],
 ) -> UInt {
-  match @shape.FaceName::from_adjacent_blocks(block, prev) {
-    Some(face) => @shape.FaceName::axis_index(face).reinterpret_as_uint()
-    None => 0
-  }
+  @shape.FaceName::from_adjacent_blocks(block, prev)
+  .map(face => @shape.FaceName::axis_index(face).reinterpret_as_uint())
+  .unwrap_or(0)
 }
 
 ///|

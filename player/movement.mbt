@@ -42,27 +42,22 @@ fn get_block_boxes_at(
   wy : Int,
   wz : Int,
 ) -> Array[@shape.Box]? {
-  match @level.get_block_id(chunk_map, size, wx, wy, wz) {
-    None => None
-    Some(id) =>
-      if id == @block.AIR_LONG_ID {
-        None
-      } else {
-        match @block.lookup_by_long_id(id) {
-          Some(block) if block.is_selectable() =>
-            match @block.get_shape_desc(id) {
-              Some(desc) =>
-                if desc.boxes.length() > 0 {
-                  Some(desc.boxes)
-                } else {
-                  None
-                }
-              None => None
-            }
-          _ => None
+  @level.get_block_id(chunk_map, size, wx, wy, wz)
+  .bind(id => {
+    if id == @block.AIR_LONG_ID {
+      None
+    } else {
+      @block.lookup_by_long_id(id).bind(block => {
+        if block.is_selectable() {
+          Some(id)
+        } else {
+          None
         }
-      }
-  }
+      })
+    }
+  })
+  .bind(id => @block.get_shape_desc(id))
+  .bind(desc => if desc.boxes.length() > 0 { Some(desc.boxes) } else { None })
 }
 
 ///|

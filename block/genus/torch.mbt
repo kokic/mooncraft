@@ -29,10 +29,9 @@ pub fn Torch::torch_state_from_placement(
   block : Array[Int],
   prev : Array[Int],
 ) -> UInt {
-  match @shape.FaceName::from_adjacent_blocks(block, prev) {
-    Some(face) => torch_state_from_face(face)
-    None => 0
-  }
+  @shape.FaceName::from_adjacent_blocks(block, prev)
+  .map(torch_state_from_face)
+  .unwrap_or(0)
 }
 
 ///|

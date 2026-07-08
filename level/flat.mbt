@@ -48,10 +48,11 @@ fn fill_flat(
 fn flat_layer_long_ids(flat_layer_blocks : Array[String]) -> Array[UInt] {
   let ids : Array[UInt] = []
   for name in flat_layer_blocks {
-    match @block.lookup_by_name(name) {
-      Some(block) => ids.push(block.long_id())
-      None => ids.push(@block.AIR_LONG_ID)
-    }
+    ids.push(
+      @block.lookup_by_name(name)
+      .map(block => block.long_id())
+      .unwrap_or(@block.AIR_LONG_ID),
+    )
   }
   ids
 }

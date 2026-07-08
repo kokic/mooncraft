@@ -79,10 +79,9 @@ pub fn SixFacing::face_from_state(state : UInt) -> @shape.FaceName {
 ///|
 /// Infer facing from hit data (`block` is target, `prev` is placement position).
 pub fn SixFacing::state_from_hit(block : Array[Int], prev : Array[Int]) -> UInt {
-  match @shape.FaceName::from_adjacent_blocks(block, prev) {
-    Some(face) => SixFacing::state_from_face(face)
-    None => 0
-  }
+  @shape.FaceName::from_adjacent_blocks(block, prev)
+  .map(SixFacing::state_from_face)
+  .unwrap_or(0)
 }
 
 ///|

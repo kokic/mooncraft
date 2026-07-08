@@ -33,14 +33,7 @@ pub fn BlockRegistry::create(
   let blocks_by_long_id : Map[UInt, RenderBlock] = Map([])
   for def in blocks {
     let resolve_layer = fn(tex_name : String?) -> Int {
-      match tex_name {
-        Some(name) =>
-          match texture_index.get(name) {
-            Some(v) => v
-            None => 0
-          }
-        None => 0
-      }
+      tex_name.bind(name => texture_index.get(name)).unwrap_or(0)
     }
     let faces = @shape.FaceLayerIndices::{
       pos_x: resolve_layer(def.faces.pos_x),

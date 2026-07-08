@@ -3,10 +3,9 @@ fn can_break_block(long_id : UInt) -> Bool {
   if long_id == @block.AIR_LONG_ID {
     false
   } else {
-    match @block.lookup_by_long_id(long_id) {
-      Some(block) => block.is_selectable()
-      None => false
-    }
+    @block.lookup_by_long_id(long_id)
+    .map(block => block.is_selectable())
+    .unwrap_or(false)
   }
 }
 

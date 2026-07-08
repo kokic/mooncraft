@@ -86,8 +86,5 @@ fn shape_desc_by_block(block : Block) -> @shape.Source {
 
 ///|
 pub fn get_shape_desc(long_id : UInt) -> @shape.Source? {
-  match lookup_by_long_id(long_id) {
-    Some(block) => Some(shape_desc_by_block(block))
-    None => None
-  }
+  lookup_by_long_id(long_id).map(shape_desc_by_block)
 }

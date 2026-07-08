@@ -18,10 +18,7 @@ pub fn PerlinNoise::gen(
   y : Double,
   z? : Double,
 ) -> Double {
-  match z {
-    None => self.gen2d(x, y)
-    Some(z) => self.gen3d(x, y, z)
-  }
+  z.map(z => self.gen3d(x, y, z)).unwrap_or(self.gen2d(x, y))
 }
 
 ///|

@@ -30,8 +30,5 @@ pub fn lookup_by_long_id(long_id : UInt) -> Block? {
 
 ///|
 pub fn name_to_long_id(name : String) -> UInt {
-  match lookup_by_name(name) {
-    Some(block) => block.long_id()
-    None => AIR_LONG_ID
-  }
+  lookup_by_name(name).map(block => block.long_id()).unwrap_or(AIR_LONG_ID)
 }

@@ -38,17 +38,11 @@ pub fn compute_spawn_position(
   let surface_y = @level.find_surface_y(
     chunk_map, size, chunk_min_y, chunk_max_y, chunk_x, chunk_z, local_x, local_z,
   )
-  let base_y = match surface_y {
-    Some(v) => v
-    None => fallback_y
-  }
+  let base_y = surface_y.unwrap_or(fallback_y)
   let spawn_y = base_y + surface_offset
   let px = local_x.to_double() + 0.5
   let py = spawn_y.to_double()
   let pz = local_z.to_double() + 0.5
-  let surface_out = match surface_y {
-    Some(v) => v
-    None => -1
-  }
+  let surface_out = surface_y.unwrap_or(-1)
   @level.SpawnResult::{ position: [px, py, pz], surface_y: surface_out }
 }

@@ -88,10 +88,7 @@ pub fn build_chunk_mesh_split(
         air_block
       } else {
         let idx = get_index(x, y, z)
-        match registry.get_by_long_id(chunk_data[idx]) {
-          Some(block) => block
-          None => air_block
-        }
+        registry.get_by_long_id(chunk_data[idx]).unwrap_or(air_block)
       }
     } else if data_len == pad_len {
       let px = x + 1
@@ -101,10 +98,7 @@ pub fn build_chunk_mesh_split(
         air_block
       } else {
         let idx = (py * pad + pz) * pad + px
-        match registry.get_by_long_id(chunk_data[idx]) {
-          Some(block) => block
-          None => air_block
-        }
+        registry.get_by_long_id(chunk_data[idx]).unwrap_or(air_block)
       }
     } else {
       air_block

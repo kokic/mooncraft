@@ -28,10 +28,7 @@ pub fn runtime_state_snapshot() -> JsValue? {
 ///|
 /// Capture runtime state and cast to a target MoonBit type.
 pub fn[T] runtime_state_snapshot_as() -> T? {
-  match runtime_state_snapshot() {
-    None => None
-    Some(value) => Some(value.cast_to())
-  }
+  runtime_state_snapshot().map(value => value.cast_to())
 }
 
 ///|

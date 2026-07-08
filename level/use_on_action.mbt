@@ -1,17 +1,13 @@
 ///|
 fn resolve_block_long_id(name : String) -> UInt? {
-  match @block.lookup_by_name(name) {
-    Some(block) => Some(block.long_id())
-    None => None
-  }
+  @block.lookup_by_name(name).map(block => block.long_id())
 }
 
 ///|
 fn block_name_matches(long_id : UInt, selector : @item.BlockSelector) -> Bool {
-  match @block.lookup_by_long_id(long_id) {
-    Some(block) => selector.matches(block.name)
-    None => false
-  }
+  @block.lookup_by_long_id(long_id)
+  .map(block => selector.matches(block.name))
+  .unwrap_or(false)
 }
 
 ///|
@@ -38,10 +34,9 @@ fn is_air_at(
   wy : Int,
   wz : Int,
 ) -> Bool {
-  match get_block_id(chunk_map, size, wx, wy, wz) {
-    Some(id) => id == @block.AIR_LONG_ID
-    None => false
-  }
+  get_block_id(chunk_map, size, wx, wy, wz)
+  .map(id => id == @block.AIR_LONG_ID)
+  .unwrap_or(false)
 }
 
 ///|
@@ -52,18 +47,14 @@ fn can_replace_at(
   wy : Int,
   wz : Int,
 ) -> Bool {
-  match get_block_id(chunk_map, size, wx, wy, wz) {
-    None => false
-    Some(id) =>
-      if id == @block.AIR_LONG_ID {
-        true
-      } else {
-        match @block.lookup_by_long_id(id) {
-          Some(block) => block.shape is @block.Shape::Liquid
-          None => false
-        }
-      }
-  }
+  get_block_id(chunk_map, size, wx, wy, wz)
+  .map(id => {
+    id == @block.AIR_LONG_ID ||
+    @block.lookup_by_long_id(id)
+    .map(block => block.shape is @block.Shape::Liquid)
+    .unwrap_or(false)
+  })
+  .unwrap_or(false)
 }
 
 ///|

@@ -489,8 +489,8 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
 
 ///|
 fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
-  if world.kind is WorldType::Finite {
-    return finite_terrain_column(world, wx, wz)
+  guard !(world.kind is WorldType::Finite) else {
+    finite_terrain_column(world, wx, wz)
   }
   let sample = @biome.sample(world.noise, wx, wz)
   let biome = @biome.biome_from_sample(sample)

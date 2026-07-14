@@ -18,11 +18,8 @@ pub extern "js" fn apply_runtime_state_raw(state : JsValue) -> Bool =
 /// Capture runtime state as raw JsValue.
 pub fn runtime_state_snapshot() -> JsValue? {
   let value = capture_runtime_state_raw()
-  if value.is_undefined() || value.is_null() {
-    None
-  } else {
-    Some(value)
-  }
+  guard !value.is_undefined() && !value.is_null() else { None }
+  Some(value)
 }
 
 ///|

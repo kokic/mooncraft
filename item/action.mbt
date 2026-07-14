@@ -13,9 +13,7 @@ pub fn BlockSelector::matches(
     Exact(expected) => name == expected
     AnyOf(names) => {
       for expected in names {
-        if name == expected {
-          return true
-        }
+        guard name != expected else { return true }
       }
       false
     }

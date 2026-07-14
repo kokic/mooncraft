@@ -72,15 +72,12 @@ pub fn FaceName::from_adjacent_blocks(
   block : Array[Int],
   prev : Array[Int],
 ) -> FaceName? {
-  if block.length() < 3 || prev.length() < 3 {
-    None
-  } else {
-    FaceName::from_hit_delta(
-      block[0] - prev[0],
-      block[1] - prev[1],
-      block[2] - prev[2],
-    )
-  }
+  guard block.length() >= 3 && prev.length() >= 3 else { None }
+  FaceName::from_hit_delta(
+    block[0] - prev[0],
+    block[1] - prev[1],
+    block[2] - prev[2],
+  )
 }
 
 ///|

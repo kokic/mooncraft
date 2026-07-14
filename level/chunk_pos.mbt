@@ -63,15 +63,12 @@ pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
       v => v
     }
   }
-  if parts.length() != 3 {
-    (0, 0, 0)
-  } else {
-    (
-      parse_int_or_zero(parts[0]),
-      parse_int_or_zero(parts[1]),
-      parse_int_or_zero(parts[2]),
-    )
-  }
+  guard parts.length() == 3 else { (0, 0, 0) }
+  (
+    parse_int_or_zero(parts[0]),
+    parse_int_or_zero(parts[1]),
+    parse_int_or_zero(parts[2]),
+  )
 }
 
 ///|

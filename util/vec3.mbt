@@ -82,7 +82,7 @@ pub fn FVec3::eulidian_norm(v : FVec3) -> Float {
 ///|
 pub fn FVec3::normalize(v : FVec3) -> FVec3? {
   let norm = FVec3::eulidian_norm(v)
-  guard norm != 0.0 else { return None }
+  guard norm != 0.0 else { None }
   Some(FVec3::scale(v, 1.0 / norm))
 }
 

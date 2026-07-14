@@ -56,8 +56,8 @@ fn desert_lake_fill_depth(
   wz : Int,
   top_solid_wy : Int,
 ) -> Int {
-  if top_solid_wy < SEA_LEVEL - 12 || top_solid_wy > SEA_LEVEL + 18 {
-    return 0
+  guard top_solid_wy >= SEA_LEVEL - 12 && top_solid_wy <= SEA_LEVEL + 18 else {
+    0
   }
   let cell_x = @util.floor_div(wx, DESERT_LAKE_CELL)
   let cell_z = @util.floor_div(wz, DESERT_LAKE_CELL)
@@ -68,9 +68,7 @@ fn desert_lake_fill_depth(
   let chance = noise01(
     world.noise.gen2d((cx * 47.0 + 3.0) * 0.23, (cz * 37.0 - 5.0) * 0.23),
   )
-  if chance < 0.58 {
-    return 0
-  }
+  guard chance >= 0.58 else { 0 }
   let center_x = lerp_int(
     7,
     DESERT_LAKE_CELL - 7,
@@ -102,9 +100,7 @@ fn desert_lake_fill_depth(
   let nx = (local_x - center_x).to_double() / radius_x.to_double()
   let nz = (local_z - center_z).to_double() / radius_z.to_double()
   let basin = 1.0 - (nx * nx + nz * nz)
-  if basin <= 0.0 {
-    return 0
-  }
+  guard basin > 0.0 else { 0 }
   let base_depth = lerp_int(
     DESERT_LAKE_DEPTH_MIN,
     DESERT_LAKE_DEPTH_MAX,

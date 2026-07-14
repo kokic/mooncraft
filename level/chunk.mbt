@@ -79,15 +79,9 @@ pub fn Chunk::set_block(
   let base_x = chunk.x * CHUNK_X_SIZE
   let base_y = chunk.y * CHUNK_Y_SIZE
   let base_z = chunk.z * CHUNK_Z_SIZE
-  if wx < base_x || wx >= base_x + CHUNK_X_SIZE {
-    return
-  }
-  if wy < base_y || wy >= base_y + CHUNK_Y_SIZE {
-    return
-  }
-  if wz < base_z || wz >= base_z + CHUNK_Z_SIZE {
-    return
-  }
+  guard wx >= base_x && wx < base_x + CHUNK_X_SIZE else { () }
+  guard wy >= base_y && wy < base_y + CHUNK_Y_SIZE else { () }
+  guard wz >= base_z && wz < base_z + CHUNK_Z_SIZE else { () }
   let rx = wx - base_x
   let ry = wy - base_y
   let rz = wz - base_z

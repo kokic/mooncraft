@@ -35,7 +35,7 @@ priv struct AStarOpenEntry[Node, Key] {
 
 ///|
 fn[Node, Key] best_open_index(open : Array[AStarOpenEntry[Node, Key]]) -> Int? {
-  guard !open.is_empty() else { return None }
+  guard !open.is_empty() else { None }
   let mut best = 0
   for i in 1..<open.length() {
     if open[i].f < open[best].f ||
@@ -94,14 +94,12 @@ pub fn[Node, Key : Eq + Hash] astar(
     f: heuristic(start),
   })
   while !open.is_empty() {
-    let entry = match best_open_index(open) {
-      Some(index) => open.remove(index)
-      None => return None
-    }
+    guard best_open_index(open) is Some(index) else { return None }
+    let entry = open.remove(index)
     match g_score.get(entry.key) {
       Some(best_g) => {
         guard entry.g == best_g else { continue }
-        if is_goal(entry.node) {
+        guard !is_goal(entry.node) else {
           return Some(
             reconstruct_path(entry.key, nodes_by_key, came_from, entry.g),
           )

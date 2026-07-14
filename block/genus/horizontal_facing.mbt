@@ -20,9 +20,7 @@ pub fn HorizontalFacing::state_from_player(
   place_wx : Int,
   place_wz : Int,
 ) -> UInt {
-  if player_pos.length() < 3 {
-    return 0
-  }
+  guard player_pos.length() >= 3 else { 0 }
   let bx = place_wx.to_double() + 0.5
   let bz = place_wz.to_double() + 0.5
   let dx = player_pos[0] - bx

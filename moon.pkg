@@ -13,6 +13,4 @@ import {
   "kokic/mooncraft/mob",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

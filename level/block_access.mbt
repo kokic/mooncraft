@@ -91,23 +91,14 @@ pub fn set_block_id(
               keys.push(nkey)
             }
           }
-          if lx == 0 {
-            push_neighbor(cx - 1, cy, cz)
-          }
-          if lx == size - 1 {
-            push_neighbor(cx + 1, cy, cz)
-          }
-          if ly == 0 {
-            push_neighbor(cx, cy - 1, cz)
-          }
-          if ly == size - 1 {
-            push_neighbor(cx, cy + 1, cz)
-          }
-          if lz == 0 {
-            push_neighbor(cx, cy, cz - 1)
-          }
-          if lz == size - 1 {
-            push_neighbor(cx, cy, cz + 1)
+          match () {
+            _ if lx == 0 => push_neighbor(cx - 1, cy, cz)
+            _ if lx == size - 1 => push_neighbor(cx + 1, cy, cz)
+            _ if ly == 0 => push_neighbor(cx, cy - 1, cz)
+            _ if ly == size - 1 => push_neighbor(cx, cy + 1, cz)
+            _ if lz == 0 => push_neighbor(cx, cy, cz - 1)
+            _ if lz == size - 1 => push_neighbor(cx, cy, cz + 1)
+            _ => ()
           }
           keys
         }
@@ -129,8 +120,8 @@ pub fn build_chunk_data_padded(
 ) -> Array[UInt] {
   let pad = size + 2
   let out = Array::make(pad * pad * pad, air_id)
-  let chunk_cache : Map[String, Array[UInt]] = {}
-  let missing_cache : Map[String, Bool] = {}
+  let chunk_cache : Map[String, Array[UInt]] = Map([])
+  let missing_cache : Map[String, Bool] = Map([])
   let resolve_chunk = fn(key : String) -> Array[UInt]? {
     if chunk_cache.contains(key) {
       Some(chunk_cache[key])

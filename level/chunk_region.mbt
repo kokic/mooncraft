@@ -12,7 +12,7 @@ pub struct ChunkRegion {
 }
 
 ///|
-let pending_block_placements : Map[String, Array[BlockPlacement]] = {}
+let pending_block_placements : Map[String, Array[BlockPlacement]] = Map([])
 
 ///|
 pub fn ChunkRegion::new(chunk : Chunk) -> ChunkRegion {

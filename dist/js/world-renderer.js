@@ -5,13 +5,6 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { unpackLongId } from "./block-registry.js";
 import {
-  UP_VECTOR,
-  cameraFromYawPitch,
-  mat4Perspective,
-  mat4LookAt,
-  mat4Mul,
-} from "./math3d.js";
-import {
   DEFAULT_MANIFEST_URL as DEFAULT_GLTF_ENTITY_MANIFEST_URL,
   createGltfEntityRenderer,
   loadEntityConfigs,
@@ -311,6 +304,26 @@ function renderTestChunk({
   chunkSize,
   chunkGenerator,
 }) {
+  const {
+    mcUpVector: UP_VECTOR,
+    mcCameraFromYawPitchInto: cameraFromYawPitchInto,
+    mcMat4Perspective: mat4Perspective,
+    mcMat4LookAt: mat4LookAt,
+    mcMat4Mul: mat4Mul,
+  } = window;
+  const cameraFromYawPitch = (out, px, py, pz, yaw, pitch) => {
+    cameraFromYawPitchInto(
+      out.position,
+      out.direction,
+      out.center,
+      px,
+      py,
+      pz,
+      yaw,
+      pitch,
+    );
+    return out;
+  };
   const canvas = createCanvas();
   const gl = canvas.getContext("webgl2", {
     alpha: false, 

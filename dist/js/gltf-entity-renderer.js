@@ -6,12 +6,6 @@ const DEFAULT_MANIFEST_URL = "./assets/models/entities.json";
 const LOOK_EPSILON = 1e-6;
 const LOOK_PITCH_LIMIT = Math.PI * 0.499;
 const ENTITY_YAW_OFFSET = Math.PI;
-const ENTITY_YAW_OFFSET_QUAT = [
-  0,
-  Math.sin(ENTITY_YAW_OFFSET * 0.5),
-  0,
-  Math.cos(ENTITY_YAW_OFFSET * 0.5),
-];
 
 const COMPONENTS_PER_TYPE = {
   SCALAR: 1,
@@ -28,151 +22,6 @@ const COMPONENT_BYTES = {
   5125: 4, // UINT
   5126: 4, // FLOAT
 };
-
-function mat4Create() {
-  const out = new Float32Array(16);
-  out[0] = 1;
-  out[5] = 1;
-  out[10] = 1;
-  out[15] = 1;
-  return out;
-}
-
-function mat4Copy(out, a) {
-  out.set(a);
-  return out;
-}
-
-function mat4Mul(out, a, b) {
-  const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-  const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-  const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-  const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-  let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
-  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
-  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
-  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
-  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  return out;
-}
-
-function mat4FromTRS(out, t, q, s) {
-  const x = q[0], y = q[1], z = q[2], w = q[3];
-  const x2 = x + x, y2 = y + y, z2 = z + z;
-  const xx = x * x2, xy = x * y2, xz = x * z2;
-  const yy = y * y2, yz = y * z2, zz = z * z2;
-  const wx = w * x2, wy = w * y2, wz = w * z2;
-  const sx = s[0], sy = s[1], sz = s[2];
-  out[0] = (1 - (yy + zz)) * sx;
-  out[1] = (xy + wz) * sx;
-  out[2] = (xz - wy) * sx;
-  out[3] = 0;
-  out[4] = (xy - wz) * sy;
-  out[5] = (1 - (xx + zz)) * sy;
-  out[6] = (yz + wx) * sy;
-  out[7] = 0;
-  out[8] = (xz + wy) * sz;
-  out[9] = (yz - wx) * sz;
-  out[10] = (1 - (xx + yy)) * sz;
-  out[11] = 0;
-  out[12] = t[0];
-  out[13] = t[1];
-  out[14] = t[2];
-  out[15] = 1;
-  return out;
-}
-
-function transformPoint(out, m, p) {
-  const x = p[0], y = p[1], z = p[2];
-  out[0] = m[0] * x + m[4] * y + m[8] * z + m[12];
-  out[1] = m[1] * x + m[5] * y + m[9] * z + m[13];
-  out[2] = m[2] * x + m[6] * y + m[10] * z + m[14];
-  return out;
-}
-
-function quatNormalize(out, q) {
-  const len = Math.hypot(q[0], q[1], q[2], q[3]);
-  if (len <= 0) {
-    out[0] = 0; out[1] = 0; out[2] = 0; out[3] = 1;
-    return out;
-  }
-  const inv = 1 / len;
-  out[0] = q[0] * inv;
-  out[1] = q[1] * inv;
-  out[2] = q[2] * inv;
-  out[3] = q[3] * inv;
-  return out;
-}
-
-function quatMul(out, a, b) {
-  const ax = a[0], ay = a[1], az = a[2], aw = a[3];
-  const bx = b[0], by = b[1], bz = b[2], bw = b[3];
-  out[0] = aw * bx + ax * bw + ay * bz - az * by;
-  out[1] = aw * by - ax * bz + ay * bw + az * bx;
-  out[2] = aw * bz + ax * by - ay * bx + az * bw;
-  out[3] = aw * bw - ax * bx - ay * by - az * bz;
-  return out;
-}
-
-function quatApplyEntityYawOffset(out, q) {
-  quatMul(out, ENTITY_YAW_OFFSET_QUAT, q);
-  return quatNormalize(out, out);
-}
-
-function quatFromYawPitch(out, yaw, pitch) {
-  const halfYaw = yaw * 0.5;
-  const halfPitch = pitch * 0.5;
-  const sy = Math.sin(halfYaw);
-  const cy = Math.cos(halfYaw);
-  const sx = Math.sin(halfPitch);
-  const cx = Math.cos(halfPitch);
-  out[0] = cy * sx;
-  out[1] = sy * cx;
-  out[2] = -sy * sx;
-  out[3] = cy * cx;
-  return quatNormalize(out, out);
-}
-
-function quatSlerp(out, a, b, t) {
-  let ax = a[0], ay = a[1], az = a[2], aw = a[3];
-  let bx = b[0], by = b[1], bz = b[2], bw = b[3];
-  let cos = ax * bx + ay * by + az * bz + aw * bw;
-  if (cos < 0) {
-    cos = -cos;
-    bx = -bx; by = -by; bz = -bz; bw = -bw;
-  }
-  if (cos > 0.9995) {
-    out[0] = ax + (bx - ax) * t;
-    out[1] = ay + (by - ay) * t;
-    out[2] = az + (bz - az) * t;
-    out[3] = aw + (bw - aw) * t;
-    return quatNormalize(out, out);
-  }
-  const theta = Math.acos(Math.min(1, Math.max(-1, cos)));
-  const sinTheta = Math.sin(theta);
-  const w0 = Math.sin((1 - t) * theta) / sinTheta;
-  const w1 = Math.sin(t * theta) / sinTheta;
-  out[0] = ax * w0 + bx * w1;
-  out[1] = ay * w0 + by * w1;
-  out[2] = az * w0 + bz * w1;
-  out[3] = aw * w0 + bw * w1;
-  return out;
-}
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -647,6 +496,18 @@ async function loadEntityConfigs({ direct = null, manifestUrl = DEFAULT_MANIFEST
 }
 
 function createGltfEntityRenderer(gl) {
+  const {
+    mcMat4Create: mat4Create,
+    mcMat4Copy: mat4Copy,
+    mcMat4Mul: mat4Mul,
+    mcMat4FromTRS: mat4FromTRS,
+    mcTransformPoint: transformPoint,
+    mcQuatNormalize: quatNormalize,
+    mcQuatMul: quatMul,
+    mcQuatApplyYawOffset: quatApplyYawOffset,
+    mcQuatFromYawPitch: quatFromYawPitch,
+    mcQuatSlerp: quatSlerp,
+  } = window;
   const info = createProgramInfo(gl);
   const whiteTexture = createWhiteTexture(gl);
   const assets = new Map();
@@ -941,7 +802,7 @@ function createGltfEntityRenderer(gl) {
       const model = mat4Create();
       const pos = Array.isArray(cfg.position) ? [Number(cfg.position[0]) || 0, Number(cfg.position[1]) || 0, Number(cfg.position[2]) || 0] : [0, 0, 0];
       const cfgRot = Array.isArray(cfg.rotation) ? quatNormalize([0, 0, 0, 1], [Number(cfg.rotation[0]) || 0, Number(cfg.rotation[1]) || 0, Number(cfg.rotation[2]) || 0, Number(cfg.rotation[3]) || 1]) : [0, 0, 0, 1];
-      const rot = quatApplyEntityYawOffset([0, 0, 0, 1], cfgRot);
+      const rot = quatApplyYawOffset([0, 0, 0, 1], cfgRot, ENTITY_YAW_OFFSET);
       const sc = Array.isArray(cfg.scale) ? [Number(cfg.scale[0]) || 1, Number(cfg.scale[1]) || 1, Number(cfg.scale[2]) || 1] : [1, 1, 1];
       mat4FromTRS(model, pos, rot, sc);
       let animIndex = -1;
@@ -1079,7 +940,7 @@ function createGltfEntityRenderer(gl) {
       return false;
     }
     quatNormalize(q, q);
-    quatApplyEntityYawOffset(inst.modelRot, q);
+    quatApplyYawOffset(inst.modelRot, q, ENTITY_YAW_OFFSET);
     return updateInstanceModel(inst);
   };
 

@@ -1,5 +1,3 @@
-import { mat4Ortho, mat4LookAt, mat4Mul } from "./math3d.js";
-
 const ICON_BASE_SIZE = 32;
 const ICON_DEFAULT_CANVAS_SIZE = 256;
 const ICON_FLAT_SIZE = 20;
@@ -235,9 +233,9 @@ class ItemIconRenderer {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.textureArray);
 
     const wsize = 0.425 + Math.SQRT2 / 4;
-    mat4Ortho(this.projMatrix, -wsize, wsize, -wsize, wsize, -1, 5);
-    mat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
-    mat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
+    window.mcMat4Ortho(this.projMatrix, -wsize, wsize, -wsize, wsize, -1, 5);
+    window.mcMat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
+    window.mcMat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
 
     const longId = window.mcGetLongIdByName?.(item.name);
     if (!Number.isFinite(longId)) {

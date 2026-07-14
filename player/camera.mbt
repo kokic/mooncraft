@@ -12,10 +12,17 @@ pub fn camera_from_yaw_pitch(
   yaw : Double,
   pitch : Double,
 ) -> Camera {
-  let cos_pitch = @math.cos(pitch)
-  let dir_x = @math.cos(yaw) * cos_pitch
-  let dir_y = @math.sin(pitch)
-  let dir_z = @math.sin(yaw) * cos_pitch
-  let center = [position[0] + dir_x, position[1] + dir_y, position[2] + dir_z]
-  Camera::{ position, direction: [dir_x, dir_y, dir_z], center }
+  let direction = [0.0, 0.0, 0.0]
+  let center = [0.0, 0.0, 0.0]
+  @math3d.camera_from_yaw_pitch_into(
+    position,
+    direction,
+    center,
+    position[0],
+    position[1],
+    position[2],
+    yaw,
+    pitch,
+  )
+  { position, direction, center }
 }

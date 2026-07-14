@@ -10,6 +10,7 @@ import {
   "kokic/mooncraft/biome",
   "kokic/mooncraft/i18n",
   "kokic/mooncraft/item",
+  "kokic/mooncraft/math3d",
   "kokic/mooncraft/mob",
 }
 

@@ -1356,7 +1356,7 @@ function renderTestChunk({
     ? window.mcGetWaterTint
     : null;
   const rawWaterTintStep = Number(window.mcWaterTintGridStep ?? 4);
-  const waterTintStep = Number.isFinite(rawWaterTintStep)
+  const waterTintGridStep = Number.isFinite(rawWaterTintStep)
     ? Math.max(1, Math.floor(rawWaterTintStep))
     : 4;
   const hasWaterTintLookup = !!getWaterTintAt && waterLayer >= 0;
@@ -1369,7 +1369,7 @@ function renderTestChunk({
     originZ: 0,
     width: 1,
     height: 1,
-    step: waterTintStep,
+    step: waterTintGridStep,
     valid: false,
   };
   const rebuildWaterTintTexture = (centerCx, centerCz, renderDistance) => {
@@ -1383,14 +1383,14 @@ function renderTestChunk({
     const originZ = minChunkZ * size;
     const maxX = (maxChunkX + 1) * size - 1;
     const maxZ = (maxChunkZ + 1) * size - 1;
-    const width = Math.max(1, Math.floor((maxX - originX) / waterTintStep) + 1);
-    const height = Math.max(1, Math.floor((maxZ - originZ) / waterTintStep) + 1);
+    const width = Math.max(1, Math.floor((maxX - originX) / waterTintGridStep) + 1);
+    const height = Math.max(1, Math.floor((maxZ - originZ) / waterTintGridStep) + 1);
     const pixels = new Uint8Array(width * height * 4);
     let ptr = 0;
     for (let z = 0; z < height; z += 1) {
-      const wz = originZ + z * waterTintStep;
+      const wz = originZ + z * waterTintGridStep;
       for (let x = 0; x < width; x += 1) {
-        const wx = originX + x * waterTintStep;
+        const wx = originX + x * waterTintGridStep;
         const tint = normalizeWaterTintSample(getWaterTintAt(wx, wz));
         pixels[ptr] = toColorByte(tint[0]);
         pixels[ptr + 1] = toColorByte(tint[1]);
@@ -1420,7 +1420,7 @@ function renderTestChunk({
     waterTintState.originZ = originZ;
     waterTintState.width = width;
     waterTintState.height = height;
-    waterTintState.step = waterTintStep;
+    waterTintState.step = waterTintGridStep;
     waterTintState.valid = true;
   };
   if (waterTintTexture) {

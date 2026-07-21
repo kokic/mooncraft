@@ -10,7 +10,8 @@ priv enum UseTarget {
 fn UseTarget::is_usable(target : UseTarget) -> Bool {
   match target {
     KnownItem(_) | KnownBlock(_) => true
-    Empty | Unknown => false
+    Unknown => false
+    Empty => true
   }
 }
 

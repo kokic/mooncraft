@@ -19,7 +19,7 @@ pub fn Shape::is_torch_genus(shape : Shape) -> Bool {
 }
 
 ///|
-fn model_by_shape(shape : Shape) -> @shape.Model {
+pub fn Shape::model(shape : Shape) -> @shape.Model {
   match shape {
     Shape::GrassPath => @genus.grass_path_model
     Shape::Liquid => @genus.liquid_model
@@ -32,12 +32,12 @@ fn model_by_shape(shape : Shape) -> @shape.Model {
 }
 
 ///|
-fn model_by_block(block : Block) -> @shape.Model {
+pub fn model_by_block(block : Block) -> @shape.Model {
   match block.facing {
     Facing::Axis => @genus.log_model
     Facing::Horizontal => @genus.horizontal_facing_model
     Facing::Six => @genus.six_facing_model
-    Facing::None => model_by_shape(block.shape)
+    Facing::None => block.shape.model()
   }
 }
 

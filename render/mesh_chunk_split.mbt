@@ -1,15 +1,30 @@
 ///|
-pub fn build_chunk_mesh(
+pub fn build_chunk_mesh_split(
   registry : BlockRegistry,
   chunk_data : Array[UInt],
   chunk_light : Bytes,
   size : Int,
-) -> MeshData {
+) -> MeshSplit {
   let positions : Array[Float] = []
   let uvs : Array[Float] = []
   let layers : Array[Float] = []
   let colors : Array[Float] = []
   let normals : Array[Float] = []
+  let leaf_positions : Array[Float] = []
+  let leaf_uvs : Array[Float] = []
+  let leaf_layers : Array[Float] = []
+  let leaf_colors : Array[Float] = []
+  let leaf_normals : Array[Float] = []
+  let water_positions : Array[Float] = []
+  let water_uvs : Array[Float] = []
+  let water_layers : Array[Float] = []
+  let water_colors : Array[Float] = []
+  let water_normals : Array[Float] = []
+  let trans_positions : Array[Float] = []
+  let trans_uvs : Array[Float] = []
+  let trans_layers : Array[Float] = []
+  let trans_colors : Array[Float] = []
+  let trans_normals : Array[Float] = []
   let base_uvs : Array[(Float, Float)] = [
     (0, 0),
     (1, 0),
@@ -22,20 +37,42 @@ pub fn build_chunk_mesh(
     let (u, v) = uv
     (v, 1.0F - u)
   })
-  let mut tint_r = 1.0F
-  let mut tint_g = 1.0F
-  let mut tint_b = 1.0F
-  let mut tint_a = 1.0F
   let air_block = match registry.get_by_name("air") {
     Some(block) => block
     None =>
-      return MeshData::{
-        positions: [],
-        uvs: [],
-        layers: [],
-        colors: [],
-        normals: [],
-        count: 0,
+      return MeshSplit::{
+        normal: MeshData::{
+          positions: [],
+          uvs: [],
+          layers: [],
+          colors: [],
+          normals: [],
+          count: 0,
+        },
+        leaf: MeshData::{
+          positions: [],
+          uvs: [],
+          layers: [],
+          colors: [],
+          normals: [],
+          count: 0,
+        },
+        water: MeshData::{
+          positions: [],
+          uvs: [],
+          layers: [],
+          colors: [],
+          normals: [],
+          count: 0,
+        },
+        translucent: MeshData::{
+          positions: [],
+          uvs: [],
+          layers: [],
+          colors: [],
+          normals: [],
+          count: 0,
+        },
       }
   }
   let get_index = fn(x : Int, y : Int, z : Int) -> Int {
@@ -90,7 +127,12 @@ pub fn build_chunk_mesh(
       15
     }
   }
-  let push_face = fn(
+  let push_face_into = fn(
+    positions : Array[Float],
+    uvs : Array[Float],
+    layers : Array[Float],
+    colors : Array[Float],
+    normals : Array[Float],
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -100,19 +142,22 @@ pub fn build_chunk_mesh(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
+    tint : (Float, Float, Float, Float),
+    alpha_scale : Float,
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
     let verts : Array[(Float, Float, Float)] = [a, b, c, a, c, d]
+    let (tr, tg, tb, ta) = tint
     for i in 0..<6 {
       let (vx, vy, vz) = verts[i]
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale * tint_r)
-      colors.push(color_scale * tint_g)
-      colors.push(color_scale * tint_b)
-      colors.push(tint_a)
+      colors.push(color_scale * tr)
+      colors.push(color_scale * tg)
+      colors.push(color_scale * tb)
+      colors.push(ta * alpha_scale)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -125,7 +170,12 @@ pub fn build_chunk_mesh(
       layers.push(layer_f)
     }
   }
-  let push_face_rev = fn(
+  let push_face_rev_into = fn(
+    positions : Array[Float],
+    uvs : Array[Float],
+    layers : Array[Float],
+    colors : Array[Float],
+    normals : Array[Float],
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -135,6 +185,8 @@ pub fn build_chunk_mesh(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
+    tint : (Float, Float, Float, Float),
+    alpha_scale : Float,
   ) -> Unit {
     let (nx, ny, nz) = normal
     let (u0, v0, u1, v1) = uv_rect
@@ -147,15 +199,16 @@ pub fn build_chunk_mesh(
       (0, 1),
       (1, 1),
     ]
+    let (tr, tg, tb, ta) = tint
     for i in 0..<6 {
       let (vx, vy, vz) = verts[i]
       positions.push(vx)
       positions.push(vy)
       positions.push(vz)
-      colors.push(color_scale * tint_r)
-      colors.push(color_scale * tint_g)
-      colors.push(color_scale * tint_b)
-      colors.push(tint_a)
+      colors.push(color_scale * tr)
+      colors.push(color_scale * tg)
+      colors.push(color_scale * tb)
+      colors.push(ta * alpha_scale)
       normals.push(Float::from_int(nx))
       normals.push(Float::from_int(ny))
       normals.push(Float::from_int(nz))
@@ -168,7 +221,85 @@ pub fn build_chunk_mesh(
       layers.push(layer_f)
     }
   }
+  let select_arrays = fn(
+    block : RenderBlock,
+  ) -> (Array[Float], Array[Float], Array[Float], Array[Float], Array[Float]) {
+    if block.block.is_water() {
+      (water_positions, water_uvs, water_layers, water_colors, water_normals)
+    } else if block.block.material is @block.Material::TintedLeaf {
+      (leaf_positions, leaf_uvs, leaf_layers, leaf_colors, leaf_normals)
+    } else if block.block.alpha_mode is @block.AlphaMode::Translucent {
+      (trans_positions, trans_uvs, trans_layers, trans_colors, trans_normals)
+    } else {
+      (positions, uvs, layers, colors, normals)
+    }
+  }
+  let push_face = fn(
+    block : RenderBlock,
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+  ) -> Unit {
+    let tint = block.block.material.tint()
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(
+      block,
+    )
+    push_face_into(
+      positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref, a, b, c, d, normal,
+      layer_f, uv_rect, flip_v, color_scale, tint, 1.0F,
+    )
+  }
+  let push_face_rev = fn(
+    block : RenderBlock,
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+  ) -> Unit {
+    let tint = block.block.material.tint()
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(
+      block,
+    )
+    push_face_rev_into(
+      positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref, a, b, c, d, normal,
+      layer_f, uv_rect, flip_v, color_scale, tint, 1.0F,
+    )
+  }
+  let push_face_rev_cube = fn(
+    block : RenderBlock,
+    a : (Float, Float, Float),
+    b : (Float, Float, Float),
+    c : (Float, Float, Float),
+    d : (Float, Float, Float),
+    normal : (Int, Int, Int),
+    layer_f : Float,
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    color_scale : Float,
+    alpha_scale : Float,
+  ) -> Unit {
+    let tint = block.block.material.tint()
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(
+      block,
+    )
+    push_face_rev_into(
+      positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref, a, b, c, d, normal,
+      layer_f, uv_rect, flip_v, color_scale, tint, alpha_scale,
+    )
+  }
   let push_face_cube = fn(
+    block : RenderBlock,
     rotate_uv : Bool,
     a : (Float, Float, Float),
     b : (Float, Float, Float),
@@ -185,84 +316,39 @@ pub fn build_chunk_mesh(
     let (u0, v0, u1, v1) = uv_rect
     let verts : Array[(Float, Float, Float)] = [a, b, c, a, c, d]
     let uvs_base = if rotate_uv { base_uvs_rot90 } else { base_uvs }
+    let (positions_ref, uvs_ref, layers_ref, colors_ref, normals_ref) = select_arrays(
+      block,
+    )
+    let (tr, tg, tb, ta) = block.block.material.tint()
     for i in 0..<6 {
       let (vx, vy, vz) = verts[i]
-      positions.push(vx)
-      positions.push(vy)
-      positions.push(vz)
-      colors.push(color_scale * tint_r)
-      colors.push(color_scale * tint_g)
-      colors.push(color_scale * tint_b)
-      colors.push(tint_a * alpha_scale)
-      normals.push(Float::from_int(nx))
-      normals.push(Float::from_int(ny))
-      normals.push(Float::from_int(nz))
+      positions_ref.push(vx)
+      positions_ref.push(vy)
+      positions_ref.push(vz)
+      colors_ref.push(color_scale * tr)
+      colors_ref.push(color_scale * tg)
+      colors_ref.push(color_scale * tb)
+      colors_ref.push(ta * alpha_scale)
+      normals_ref.push(Float::from_int(nx))
+      normals_ref.push(Float::from_int(ny))
+      normals_ref.push(Float::from_int(nz))
       let (bu, bv) = uvs_base[i]
       let v = if flip_v { 1.0F - bv } else { bv }
       let u = u0 + bu * (u1 - u0)
       let v2 = v0 + v * (v1 - v0)
-      uvs.push(u)
-      uvs.push(v2)
-      layers.push(layer_f)
-    }
-  }
-  let push_face_rev_cube = fn(
-    a : (Float, Float, Float),
-    b : (Float, Float, Float),
-    c : (Float, Float, Float),
-    d : (Float, Float, Float),
-    normal : (Int, Int, Int),
-    layer_f : Float,
-    uv_rect : (Float, Float, Float, Float),
-    flip_v : Bool,
-    color_scale : Float,
-    alpha_scale : Float,
-  ) -> Unit {
-    let (nx, ny, nz) = normal
-    let (u0, v0, u1, v1) = uv_rect
-    let verts : Array[(Float, Float, Float)] = [a, c, b, a, d, c]
-    let base_uvs_rev : Array[(Float, Float)] = [
-      (0, 0),
-      (1, 1),
-      (1, 0),
-      (0, 0),
-      (0, 1),
-      (1, 1),
-    ]
-    for i in 0..<6 {
-      let (vx, vy, vz) = verts[i]
-      positions.push(vx)
-      positions.push(vy)
-      positions.push(vz)
-      colors.push(color_scale * tint_r)
-      colors.push(color_scale * tint_g)
-      colors.push(color_scale * tint_b)
-      colors.push(tint_a * alpha_scale)
-      normals.push(Float::from_int(nx))
-      normals.push(Float::from_int(ny))
-      normals.push(Float::from_int(nz))
-      let (bu, bv) = base_uvs_rev[i]
-      let v = if flip_v { 1.0F - bv } else { bv }
-      let u = u0 + bu * (u1 - u0)
-      let v2 = v0 + v * (v1 - v0)
-      uvs.push(u)
-      uvs.push(v2)
-      layers.push(layer_f)
+      uvs_ref.push(u)
+      uvs_ref.push(v2)
+      layers_ref.push(layer_f)
     }
   }
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
         let block = get_block(x, y, z)
-        if block.block.shape is Shape::Air {
+        if block.block.shape is @block.Shape::Air {
           continue
         }
-        let (tr, tg, tb, ta) = block.block.material.tint()
-        tint_r = tr
-        tint_g = tg
-        tint_b = tb
-        tint_a = ta
-        let model = model_by_block(block.block)
+        let model = @block.model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
@@ -270,7 +356,37 @@ pub fn build_chunk_mesh(
         let bx = Float::from_int(x)
         let by = Float::from_int(y)
         let bz = Float::from_int(z)
-        if (model.emit_mesh)(render_info, bx, by, bz, push_face, push_face_rev) {
+        let emit_face = fn(
+          a,
+          b,
+          c,
+          d,
+          normal,
+          layer_f,
+          uv_rect,
+          flip_v,
+          color_scale,
+        ) {
+          push_face(
+            block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+          )
+        }
+        let emit_face_rev = fn(
+          a,
+          b,
+          c,
+          d,
+          normal,
+          layer_f,
+          uv_rect,
+          flip_v,
+          color_scale,
+        ) {
+          push_face_rev(
+            block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+          )
+        }
+        if (model.emit_mesh)(render_info, bx, by, bz, emit_face, emit_face_rev) {
           continue
         }
         let is_double_sided = (model.double_sided)(render_info)
@@ -311,6 +427,7 @@ pub fn build_chunk_mesh(
             let rotate_uv = (model.rotate_uv)(render_info, face)
             let uv_rect = (model.uv_rect)(render_info, face.name)
             push_face_cube(
+              block,
               rotate_uv,
               a,
               b,
@@ -325,6 +442,7 @@ pub fn build_chunk_mesh(
             )
             if is_double_sided {
               push_face_rev_cube(
+                block,
                 a,
                 b,
                 c,
@@ -342,12 +460,38 @@ pub fn build_chunk_mesh(
       }
     }
   }
-  MeshData::{
-    positions,
-    uvs,
-    layers,
-    colors,
-    normals,
-    count: positions.length() / 3,
+  MeshSplit::{
+    normal: MeshData::{
+      positions,
+      uvs,
+      layers,
+      colors,
+      normals,
+      count: positions.length() / 3,
+    },
+    leaf: MeshData::{
+      positions: leaf_positions,
+      uvs: leaf_uvs,
+      layers: leaf_layers,
+      colors: leaf_colors,
+      normals: leaf_normals,
+      count: leaf_positions.length() / 3,
+    },
+    water: MeshData::{
+      positions: water_positions,
+      uvs: water_uvs,
+      layers: water_layers,
+      colors: water_colors,
+      normals: water_normals,
+      count: water_positions.length() / 3,
+    },
+    translucent: MeshData::{
+      positions: trans_positions,
+      uvs: trans_uvs,
+      layers: trans_layers,
+      colors: trans_colors,
+      normals: trans_normals,
+      count: trans_positions.length() / 3,
+    },
   }
 }

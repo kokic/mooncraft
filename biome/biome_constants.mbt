@@ -1,4 +1,3 @@
-
 ///|
 /// Controls overall biome size; higher => biomes change more frequently.
 pub const BIOME_FREQ : Double = 0.0019

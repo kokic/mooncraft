@@ -1,5 +1,5 @@
 ///|
-pub fn demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
+pub fn demo_entities(world : @level.World) -> Array[@render.GltfEntityConfig] {
   // STATUS: INCOMPLETE - this is a static showcase layer, not the runtime mob
   // system. No AI, persistence, collision, damage, or spawn rules are modeled.
   let entities = zombie_demo_entities(world)
@@ -17,10 +17,10 @@ pub fn demo_entities(world : @level.World) -> Array[@entity.GltfEntityConfig] {
 
 ///|
 pub fn install_default_demo(world : @level.World) -> Unit {
-  @entity.publish_entities(demo_entities(world))
-  @entity.start_animation_cycle(
+  @render.publish_entities(demo_entities(world))
+  @render.start_animation_cycle(
     "zombie_0",
     zombie_demo_clips(),
-    interval_ms=@entity.DEFAULT_DEMO_INTERVAL_MS,
+    interval_ms=@render.DEFAULT_DEMO_INTERVAL_MS,
   )
 }

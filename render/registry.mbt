@@ -1,6 +1,6 @@
 ///|
 pub struct RenderBlock {
-  block : Block
+  block : @block.Block
   faces : @shape.FaceLayerIndices
   long_id : UInt
 }
@@ -31,7 +31,7 @@ pub fn BlockRegistry::create(
   }
   let blocks_by_name : Map[String, RenderBlock] = Map([])
   let blocks_by_long_id : Map[UInt, RenderBlock] = Map([])
-  for def in blocks {
+  for def in @block.blocks {
     let resolve_layer = fn(tex_name : String?) -> Int {
       tex_name.bind(name => texture_index.get(name)).unwrap_or(0)
     }

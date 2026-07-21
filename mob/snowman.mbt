@@ -7,12 +7,12 @@ pub const SNOWMAN_TEXTURE_URL : String = "./assets/images/entity/snowman_face.pn
 ///|
 pub fn snowman_demo_entities(
   world : @level.World,
-) -> Array[@entity.GltfEntityConfig] {
+) -> Array[@render.GltfEntityConfig] {
   // STATUS: INCOMPLETE - display-only demo entity; no snowman behavior is wired.
   let (world_x, world_z) = zombie_0_wxz()
   let pos = surface_position(world, world_x, world_z, y_offset=RABBIT_Y_OFFSET)
   [
-    @entity.entity_config(
+    @render.entity_config(
       "snowman_0",
       SNOWMAN_MODEL_URL,
       texture=SNOWMAN_TEXTURE_URL,

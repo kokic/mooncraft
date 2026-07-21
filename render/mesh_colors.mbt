@@ -90,10 +90,10 @@ pub fn build_chunk_colors_split(
     for y in 0..<size {
       for z in 0..<size {
         let block = get_block(x, y, z)
-        if block.block.shape is Shape::Air {
+        if block.block.shape is @block.Shape::Air {
           continue
         }
-        let model = model_by_block(block.block)
+        let model = @block.model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,
@@ -101,9 +101,9 @@ pub fn build_chunk_colors_split(
         let is_double_sided = (model.double_sided)(render_info)
         let target = if block.block.is_water() {
           water_colors
-        } else if block.block.material is Material::TintedLeaf {
+        } else if block.block.material is @block.Material::TintedLeaf {
           leaf_colors
-        } else if block.block.alpha_mode is AlphaMode::Translucent {
+        } else if block.block.alpha_mode is @block.AlphaMode::Translucent {
           trans_colors
         } else {
           colors
@@ -248,7 +248,7 @@ pub fn build_chunk_colors(
     for y in 0..<size {
       for z in 0..<size {
         let block = get_block(x, y, z)
-        if block.block.shape is Shape::Air {
+        if block.block.shape is @block.Shape::Air {
           continue
         }
         let (tr, tg, tb, ta) = block.block.material.tint()
@@ -256,7 +256,7 @@ pub fn build_chunk_colors(
         tint_g = tg
         tint_b = tb
         tint_a = ta
-        let model = model_by_block(block.block)
+        let model = @block.model_by_block(block.block)
         let render_info = @shape.FaceSource::{
           faces: block.faces,
           state: block.block.state,

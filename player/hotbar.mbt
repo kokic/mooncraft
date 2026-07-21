@@ -15,6 +15,6 @@ pub let hotbar_blocks : Array[@block.Block] = [
 ]
 
 ///|
-pub fn collect_hotbar_items() -> Array[UiItemView] {
-  hotbar_blocks.map(block_to_ui_item)
+pub fn collect_hotbar_items() -> Array[@render.UiItemView] {
+  hotbar_blocks.map(@render.block_to_ui_item)
 }

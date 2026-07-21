@@ -14,7 +14,9 @@ pub fn collect_render_chunk_keys(
       for dz in -ring..<=ring {
         guard dx.abs() == ring || dz.abs() == ring else { continue }
         for cy in chunk_min_y..<=chunk_max_y {
-          keys.push(chunk_key_by_chunk_xyz(center_x + dx, cy, center_z + dz))
+          keys.push(
+            @level.chunk_key_by_chunk_xyz(center_x + dx, cy, center_z + dz),
+          )
         }
       }
     }

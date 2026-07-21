@@ -1,5 +1,5 @@
 import {
-  "kokic/mooncraft/entity",
+  "kokic/mooncraft/render",
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
 }

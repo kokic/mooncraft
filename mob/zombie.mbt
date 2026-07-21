@@ -42,13 +42,13 @@ fn surface_position(
 ///|
 pub fn zombie_demo_entities(
   world : @level.World,
-) -> Array[@entity.GltfEntityConfig] {
+) -> Array[@render.GltfEntityConfig] {
   // STATUS: NEEDS_ADJUSTMENT - demo placement and clip choices are hard-coded
   // so model/animation coverage can be inspected before gameplay logic exists.
   let (wx0, wz0) = zombie_0_wxz()
   let (wx1, wz1) = zombie_1_wxz()
   [
-    @entity.entity_config(
+    @render.entity_config(
       "zombie_0",
       ZOMBIE_MODEL_URL,
       texture=ZOMBIE_TEXTURE_URL,
@@ -66,7 +66,7 @@ pub fn zombie_demo_entities(
     //   speed=1.0,
     //   looped=true,
     // ),
-    @entity.entity_config(
+    @render.entity_config(
       "zombie_1",
       ZOMBIE_MODEL_URL,
       texture=ZOMBIE_TEXTURE_URL,

@@ -56,11 +56,6 @@ fn texture_or_fallback(name : String) -> UiTexture {
 }
 
 ///|
-fn category_tag(category : @item.Category) -> String {
-  category.tag()
-}
-
-///|
 pub fn block_to_ui_item(block : @block.Block) -> UiItemView {
   let material_tag = if block.material is @block.Material::TintedLeaf {
     "tinted_leaf"
@@ -75,7 +70,7 @@ pub fn block_to_ui_item(block : @block.Block) -> UiItemView {
       shape: "torch",
       kind: "flat",
       material: material_tag,
-      category: category_tag(block.category),
+      category: block.category.tag(),
       top: missing,
       side: missing,
       bottom: missing,
@@ -88,7 +83,7 @@ pub fn block_to_ui_item(block : @block.Block) -> UiItemView {
       shape: shape_tag(block.shape),
       kind: "block",
       material: material_tag,
-      category: category_tag(block.category),
+      category: block.category.tag(),
       top: texture_or_fallback(faces.pos_y.unwrap_or("")),
       side: texture_or_fallback(pick_side(faces)),
       bottom: texture_or_fallback(faces.neg_y.unwrap_or("")),
@@ -106,7 +101,7 @@ pub fn item_to_ui_item(item : @item.Item) -> UiItemView {
     shape: "normal",
     kind: "flat",
     material: "normal",
-    category: category_tag(item.category),
+    category: item.category.tag(),
     top: missing,
     side: missing,
     bottom: missing,

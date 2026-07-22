@@ -18,6 +18,10 @@ extern "js" fn Float32Array::copy_from(
   #| (target, source) => target.set(source)
 
 ///|
+pub extern "js" fn Float32Array::length(self : Self) -> Int =
+  #| (array) => array.length
+
+///|
 pub fn Float32Array::at(self : Self, index : Int) -> Double {
   self.as_array()[index]
 }

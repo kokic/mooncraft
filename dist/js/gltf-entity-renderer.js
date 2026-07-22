@@ -1,56 +1,9 @@
-const GLB_MAGIC = 0x46546c67;
-const GLB_JSON_CHUNK = 0x4e4f534a;
-const GLB_BIN_CHUNK = 0x004e4942;
 const GLTF_TRIANGLES = 4;
 const DEFAULT_MANIFEST_URL = "./assets/models/entities.json";
 const LOOK_EPSILON = 1e-6;
 const LOOK_PITCH_LIMIT = Math.PI * 0.499;
 const ENTITY_YAW_OFFSET = Math.PI;
 
-const COMPONENTS_PER_TYPE = {
-  SCALAR: 1,
-  VEC2: 2,
-  VEC3: 3,
-  VEC4: 4,
-};
-
-const COMPONENT_BYTES = {
-  5120: 1, // BYTE
-  5121: 1, // UBYTE
-  5122: 2, // SHORT
-  5123: 2, // USHORT
-  5125: 4, // UINT
-  5126: 4, // FLOAT
-};
-
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(log || "shader compile failed");
-  }
-  return shader;
-}
-
-function createProgram(gl, vs, fs) {
-  const vert = createShader(gl, gl.VERTEX_SHADER, vs);
-  const frag = createShader(gl, gl.FRAGMENT_SHADER, fs);
-  const program = gl.createProgram();
-  gl.attachShader(program, vert);
-  gl.attachShader(program, frag);
-  gl.linkProgram(program);
-  gl.deleteShader(vert);
-  gl.deleteShader(frag);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const log = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(log || "program link failed");
-  }
-  return program;
-}
 
 function decodeDataUri(uri) {
   const comma = uri.indexOf(",");
@@ -61,40 +14,15 @@ function decodeDataUri(uri) {
   return out.buffer;
 }
 
-function parseGlb(buffer) {
-  const view = new DataView(buffer);
-  if (view.getUint32(0, true) !== GLB_MAGIC) throw new Error("invalid glb magic");
-  const version = view.getUint32(4, true);
-  if (version !== 2) throw new Error(`unsupported glb version: ${version}`);
-  const totalLength = view.getUint32(8, true);
-  let offset = 12;
-  let jsonChunk = null;
-  let binChunk = null;
-  while (offset + 8 <= totalLength) {
-    const len = view.getUint32(offset, true);
-    const type = view.getUint32(offset + 4, true);
-    offset += 8;
-    const end = offset + len;
-    if (end > view.byteLength) break;
-    const chunk = buffer.slice(offset, end);
-    if (type === GLB_JSON_CHUNK) jsonChunk = chunk;
-    if (type === GLB_BIN_CHUNK) binChunk = chunk;
-    offset = end;
-  }
-  if (!jsonChunk) throw new Error("missing GLB JSON chunk");
-  return { gltf: JSON.parse(new TextDecoder("utf-8").decode(jsonChunk)), binChunk };
-}
-
 async function loadGltfPayload(url) {
   const absUrl = new URL(url, window.location.href).href;
-  if (absUrl.toLowerCase().endsWith(".glb")) {
-    const res = await fetch(absUrl);
-    if (!res.ok) throw new Error(`failed to fetch glb: ${absUrl}`);
-    const parsed = parseGlb(await res.arrayBuffer());
-    return { url: absUrl, baseUrl: absUrl, gltf: parsed.gltf, glbBin: parsed.binChunk };
-  }
   const res = await fetch(absUrl);
-  if (!res.ok) throw new Error(`failed to fetch gltf: ${absUrl}`);
+  if (!res.ok) throw new Error(`failed to fetch glb: ${absUrl}`);
+  if (absUrl.toLowerCase().endsWith(".glb")) {
+    const parsed = window.mcParseGlb(await res.arrayBuffer());
+    const gltf = JSON.parse(parsed.json_text);
+    return { url: absUrl, baseUrl: absUrl, gltf, glbBin: parsed.bin_data };
+  }
   return { url: absUrl, baseUrl: absUrl, gltf: await res.json(), glbBin: null };
 }
 
@@ -124,79 +52,6 @@ async function loadBuffers(gltf, baseUrl, glbBin) {
   return out;
 }
 
-function readAccessor(gltf, buffers, accessorIndex, expectedComps = null) {
-  const accessor = (gltf.accessors ?? [])[accessorIndex];
-  if (!accessor) throw new Error(`missing accessor ${accessorIndex}`);
-  if (accessor.sparse) throw new Error("sparse accessors are not supported");
-  const comps = COMPONENTS_PER_TYPE[accessor.type];
-  if (!comps) throw new Error(`unsupported accessor type ${accessor.type}`);
-  if (expectedComps != null && comps !== expectedComps) {
-    throw new Error(`accessor component mismatch at ${accessorIndex}`);
-  }
-  const compBytes = COMPONENT_BYTES[accessor.componentType];
-  if (!compBytes) throw new Error(`unsupported component type ${accessor.componentType}`);
-  const viewDef = (gltf.bufferViews ?? [])[accessor.bufferView];
-  if (!viewDef) throw new Error(`missing bufferView for accessor ${accessorIndex}`);
-  const buffer = buffers[viewDef.buffer];
-  if (!buffer) throw new Error(`missing buffer payload ${viewDef.buffer}`);
-  const count = accessor.count ?? 0;
-  const stride = viewDef.byteStride ?? (compBytes * comps);
-  const byteOffset = (viewDef.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-  const view = new DataView(buffer, byteOffset, stride * count);
-  const out = new Float32Array(count * comps);
-  let ptr = 0;
-  for (let i = 0; i < count; i += 1) {
-    const base = i * stride;
-    for (let c = 0; c < comps; c += 1) {
-      const off = base + c * compBytes;
-      let raw = 0;
-      if (accessor.componentType === 5120) raw = view.getInt8(off);
-      else if (accessor.componentType === 5121) raw = view.getUint8(off);
-      else if (accessor.componentType === 5122) raw = view.getInt16(off, true);
-      else if (accessor.componentType === 5123) raw = view.getUint16(off, true);
-      else if (accessor.componentType === 5125) raw = view.getUint32(off, true);
-      else raw = view.getFloat32(off, true);
-      out[ptr] = raw;
-      ptr += 1;
-    }
-  }
-  return { accessor, values: out };
-}
-
-function readIndices(gltf, buffers, accessorIndex) {
-  const { accessor, values } = readAccessor(gltf, buffers, accessorIndex, 1);
-  if (accessor.componentType === 5125) {
-    const out = new Uint32Array(values.length);
-    for (let i = 0; i < values.length; i += 1) out[i] = values[i];
-    return out;
-  }
-  const out = new Uint16Array(values.length);
-  for (let i = 0; i < values.length; i += 1) out[i] = values[i];
-  return out;
-}
-
-function createWhiteTexture(gl) {
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    1,
-    1,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    new Uint8Array([255, 255, 255, 255]),
-  );
-  gl.bindTexture(gl.TEXTURE_2D, null);
-  return tex;
-}
-
 async function loadImage(url) {
   const img = new Image();
   img.decoding = "async";
@@ -216,53 +71,6 @@ async function loadImageFromBuffer(buffer, mimeType = "image/png") {
   } finally {
     URL.revokeObjectURL(url);
   }
-}
-
-function isMipFilter(filter) {
-  return filter === 9984 || filter === 9985 || filter === 9986 || filter === 9987;
-}
-
-function normalizeSampler(gl, samplerDef) {
-  const out = {
-    minFilter: gl.NEAREST,
-    magFilter: gl.NEAREST,
-    wrapS: gl.CLAMP_TO_EDGE,
-    wrapT: gl.CLAMP_TO_EDGE,
-  };
-  if (!samplerDef || typeof samplerDef !== "object") return out;
-  const min = Number(samplerDef.minFilter);
-  const mag = Number(samplerDef.magFilter);
-  const wrapS = Number(samplerDef.wrapS);
-  const wrapT = Number(samplerDef.wrapT);
-  if (Number.isInteger(min) && (min === 9728 || min === 9729 || isMipFilter(min))) {
-    out.minFilter = min;
-  }
-  if (Number.isInteger(mag) && (mag === 9728 || mag === 9729)) {
-    out.magFilter = mag;
-  }
-  if (Number.isInteger(wrapS) && (wrapS === 33071 || wrapS === 33648 || wrapS === 10497)) {
-    out.wrapS = wrapS;
-  }
-  if (Number.isInteger(wrapT) && (wrapT === 33071 || wrapT === 33648 || wrapT === 10497)) {
-    out.wrapT = wrapT;
-  }
-  return out;
-}
-
-function createTextureFromImage(gl, img, samplerDef = null) {
-  const sampler = normalizeSampler(gl, samplerDef);
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, sampler.minFilter);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, sampler.magFilter);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, sampler.wrapS);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, sampler.wrapT);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-  if (isMipFilter(sampler.minFilter)) {
-    gl.generateMipmap(gl.TEXTURE_2D);
-  }
-  gl.bindTexture(gl.TEXTURE_2D, null);
-  return tex;
 }
 
 async function loadTextures(gl, gltf, buffers, baseUrl, whiteTexture) {
@@ -304,7 +112,9 @@ async function loadTextures(gl, gltf, buffers, baseUrl, whiteTexture) {
     const srcIndex = Number.isInteger(def.source) ? def.source : -1;
     const img = srcIndex >= 0 && srcIndex < images.length ? images[srcIndex] : null;
     const sampler = Number.isInteger(def.sampler) ? samplerDefs[def.sampler] : null;
-    textures[i] = img ? createTextureFromImage(gl, img, sampler) : whiteTexture;
+    textures[i] = img
+      ? window.mcCreateTextureFromImage(gl, img, sampler?.minFilter ?? 9728, sampler?.magFilter ?? 9728, sampler?.wrapS ?? 33071, sampler?.wrapT ?? 33071)
+      : whiteTexture;
   }
   return textures;
 }
@@ -355,128 +165,9 @@ function sampleAnimKey(times, t) {
   return lo;
 }
 
-function buildAnimations(gltf, buffers) {
-  const defs = gltf.animations ?? [];
-  return defs.map((def, i) => {
-    const samplers = def.samplers ?? [];
-    const channels = def.channels ?? [];
-    const outChannels = [];
-    let duration = 0;
-    for (let c = 0; c < channels.length; c += 1) {
-      const channel = channels[c] ?? {};
-      const sampler = samplers[channel.sampler];
-      if (!sampler) continue;
-      const node = channel.target?.node;
-      const rawPath = channel.target?.path;
-      const path = rawPath === "position" ? "translation" : rawPath;
-      if (!Number.isInteger(node)) continue;
-      if (path !== "translation" && path !== "rotation" && path !== "scale") continue;
-      const input = readAccessor(gltf, buffers, sampler.input, 1).values;
-      const comps = path === "rotation" ? 4 : 3;
-      const outputRaw = readAccessor(gltf, buffers, sampler.output, comps).values;
-      if (input.length === 0) continue;
-      const interpolationRaw = typeof sampler.interpolation === "string"
-        ? sampler.interpolation
-        : "LINEAR";
-      let interpolation = interpolationRaw;
-      let output = outputRaw;
-      if (interpolationRaw === "CUBICSPLINE") {
-        const keyCount = input.length;
-        const packed = keyCount * comps * 3;
-        if (outputRaw.length >= packed) {
-          const reduced = new Float32Array(keyCount * comps);
-          for (let k = 0; k < keyCount; k += 1) {
-            const src = (k * 3 + 1) * comps;
-            const dst = k * comps;
-            for (let c2 = 0; c2 < comps; c2 += 1) {
-              reduced[dst + c2] = outputRaw[src + c2];
-            }
-          }
-          output = reduced;
-          // Blockbench tracks export as cubic in some cases; for now we
-          // conservatively evaluate by linearly blending value keys.
-          interpolation = "LINEAR";
-        } else {
-          interpolation = "LINEAR";
-        }
-      }
-      duration = Math.max(duration, Number(input[input.length - 1]) || 0);
-      outChannels.push({
-        node,
-        path,
-        interpolation,
-        input,
-        output,
-      });
-    }
-    return { name: typeof def.name === "string" ? def.name : `animation_${i}`, duration, channels: outChannels };
-  });
-}
 
-function createProgramInfo(gl) {
-  const vs = `#version 300 es
-    precision highp float;
-    in vec3 aPosition;
-    in vec3 aNormal;
-    in vec2 aUv;
-    uniform mat4 uModel;
-    uniform mat4 uView;
-    uniform mat4 uViewProj;
-    out vec3 vNormal;
-    out vec2 vUv;
-    out float vFogDist;
-    void main() {
-      vec4 world = uModel * vec4(aPosition, 1.0);
-      vNormal = mat3(uModel) * aNormal;
-      vUv = aUv;
-      vFogDist = length((uView * world).xyz);
-      gl_Position = uViewProj * world;
-    }
-  `;
-  const fs = `#version 300 es
-    precision highp float;
-    in vec3 vNormal;
-    in vec2 vUv;
-    in float vFogDist;
-    uniform sampler2D uTex;
-    uniform bool uHasTexture;
-    uniform vec4 uColor;
-    uniform bool uAlphaMask;
-    uniform float uAlphaCutoff;
-    uniform vec3 uFogColor;
-    uniform float uFogNear;
-    uniform float uFogFar;
-    out vec4 outColor;
-    void main() {
-      vec4 tex = uHasTexture ? texture(uTex, vUv) : vec4(1.0);
-      vec4 base = tex * uColor;
-      if (uAlphaMask && base.a < uAlphaCutoff) discard;
-      if (base.a <= 0.001) discard;
-      vec3 lightDir = normalize(vec3(0.35, 0.75, 0.25));
-      float lit = max(dot(normalize(vNormal), lightDir), 0.0) * 0.6 + 0.4;
-      float fog = smoothstep(uFogNear, uFogFar, vFogDist);
-      outColor = vec4(mix(base.rgb * lit, uFogColor, fog), base.a);
-    }
-  `;
-  const program = createProgram(gl, vs, fs);
-  return {
-    program,
-    aPosition: gl.getAttribLocation(program, "aPosition"),
-    aNormal: gl.getAttribLocation(program, "aNormal"),
-    aUv: gl.getAttribLocation(program, "aUv"),
-    uModel: gl.getUniformLocation(program, "uModel"),
-    uView: gl.getUniformLocation(program, "uView"),
-    uViewProj: gl.getUniformLocation(program, "uViewProj"),
-    uTex: gl.getUniformLocation(program, "uTex"),
-    uHasTexture: gl.getUniformLocation(program, "uHasTexture"),
-    uColor: gl.getUniformLocation(program, "uColor"),
-    uAlphaMask: gl.getUniformLocation(program, "uAlphaMask"),
-    uAlphaCutoff: gl.getUniformLocation(program, "uAlphaCutoff"),
-    uFogColor: gl.getUniformLocation(program, "uFogColor"),
-    uFogNear: gl.getUniformLocation(program, "uFogNear"),
-    uFogFar: gl.getUniformLocation(program, "uFogFar"),
-  };
-}
+
+
 
 async function loadEntityConfigs({ direct = null, manifestUrl = DEFAULT_MANIFEST_URL } = {}) {
   if (Array.isArray(direct)) return direct;
@@ -508,8 +199,8 @@ function createGltfEntityRenderer(gl) {
     mcQuatFromYawPitch: quatFromYawPitch,
     mcQuatSlerp: quatSlerp,
   } = window;
-  const info = createProgramInfo(gl);
-  const whiteTexture = createWhiteTexture(gl);
+  const info = window.mcCreateGltfProgram(gl, window.mcGltfVsSource, window.mcGltfFsSource);
+  const whiteTexture = window.mcCreateWhiteTexture(gl);
   const assets = new Map();
   const externalTextures = new Map();
   const instances = [];
@@ -522,7 +213,7 @@ function createGltfEntityRenderer(gl) {
     if (cached) return cached;
     const promise = (async () => {
       const image = await loadImage(abs);
-      return createTextureFromImage(gl, image);
+      return window.mcCreateTextureFromImage(gl, image, 9728, 9728, 33071, 33071);
     })();
     externalTextures.set(abs, promise);
     try {
@@ -551,7 +242,47 @@ function createGltfEntityRenderer(gl) {
         whiteTexture,
       );
       const materials = buildMaterials(gltf, textures, whiteTexture);
-      const animations = buildAnimations(gltf, buffers);
+      const animations = (gltf.animations ?? []).map((def, i) => {
+        const channels = (def.channels ?? []).map((ch) => {
+          const sampler = def.samplers?.[ch.sampler];
+          if (!sampler) return null;
+          const node = ch.target?.node;
+          const path = ch.target?.path === "position" ? "translation" : ch.target?.path;
+          if (!Number.isInteger(node)) return null;
+          if (path !== "translation" && path !== "rotation" && path !== "scale") return null;
+          const readAnimAccessor = (accessorIndex, comps) => {
+            const acc = gltf.accessors?.[accessorIndex];
+            if (!acc) return null;
+            const view = gltf.bufferViews?.[acc.bufferView];
+            if (!view) return null;
+            const buf = buffers[view.buffer];
+            if (!buf) return null;
+            return window.mcReadAccessorValues(buf, acc.componentType, acc.type, acc.count, acc.byteOffset ?? 0, view.byteStride ?? 0);
+          };
+          const input = readAnimAccessor(sampler.input, 1);
+          const comps = path === "rotation" ? 4 : 3;
+          const outputRaw = readAnimAccessor(sampler.output, comps);
+          if (!input || !outputRaw) return null;
+          let output = outputRaw;
+          let interp = sampler.interpolation ?? "LINEAR";
+          if (interp === "CUBICSPLINE") {
+            const keyCount = input.length;
+            if (outputRaw.length >= keyCount * comps * 3) {
+              const reduced = new Float32Array(keyCount * comps);
+              for (let k = 0; k < keyCount; k += 1) {
+                const src = (k * 3 + 1) * comps;
+                for (let c2 = 0; c2 < comps; c2 += 1) reduced[k * comps + c2] = outputRaw[src + c2];
+              }
+              output = reduced;
+              interp = "LINEAR";
+            } else { interp = "LINEAR"; }
+          }
+          const duration = Number(input[input.length - 1]) || 0;
+          return { node, path, interpolation: interp, input, output };
+        }).filter(Boolean);
+        const duration = channels.reduce((max, ch) => Math.max(max, Number(ch.input[ch.input.length - 1]) || 0), 0);
+        return { name: typeof def.name === "string" ? def.name : `animation_${i}`, duration, channels };
+      });
       const nodeDefs = gltf.nodes ?? [];
       const nodes = nodeDefs.map((n) => ({
         mesh: Number.isInteger(n?.mesh) ? n.mesh : -1,
@@ -567,6 +298,24 @@ function createGltfEntityRenderer(gl) {
       const roots = Array.isArray(scene?.nodes)
         ? scene.nodes.filter((v) => Number.isInteger(v))
         : nodes.map((_, i) => i);
+      const readAttr = (accessorIndex) => {
+        const acc = gltf.accessors?.[accessorIndex];
+        if (!acc) return null;
+        const view = gltf.bufferViews?.[acc.bufferView];
+        if (!view) throw new Error(`missing bufferView for accessor ${accessorIndex}`);
+        const buf = buffers[view.buffer];
+        if (!buf) throw new Error(`missing buffer payload ${view.buffer}`);
+        return window.mcReadAccessorValues(buf, acc.componentType, acc.type, acc.count ?? 0, acc.byteOffset ?? 0, view.byteStride ?? 0);
+      };
+      const readIdx = (accessorIndex) => {
+        const acc = gltf.accessors?.[accessorIndex];
+        if (!acc) return null;
+        const view = gltf.bufferViews?.[acc.bufferView];
+        if (!view) return null;
+        const buf = buffers[view.buffer];
+        if (!buf) return null;
+        return window.mcReadIndices(buf, acc.componentType, acc.count ?? 0, (view.byteOffset ?? 0) + (acc.byteOffset ?? 0), view.byteStride ?? 0);
+      };
       const meshes = (gltf.meshes ?? []).map((mesh) => {
         const primitives = [];
         for (const prim of mesh?.primitives ?? []) {
@@ -574,62 +323,14 @@ function createGltfEntityRenderer(gl) {
           if (mode !== GLTF_TRIANGLES) continue;
           const attrs = prim.attributes ?? {};
           if (!Number.isInteger(attrs.POSITION)) continue;
-          const pos = readAccessor(gltf, buffers, attrs.POSITION, 3).values;
-          const vertexCount = Math.floor(pos.length / 3);
-          if (vertexCount <= 0) continue;
-          const normal = Number.isInteger(attrs.NORMAL) ? readAccessor(gltf, buffers, attrs.NORMAL, 3).values : null;
-          const uv0 = Number.isInteger(attrs.TEXCOORD_0) ? readAccessor(gltf, buffers, attrs.TEXCOORD_0, 2).values : null;
-          const normals = new Float32Array(vertexCount * 3);
-          if (normal && normal.length === normals.length) normals.set(normal);
-          else for (let i = 0; i < vertexCount; i += 1) normals[i * 3 + 1] = 1;
-          const uvs = new Float32Array(vertexCount * 2);
-          if (uv0 && uv0.length === uvs.length) uvs.set(uv0);
-          const vao = gl.createVertexArray();
-          gl.bindVertexArray(vao);
-          const posBuf = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-          gl.bufferData(gl.ARRAY_BUFFER, pos, gl.STATIC_DRAW);
-          gl.enableVertexAttribArray(info.aPosition);
-          gl.vertexAttribPointer(info.aPosition, 3, gl.FLOAT, false, 0, 0);
-          const nBuf = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, nBuf);
-          gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
-          gl.enableVertexAttribArray(info.aNormal);
-          gl.vertexAttribPointer(info.aNormal, 3, gl.FLOAT, false, 0, 0);
-          const uvBuf = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
-          gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
-          gl.enableVertexAttribArray(info.aUv);
-          gl.vertexAttribPointer(info.aUv, 2, gl.FLOAT, false, 0, 0);
-          let indexBuf = null;
-          let indexType = null;
-          let count = vertexCount;
-          if (Number.isInteger(prim.indices)) {
-            const idx = readIndices(gltf, buffers, prim.indices);
-            indexBuf = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuf);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
-            indexType = idx instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
-            count = idx.length;
-          }
-          gl.bindVertexArray(null);
-          let cx = 0, cy = 0, cz = 0;
-          for (let i = 0; i < vertexCount; i += 1) {
-            cx += pos[i * 3];
-            cy += pos[i * 3 + 1];
-            cz += pos[i * 3 + 2];
-          }
-          primitives.push({
-            vao,
-            posBuf,
-            nBuf,
-            uvBuf,
-            indexBuf,
-            indexType,
-            count,
-            materialIndex: Number.isInteger(prim.material) ? prim.material : 0,
-            center: [cx / vertexCount, cy / vertexCount, cz / vertexCount],
-          });
+          const pos = readAttr(attrs.POSITION);
+          if (!pos) continue;
+          const normal = Number.isInteger(attrs.NORMAL) ? readAttr(attrs.NORMAL) : null;
+          const uv0 = Number.isInteger(attrs.TEXCOORD_0) ? readAttr(attrs.TEXCOORD_0) : null;
+          const indices = Number.isInteger(prim.indices) ? readIdx(prim.indices) : null;
+          const materialIndex = Number.isInteger(prim.material) ? prim.material : 0;
+          const primInst = window.mcBuildGltfPrimitive(gl, info, pos, normal, uv0, indices, materialIndex);
+          primitives.push(primInst);
         }
         return { primitives };
       });

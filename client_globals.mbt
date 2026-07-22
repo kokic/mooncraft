@@ -124,6 +124,26 @@ fn register_api(world : @level.World) -> Unit {
     world.generate_chunk(x, y, z).tile_map
   }
   set_global("mcGenChunk", gen_chunk)
+
+  // GLTF entity rendering pipeline.
+  set_global("mcParseGlb", @render.parse_glb)
+  set_global("mcReadAccessorValues", @render.read_accessor_values)
+  set_global("mcReadIndices", @render.read_indices)
+  set_global("mcSampleAnimationChannel", @render.sample_animation_channel)
+  set_global("mcComputeNodeWorld", @render.compute_node_world)
+  set_global("mcCompileGltfShader", @render.compile_gltf_shader)
+  set_global("mcCreateGltfProgram", @render.create_gltf_program)
+  set_global("mcRenderEntities", @render.render_entities)
+  set_global("mcGltfVsSource", @render.GLTF_VS_SOURCE)
+  set_global("mcGltfFsSource", @render.GLTF_FS_SOURCE)
+  set_global("mcCreateWhiteTexture", @render.create_white_texture)
+  set_global("mcCreateTextureFromImage", @render.create_texture_from_image)
+  set_global("mcDeleteGltfTexture", @render.delete_gltf_texture)
+  set_global("mcBuildGltfPrimitive", @render.build_gltf_primitive)
+  set_global("mcBuildGltfMeshInstance", @render.build_gltf_mesh_instance)
+  set_global("mcDisposeGltfPrimitives", @render.dispose_gltf_primitives)
+  set_global("mcDisposeGltfMeshes", @render.dispose_gltf_meshes)
+  set_global("mcDisposeGltfTextures", @render.dispose_gltf_textures)
 }
 
 ///|

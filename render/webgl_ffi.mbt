@@ -227,6 +227,12 @@ pub extern "js" fn WebGLRenderingContext::unbind_texture_2d(
   #| (gl) => gl.bindTexture(gl.TEXTURE_2D, null)
 
 ///|
+pub extern "js" fn WebGLRenderingContext::unbind_pixel_unpack_buffer(
+  self : WebGLRenderingContext,
+) -> Unit =
+  #| (gl) => gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
+
+///|
 pub extern "js" fn WebGLRenderingContext::unbind_vertex_array(
   self : WebGLRenderingContext,
 ) -> Unit =

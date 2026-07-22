@@ -54,7 +54,6 @@ async function loadBuffers(gltf, baseUrl, glbBin) {
 
 async function loadImage(url) {
   const img = new Image();
-  img.decoding = "async";
   await new Promise((resolve, reject) => {
     img.onload = () => resolve();
     img.onerror = reject;
@@ -257,7 +256,8 @@ function createGltfEntityRenderer(gl) {
             if (!view) return null;
             const buf = buffers[view.buffer];
             if (!buf) return null;
-            return window.mcReadAccessorValues(buf, acc.componentType, acc.type, acc.count, acc.byteOffset ?? 0, view.byteStride ?? 0);
+            const byteOff = (view.byteOffset ?? 0) + (acc.byteOffset ?? 0);
+            return window.mcReadAccessorValues(buf, acc.componentType, acc.type, acc.count, byteOff, view.byteStride ?? 0);
           };
           const input = readAnimAccessor(sampler.input, 1);
           const comps = path === "rotation" ? 4 : 3;
@@ -305,7 +305,8 @@ function createGltfEntityRenderer(gl) {
         if (!view) throw new Error(`missing bufferView for accessor ${accessorIndex}`);
         const buf = buffers[view.buffer];
         if (!buf) throw new Error(`missing buffer payload ${view.buffer}`);
-        return window.mcReadAccessorValues(buf, acc.componentType, acc.type, acc.count ?? 0, acc.byteOffset ?? 0, view.byteStride ?? 0);
+        const byteOffset = (view.byteOffset ?? 0) + (acc.byteOffset ?? 0);
+        return window.mcReadAccessorValues(buf, acc.componentType, acc.type, acc.count ?? 0, byteOffset, view.byteStride ?? 0);
       };
       const readIdx = (accessorIndex) => {
         const acc = gltf.accessors?.[accessorIndex];
@@ -356,7 +357,13 @@ function createGltfEntityRenderer(gl) {
     const seenIds = new Set();
     for (const cfg of configs) {
       if (typeof cfg?.url !== "string" || cfg.url.length === 0) continue;
-      const asset = await loadAsset(cfg.url);
+      let asset;
+      try {
+        asset = await loadAsset(cfg.url);
+      } catch (err) {
+        console.warn("[gltf] failed to load asset:", cfg.url, err);
+        continue;
+      }
       const instanceId = typeof cfg.id === "string" && cfg.id.length > 0
         ? cfg.id
         : String(instances.length);
@@ -787,8 +794,8 @@ function createGltfEntityRenderer(gl) {
         const mesh = inst.asset.meshes[node.mesh];
         mat4Mul(tmp.modelNode, inst.model, inst.nodeWorld[ni]);
         for (const prim of mesh.primitives) {
-          const baseMat = inst.asset.materials[prim.materialIndex] ?? inst.asset.materials[0];
-          const overrideTex = inst.textureOverridesByIndex.get(prim.materialIndex) ??
+          const baseMat = inst.asset.materials[prim.material_index] ?? inst.asset.materials[0];
+          const overrideTex = inst.textureOverridesByIndex.get(prim.material_index) ??
             (typeof baseMat?.name === "string" && baseMat.name.length > 0
               ? inst.textureOverridesByName.get(baseMat.name) ?? null
               : null) ??
@@ -806,7 +813,7 @@ function createGltfEntityRenderer(gl) {
             : baseMat;
           const call = { prim, mat, model: Float32Array.from(tmp.modelNode), dist: 0 };
           if (mat.alphaMode === "BLEND" || mat.factor[3] < 0.999) {
-            transformPoint(tmp.worldPos, call.model, prim.center);
+            transformPoint(tmp.worldPos, call.model, [prim.center_x, prim.center_y, prim.center_z]);
             const dx = tmp.worldPos[0] - cameraPosition[0];
             const dy = tmp.worldPos[1] - cameraPosition[1];
             const dz = tmp.worldPos[2] - cameraPosition[2];
@@ -820,12 +827,12 @@ function createGltfEntityRenderer(gl) {
     }
     blend.sort((a, b) => b.dist - a.dist);
     gl.useProgram(info.program);
-    gl.uniformMatrix4fv(info.uView, false, viewMatrix);
-    gl.uniformMatrix4fv(info.uViewProj, false, viewProjMatrix);
-    gl.uniform3f(info.uFogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(info.uFogNear, fogNear);
-    gl.uniform1f(info.uFogFar, fogFar);
-    gl.uniform1i(info.uTex, 0);
+    gl.uniformMatrix4fv(info.u_view, false, viewMatrix);
+    gl.uniformMatrix4fv(info.u_view_proj, false, viewProjMatrix);
+    gl.uniform3f(info.u_fog_color, fogColor[0], fogColor[1], fogColor[2]);
+    gl.uniform1f(info.u_fog_near, fogNear);
+    gl.uniform1f(info.u_fog_far, fogFar);
+    gl.uniform1i(info.u_tex, 0);
     gl.frontFace(gl.CCW);
     const draw = (list, blendMode) => {
       if (blendMode) {
@@ -837,18 +844,21 @@ function createGltfEntityRenderer(gl) {
         gl.depthMask(true);
       }
       for (const call of list) {
-        gl.uniformMatrix4fv(info.uModel, false, call.model);
-        gl.uniform1i(info.uHasTexture, call.mat.hasTexture ? 1 : 0);
-        gl.uniform4f(info.uColor, call.mat.factor[0], call.mat.factor[1], call.mat.factor[2], call.mat.factor[3]);
-        gl.uniform1i(info.uAlphaMask, call.mat.alphaMode === "MASK" ? 1 : 0);
-        gl.uniform1f(info.uAlphaCutoff, call.mat.alphaCutoff);
+        gl.uniformMatrix4fv(info.u_model, false, call.model);
+        gl.uniform1i(info.u_has_texture, call.mat.hasTexture ? 1 : 0);
+        gl.uniform4f(info.u_color, call.mat.factor[0], call.mat.factor[1], call.mat.factor[2], call.mat.factor[3]);
+        gl.uniform1i(info.u_alpha_mask, call.mat.alphaMode === "MASK" ? 1 : 0);
+        gl.uniform1f(info.u_alpha_cutoff, call.mat.alphaCutoff);
         if (call.mat.doubleSided) gl.disable(gl.CULL_FACE);
         else gl.enable(gl.CULL_FACE);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, call.mat.texture);
         gl.bindVertexArray(call.prim.vao);
-        if (call.prim.indexBuf) gl.drawElements(gl.TRIANGLES, call.prim.count, call.prim.indexType, 0);
-        else gl.drawArrays(gl.TRIANGLES, 0, call.prim.count);
+        if (call.prim.index_type !== 0) {
+          gl.drawElements(gl.TRIANGLES, call.prim.count, call.prim.index_type, 0);
+        } else {
+          gl.drawArrays(gl.TRIANGLES, 0, call.prim.count);
+        }
       }
       gl.bindVertexArray(null);
       if (blendMode) {
@@ -869,10 +879,10 @@ function createGltfEntityRenderer(gl) {
       for (const mesh of value.meshes ?? []) {
         for (const prim of mesh.primitives ?? []) {
           if (prim.vao) gl.deleteVertexArray(prim.vao);
-          if (prim.posBuf) gl.deleteBuffer(prim.posBuf);
-          if (prim.nBuf) gl.deleteBuffer(prim.nBuf);
-          if (prim.uvBuf) gl.deleteBuffer(prim.uvBuf);
-          if (prim.indexBuf) gl.deleteBuffer(prim.indexBuf);
+          if (prim.pos_buf) gl.deleteBuffer(prim.pos_buf);
+          if (prim.n_buf) gl.deleteBuffer(prim.n_buf);
+          if (prim.uv_buf) gl.deleteBuffer(prim.uv_buf);
+          if (prim.index_buf) gl.deleteBuffer(prim.index_buf);
         }
       }
       for (const tex of value.textures ?? []) {

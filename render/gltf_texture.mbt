@@ -1,16 +1,16 @@
 ///|
-pub fn create_white_texture(gl : WebGLRenderingContext) -> WebGLTexture {
-  let tex = gl.create_texture()
-  gl.bind_texture_2d(tex)
-  gl.tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-  gl.tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-  gl.tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-  gl.tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-  let pixels = @ffi.JsValue::cast_from([255, 255, 255, 255])
-  gl.tex_image_2d_raw(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels)
-  gl.unbind_texture_2d()
-  tex
-}
+pub extern "js" fn create_white_texture(gl : WebGLRenderingContext) -> WebGLTexture =
+  #| (gl) => {
+  #|   const tex = gl.createTexture();
+  #|   gl.bindTexture(gl.TEXTURE_2D, tex);
+  #|   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  #|   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  #|   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  #|   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  #|   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
+  #|   gl.bindTexture(gl.TEXTURE_2D, null);
+  #|   return tex;
+  #| }
 
 ///|
 pub fn create_texture_from_image(

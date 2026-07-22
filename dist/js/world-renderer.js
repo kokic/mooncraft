@@ -26,7 +26,6 @@ function toFiniteInt(value, fallback = 0) {
 }
 
 function readJsonFromStorage(key) {
-  if (typeof key !== "string" || key.length === 0) return null;
   try {
     const raw = globalThis.localStorage?.getItem(key);
     if (!raw) return null;
@@ -39,8 +38,7 @@ function readJsonFromStorage(key) {
 }
 
 function getBlockShapeDesc(longId) {
-  const value = window.mcGetBlockShapeDesc(longId);
-  return value ?? null;
+  return window.mcGetBlockShapeDesc(longId);
 }
 
 function getTorchShapeBoxByState(state) {
@@ -82,15 +80,6 @@ function createProgram(gl, vertexSource, fragmentSource) {
   return program;
 }
 
-function getBlockIdAt(chunkDatas, size, wx, wy, wz) {
-  const value = window.mcGetBlockId(chunkDatas, size, wx, wy, wz);
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    throw new Error("mcGetBlockId returned invalid value");
-  }
-  return num;
-}
-
 function getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, fallbackId) {
   const value = window.mcGetBlockId(chunkDatas, size, wx, wy, wz);
   const num = Number(value);
@@ -106,51 +95,26 @@ function setBlockIdAt(chunkDatas, size, wx, wy, wz, id) {
 }
 
 function buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY) {
-  const fn = window.mcBuildWorldLight;
-  if (typeof fn !== "function") {
-    return null;
-  }
-  const minY = Number.isFinite(worldMinY) ? worldMinY : 0;
-  const maxY = Number.isFinite(worldMaxY) ? worldMaxY : 0;
-  const entries = fn(chunkDatas, size, keys, minY, maxY);
-  if (!Array.isArray(entries)) {
-    console.warn("mcBuildWorldLight returned non-array");
-    return null;
-  }
+  const entries = window.mcBuildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY);
+  if (!Array.isArray(entries)) throw new Error("mcBuildWorldLight returned non-array");
   return entries;
 }
 
 function buildChunkColorsSplit(registry, data, light, size) {
-  const fn = window.mcBuildChunkColorsSplit;
-  if (typeof fn !== "function") {
-    return null;
-  }
-  const value = fn(registry, data, light, size);
+  const value = window.mcBuildChunkColorsSplit(registry, data, light, size);
   if (!value ||
     !Array.isArray(value.normal) ||
     !Array.isArray(value.leaf) ||
     !Array.isArray(value.water) ||
     !Array.isArray(value.translucent)) {
-    console.warn("mcBuildChunkColorsSplit returned invalid data");
-    return null;
+    throw new Error("mcBuildChunkColorsSplit returned invalid data");
   }
   return value;
 }
 
 function normalizeWaterTintSample(value) {
-  if (!Array.isArray(value) || value.length < 3) {
-    return [1, 1, 1, 1];
-  }
-  const r = Number(value[0]);
-  const g = Number(value[1]);
-  const b = Number(value[2]);
-  const a = Number.isFinite(Number(value[3])) ? Number(value[3]) : 1;
-  return [
-    Number.isFinite(r) ? r : 1,
-    Number.isFinite(g) ? g : 1,
-    Number.isFinite(b) ? b : 1,
-    Number.isFinite(a) ? a : 1,
-  ];
+  if (!Array.isArray(value) || value.length < 4) return [1, 1, 1, 1];
+  return value.map((v) => { const n = Number(v); return Number.isFinite(n) ? n : 1; });
 }
 
 function toColorByte(value) {
@@ -262,18 +226,13 @@ function createTextureArray(gl, textures) {
   return tex;
 }
 
-function normalizeChunkData(data, fallback) {
-  if (!data) return fallback ?? null;
+function normalizeChunkData(data, fallback = null) {
+  if (!data) return fallback;
   if (Array.isArray(data)) return data;
-  if (data instanceof Uint32Array) return Array.from(data);
-  if (typeof data.length === "number") {
-    const out = new Array(data.length);
-    for (let i = 0; i < data.length; i += 1) {
-      out[i] = data[i];
-    }
-    return out;
+  if (data instanceof Uint32Array || typeof data.length === "number") {
+    return Array.from(data);
   }
-  return fallback ?? null;
+  return fallback;
 }
 
 function createCanvas() {
@@ -457,39 +416,16 @@ function renderTestChunk({
     return buffer;
   };
   const size = chunkSize ?? 16;
-  const rawSpawnChunkX = Number(window.mcSpawnChunkX ?? 0);
-  const rawSpawnChunkZ = Number(window.mcSpawnChunkZ ?? 0);
-  const rawSpawnLocalX = Number(window.mcSpawnLocalX ?? Math.floor(size / 2));
-  const rawSpawnLocalZ = Number(window.mcSpawnLocalZ ?? Math.floor(size / 2));
-  const rawSpawnSurfaceOffset = Number(window.mcSpawnSurfaceOffset ?? 3);
-  const rawSpawnFallbackY = Number(window.mcSpawnFallbackY ?? size);
-  const spawnChunkX = Number.isFinite(rawSpawnChunkX) ? Math.floor(rawSpawnChunkX) : 0;
-  const spawnChunkZ = Number.isFinite(rawSpawnChunkZ) ? Math.floor(rawSpawnChunkZ) : 0;
-  const spawnLocalX = Number.isFinite(rawSpawnLocalX)
-    ? Math.max(0, Math.min(size - 1, Math.floor(rawSpawnLocalX)))
-    : Math.floor(size / 2);
-  const spawnLocalZ = Number.isFinite(rawSpawnLocalZ)
-    ? Math.max(0, Math.min(size - 1, Math.floor(rawSpawnLocalZ)))
-    : Math.floor(size / 2);
-  const spawnSurfaceOffset = Number.isFinite(rawSpawnSurfaceOffset)
-    ? Math.floor(rawSpawnSurfaceOffset)
-    : 3;
-  const spawnFallbackY = Number.isFinite(rawSpawnFallbackY)
-    ? Math.floor(rawSpawnFallbackY)
-    : size;
-  const saveStorageKey = typeof window.mcSaveStorageKey === "string" &&
-    window.mcSaveStorageKey.length > 0
-    ? window.mcSaveStorageKey
-    : DEFAULT_SAVE_STORAGE_KEY;
-  const saveSchemaVersionRaw = Number(window.mcSaveSchemaVersion ?? DEFAULT_SAVE_SCHEMA_VERSION);
-  const saveSchemaVersion = Number.isFinite(saveSchemaVersionRaw)
-    ? Math.max(1, Math.floor(saveSchemaVersionRaw))
-    : DEFAULT_SAVE_SCHEMA_VERSION;
+  const spawnChunkX = toFiniteInt(window.mcSpawnChunkX, 0);
+  const spawnChunkZ = toFiniteInt(window.mcSpawnChunkZ, 0);
+  const spawnLocalX = Math.max(0, Math.min(size - 1, toFiniteInt(window.mcSpawnLocalX, Math.floor(size / 2))));
+  const spawnLocalZ = Math.max(0, Math.min(size - 1, toFiniteInt(window.mcSpawnLocalZ, Math.floor(size / 2))));
+  const spawnSurfaceOffset = toFiniteInt(window.mcSpawnSurfaceOffset, 3);
+  const spawnFallbackY = toFiniteInt(window.mcSpawnFallbackY, size);
+  const saveStorageKey = window.mcSaveStorageKey ?? DEFAULT_SAVE_STORAGE_KEY;
+  const saveSchemaVersion = Math.max(1, toFiniteInt(window.mcSaveSchemaVersion, DEFAULT_SAVE_SCHEMA_VERSION));
   const worldSeed = toFiniteInt(window.mcWorldSeed, 0);
-  const worldType = typeof window.mcWorldType === "string" &&
-    window.mcWorldType.length > 0
-    ? window.mcWorldType
-    : "Infinite";
+  const worldType = window.mcWorldType || "Infinite";
   const migrateSavePayload = (input) => {
     if (!input || typeof input !== "object") return null;
     const inputVersion = Number(input.version ?? 1);

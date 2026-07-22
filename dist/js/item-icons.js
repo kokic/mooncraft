@@ -20,14 +20,7 @@ function resolveTextureLayer(textures, name) {
   }
   const index = textures.textureIndex.get(name);
   if (!Number.isInteger(index) || index < 0 || index >= textures.images.length) {
-    const sampleNames = Array.from(textures.textureIndex.keys()).slice(0, 12);
-    console.error("[item-icons] texture not found", {
-      name,
-      hasName: textures.textureIndex.has(name),
-      textureCount: textures.images.length,
-      sampleNames,
-    });
-    throw new Error(`resolveTextureLayer: texture not found: ${name}`);
+    throw new Error(`resolveTextureLayer: texture not found: ${name} (have ${textures.images.length} textures)`);
   }
   return index;
 }
@@ -237,24 +230,16 @@ class ItemIconRenderer {
     window.mcMat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
     window.mcMat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
 
-    const longId = window.mcGetLongIdByName?.(item.name);
-    if (!Number.isFinite(longId)) {
-      throw new Error(`mcGetLongIdByName failed for ${item.name}`);
-    }
-    const registry = window.mcBlocks;
-    if (!registry) {
-      throw new Error("mcBlocks registry missing");
-    }
-    const mesh = window.mcBuildUiItemMesh?.(registry, longId);
-    if (!mesh) {
-      throw new Error("mcBuildUiItemMesh returned null");
-    }
-    const positions = Float32Array.from(mesh.positions ?? []);
-    const colors = Float32Array.from(mesh.colors ?? []);
-    const normals = Array.from(mesh.normals ?? []);
-    const uvs = Float32Array.from(mesh.uvs ?? []);
-    const layers = Float32Array.from(mesh.layers ?? []);
-    const count = Number(mesh.count) || 0;
+    const longId = window.mcGetLongIdByName(item.name);
+    if (!Number.isFinite(longId)) throw new Error(`mcGetLongIdByName failed for ${item.name}`);
+    const mesh = window.mcBuildUiItemMesh(window.mcBlocks, longId);
+    if (!mesh) throw new Error("mcBuildUiItemMesh returned null");
+    const positions = Float32Array.from(mesh.positions);
+    const colors = Float32Array.from(mesh.colors);
+    const normals = Array.from(mesh.normals);
+    const uvs = Float32Array.from(mesh.uvs);
+    const layers = Float32Array.from(mesh.layers);
+    const count = mesh.count;
     const normals4 = new Float32Array((normals.length / 3) * 4);
     for (let i = 0, j = 0; i < normals.length; i += 3, j += 4) {
       normals4[j] = normals[i];

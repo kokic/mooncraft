@@ -231,11 +231,7 @@ function createHotbarUI({
     const name = item?.name;
     if (!name || name === "air") return "";
     const lookup = window.mcGetItemDisplayName;
-    if (typeof lookup === "function") {
-      const value = lookup(name);
-      if (typeof value === "string" && value.length > 0) return value;
-    }
-    return name;
+    return typeof lookup === "function" ? lookup(name) : name;
   };
 
   const updateLabel = () => {

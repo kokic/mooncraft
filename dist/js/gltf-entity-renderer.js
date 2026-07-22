@@ -690,97 +690,35 @@ function createGltfEntityRenderer(gl) {
             console.warn("[gltf] failed to load material texture override", i, url, err);
           }
         }
-      } else if (cfg.textures && typeof cfg.textures === "object") {
-        for (const [key, url] of Object.entries(cfg.textures)) {
-          if (typeof url !== "string" || url.length === 0) continue;
-          const index = Number.parseInt(key, 10);
-          if (Number.isInteger(index) && String(index) === key) {
-            try {
-              const tex = await loadExternalTexture(url);
-              if (tex) textureOverridesByIndex.set(index, tex);
-            } catch (err) {
-              console.warn("[gltf] failed to load material texture override", index, url, err);
-            }
-            continue;
-          }
-          try {
-            const tex = await loadExternalTexture(url);
-            if (tex) textureOverridesByName.set(key, tex);
-            if (!knownMaterialNames.has(key)) {
-              console.warn("[gltf] unknown material name in textures override", key, cfg.url);
-            }
-          } catch (err) {
-            console.warn("[gltf] failed to load named material texture override", key, url, err);
-          }
-        }
       }
-      if (cfg.materialTextures && typeof cfg.materialTextures === "object") {
-        for (const [name, url] of Object.entries(cfg.materialTextures)) {
-          if (typeof url !== "string" || url.length === 0) continue;
-          try {
-            const tex = await loadExternalTexture(url);
-            if (tex) textureOverridesByName.set(name, tex);
-            if (!knownMaterialNames.has(name)) {
-              console.warn("[gltf] unknown material name in materialTextures override", name, cfg.url);
-            }
-          } catch (err) {
-            console.warn("[gltf] failed to load named material texture override", name, url, err);
-          }
-        }
-      }
-      const typedIndexOverrides = Array.isArray(cfg.texture_overrides)
-        ? cfg.texture_overrides
-        : Array.isArray(cfg.textureOverrides)
-          ? cfg.textureOverrides
-          : null;
-      if (Array.isArray(typedIndexOverrides)) {
-        for (const entry of typedIndexOverrides) {
-          const index = Number(entry?.index);
-          const url = typeof entry?.texture === "string"
-            ? entry.texture
-            : typeof entry?.path === "string"
-              ? entry.path
-              : typeof entry?.url === "string"
-                ? entry.url
-                : "";
+      if (Array.isArray(cfg.texture_overrides)) {
+        for (const entry of cfg.texture_overrides) {
+          const index = entry?.index;
           if (!Number.isInteger(index) || index < 0) continue;
-          if (url.length === 0) continue;
+          const url = entry?.texture;
+          if (typeof url !== "string" || url.length === 0) continue;
           try {
             const tex = await loadExternalTexture(url);
             if (tex) textureOverridesByIndex.set(index, tex);
           } catch (err) {
-            console.warn("[gltf] failed to load typed material-index texture override", index, url, err);
+            console.warn("[gltf] failed to load texture override", index, url, err);
           }
         }
       }
-      const typedNameOverrides = Array.isArray(cfg.material_texture_overrides)
-        ? cfg.material_texture_overrides
-        : Array.isArray(cfg.materialTextureOverrides)
-          ? cfg.materialTextureOverrides
-          : null;
-      if (Array.isArray(typedNameOverrides)) {
-        for (const entry of typedNameOverrides) {
-          const name = typeof entry?.material === "string"
-            ? entry.material
-            : typeof entry?.name === "string"
-              ? entry.name
-              : "";
-          const url = typeof entry?.texture === "string"
-            ? entry.texture
-            : typeof entry?.path === "string"
-              ? entry.path
-              : typeof entry?.url === "string"
-                ? entry.url
-                : "";
-          if (name.length === 0 || url.length === 0) continue;
+      if (Array.isArray(cfg.material_texture_overrides)) {
+        for (const entry of cfg.material_texture_overrides) {
+          const name = entry?.material;
+          const url = entry?.texture;
+          if (typeof name !== "string" || name.length === 0) continue;
+          if (typeof url !== "string" || url.length === 0) continue;
           try {
             const tex = await loadExternalTexture(url);
             if (tex) textureOverridesByName.set(name, tex);
             if (!knownMaterialNames.has(name)) {
-              console.warn("[gltf] unknown material name in typed override", name, cfg.url);
+              console.warn("[gltf] unknown material name in material_texture_overrides", name, cfg.url);
             }
           } catch (err) {
-            console.warn("[gltf] failed to load typed material-name texture override", name, url, err);
+            console.warn("[gltf] failed to load material texture override", name, url, err);
           }
         }
       }
@@ -792,7 +730,7 @@ function createGltfEntityRenderer(gl) {
         asset.materials.every((m) => !m.hasTexture)
       ) {
         console.warn(
-          "[gltf] model has no embedded texture; specify `texture`, typed overrides, `textures`, or `materialTextures` in entity config",
+          "[gltf] model has no embedded texture; specify `texture`, `texture_overrides`, or `material_texture_overrides`",
           cfg.url,
         );
         continue;
@@ -861,20 +799,8 @@ function createGltfEntityRenderer(gl) {
   };
 
   const getInstanceById = (entityId) => {
-    if (instances.length === 0) return null;
-    if (typeof entityId === "string" && entityId.length > 0) {
-      const byId = instances.find((inst) => inst.id === entityId);
-      if (byId) return byId;
-      if (/^\d+$/.test(entityId)) {
-        const index = Number.parseInt(entityId, 10);
-        if (index >= 0 && index < instances.length) return instances[index];
-      }
-      return null;
-    }
-    if (Number.isInteger(entityId) && entityId >= 0 && entityId < instances.length) {
-      return instances[entityId];
-    }
-    return null;
+    if (typeof entityId === "string") return instances.find((inst) => inst.id === entityId) ?? null;
+    return instances[entityId] ?? null;
   };
 
   const updateInstanceModel = (inst) => {

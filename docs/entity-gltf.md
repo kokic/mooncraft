@@ -34,60 +34,54 @@ window.mcGltfEntities = [
 ];
 ```
 
-Optional manifest path override:
-
-```js
-window.mcGltfEntityManifestUrl = "./assets/models/my-entities.json";
-```
-
 Runtime API (available after renderer init):
 
 ```js
 // by entity id from config, or numeric index
-await window.mcGltfEntityApi.setAnimation("zombie_0", "animation.zombie.walk");
-await window.mcGltfEntityApi.setTexture("zombie_0", "./assets/images/entity/zombie.png");
-await window.mcGltfEntityApi.setYaw("zombie_0", Math.PI * 0.5);
-await window.mcGltfEntityApi.setScale("zombie_0", 1.0, 1.0, 1.0);
-await window.mcGltfEntityApi.lookAtXz("zombie_0", 12, 8); // yaw only
-await window.mcGltfEntityApi.lookAtXyz("zombie_0", 12, 70, 8); // yaw + pitch
+window.mcGltfEntityApi.setAnimation("zombie_0", "animation.zombie.walk");
+window.mcGltfEntityApi.setTexture("zombie_0", "./assets/images/entity/zombie.png");
+window.mcGltfEntityApi.setYaw("zombie_0", Math.PI * 0.5);
+window.mcGltfEntityApi.setScale("zombie_0", 1.0, 1.0, 1.0);
+window.mcGltfEntityApi.lookAtXz("zombie_0", 12, 8); // yaw only
+window.mcGltfEntityApi.lookAtXyz("zombie_0", 12, 70, 8); // yaw + pitch
 
 // disable animation
-await window.mcGltfEntityApi.setAnimation("zombie_0", "none");
+window.mcGltfEntityApi.setAnimation("zombie_0", "none");
 ```
 
 MoonBit-side unified entity API:
 
 - config publishing:
-  - `@entity.entity_config(...)`
-  - `@entity.publish_entities(entities)`
-  - `@entity.clear_entities()`
+  - `@render.entity_config(...)`
+  - `@render.publish_entities(entities)`
+  - `@render.clear_entities()`
 - runtime controls:
-  - `@entity.set_animation(id, clip)`
-  - `@entity.set_texture(id, path)`
-  - `@entity.set_rotation_quat(id, x, y, z, w)`
-  - `@entity.set_yaw(id, yaw)`
-  - `@entity.set_scale(id, x, y, z)`
-  - `@entity.look_at_xz(id, x, z)`
-  - `@entity.look_at_xyz(id, x, y, z)`
-  - `@entity.start_animation_cycle(id, clips, interval_ms=...)`
-  - `@entity.stop_animation_cycle()`
+  - `@render.set_animation(id, clip)`
+  - `@render.set_texture(id, path)`
+  - `@render.set_rotation_quat(id, x, y, z, w)`
+  - `@render.set_yaw(id, yaw)`
+  - `@render.set_scale(id, x, y, z)`
+  - `@render.look_at_xz(id, x, z)`
+  - `@render.look_at_xyz(id, x, y, z)`
+  - `@render.start_animation_cycle(id, clips, interval_ms=...)`
+  - `@render.stop_animation_cycle()`
 - demo entrypoint:
   - `@mob.install_default_demo(world)` (details centralized in `mob/`)
 - strong typed override fields:
-  - `texture_overrides : Array[@entity.TextureIndexOverride]`
-  - `material_texture_overrides : Array[@entity.MaterialTextureOverride]`
+  - `texture_overrides : Array[@render.TextureIndexOverride]`
+  - `material_texture_overrides : Array[@render.MaterialTextureOverride]`
 - override helper constructors:
-  - `@entity.texture_index_override(index, texture)`
-  - `@entity.material_texture_override(material, texture)`
+  - `@render.texture_index_override(index, texture)`
+  - `@render.material_texture_override(material, texture)`
 
 MoonBit typed override example:
 
 ```mbt
-let cfg = @entity.entity_config(
+let cfg = @render.entity_config(
   "zombie_skin_a",
   "./assets/models/zombie.gltf",
-  texture_overrides=[@entity.texture_index_override(0, "./assets/images/entity/zombie.png")],
-  material_texture_overrides=[@entity.material_texture_override("Body", "./assets/images/entity/zombie.png")],
+  texture_overrides=[@render.texture_index_override(0, "./assets/images/entity/zombie.png")],
+  material_texture_overrides=[@render.material_texture_override("Body", "./assets/images/entity/zombie.png")],
   position=[0.0, 68.0, 0.0],
   animation="animation.zombie.walk",
 )
@@ -96,11 +90,20 @@ let cfg = @entity.entity_config(
 Observable demo (with animation):
 
 ```mbt
-// single demo entrypoint (installs zombie + rabbit demo entities)
+// single demo entrypoint (installs the current zombie demo entities)
 @mob.install_default_demo(world)
 ```
 
 Current implementation is aimed at Blockbench-exported glTF:
+
+- MoonBit owns entity instances, animation state, draw scheduling, glTF parsing,
+  accessor decoding, shader/program creation, and GPU primitive construction;
+  JS only supplies browser resource loading and the WebGL context
+- the primitive FFI accepts ordinary `Float32Array` values; missing normals,
+  UVs, or indices cross the boundary as an empty array, never as a MoonBit
+  `Option` representation
+- new worlds use the MoonBit-owned player spawn yaw and pitch, aimed toward the
+  demo entity area; loaded worlds restore their saved camera orientation
 
 - static mesh nodes
 - node TRS animation channels (`translation` / `rotation` / `scale`)

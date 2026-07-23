@@ -14,23 +14,3 @@ pub fn dispose_gltf_primitives(
     }
   }
 }
-
-///|
-pub fn dispose_gltf_meshes(
-  gl : WebGLRenderingContext,
-  meshes : Array[GltfMeshInstance],
-) -> Unit {
-  for mesh in meshes {
-    dispose_gltf_primitives(gl, mesh.primitives)
-  }
-}
-
-///|
-pub fn dispose_gltf_textures(
-  gl : WebGLRenderingContext,
-  textures : Array[WebGLTexture],
-) -> Unit {
-  for tex in textures {
-    gl.delete_texture(tex)
-  }
-}

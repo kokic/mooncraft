@@ -1,5 +1,7 @@
 ///|
-pub extern "js" fn create_white_texture(gl : WebGLRenderingContext) -> WebGLTexture =
+pub extern "js" fn create_white_texture(
+  gl : WebGLRenderingContext,
+) -> WebGLTexture =
   #| (gl) => {
   #|   const tex = gl.createTexture();
   #|   gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -38,9 +40,4 @@ pub fn create_texture_from_image(
 ///|
 fn is_mip_filter(filter : Int) -> Bool {
   filter == 9984 || filter == 9985 || filter == 9986 || filter == 9987
-}
-
-///|
-pub fn delete_gltf_texture(gl : WebGLRenderingContext, tex : WebGLTexture) -> Unit {
-  gl.delete_texture(tex)
 }

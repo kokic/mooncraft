@@ -4,12 +4,6 @@ import {
 import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { unpackLongId } from "./block-registry.js";
-import {
-  DEFAULT_MANIFEST_URL as DEFAULT_GLTF_ENTITY_MANIFEST_URL,
-  createGltfEntityRenderer,
-  loadEntityConfigs,
-} from "./gltf-entity-renderer.js";
-
 const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
@@ -1240,48 +1234,37 @@ function renderTestChunk({
     };
 
   const textureArray = createTextureArray(gl, textures);
-  const gltfEntityRenderer = createGltfEntityRenderer(gl);
-  const gltfManifestUrl = typeof window.mcGltfEntityManifestUrl === "string" &&
-    window.mcGltfEntityManifestUrl.length > 0
-    ? window.mcGltfEntityManifestUrl
-    : DEFAULT_GLTF_ENTITY_MANIFEST_URL;
-  const gltfEntitiesReady = loadEntityConfigs({
-    direct: window.mcGltfEntities,
-    manifestUrl: gltfManifestUrl,
-  })
-    .then((configs) => gltfEntityRenderer.loadFromConfigs(configs))
-    .catch((err) => {
-      console.warn("[gltf] entity config load failed", err);
-      return gltfEntityRenderer.loadFromConfigs([]);
-    });
+  const gltfEntityRenderer = window.mcCreateGltfRenderer(
+    gl,
+    Array.isArray(window.mcGltfEntities) ? window.mcGltfEntities : [],
+  );
   window.mcGltfEntityApi = {
     setAnimation(entityId, clip) {
-      return gltfEntitiesReady.then(() => gltfEntityRenderer.setAnimation(entityId, clip));
+      return window.mcGltfSetAnimation(gltfEntityRenderer, entityId, clip);
     },
     setTexture(entityId, path) {
-      return gltfEntitiesReady.then(() => gltfEntityRenderer.setTexture(entityId, path));
+      return window.mcGltfSetTexture(gltfEntityRenderer, entityId, path);
     },
     setRotationQuat(entityId, x, y, z, w) {
-      return gltfEntitiesReady.then(() =>
-        gltfEntityRenderer.setRotationQuat(entityId, x, y, z, w));
+      return window.mcGltfSetRotation(gltfEntityRenderer, entityId, x, y, z, w);
     },
     setYaw(entityId, yaw) {
-      return gltfEntitiesReady.then(() => gltfEntityRenderer.setYaw(entityId, yaw));
+      return window.mcGltfSetYaw(gltfEntityRenderer, entityId, yaw);
     },
     setScale(entityId, x, y, z) {
-      return gltfEntitiesReady.then(() => gltfEntityRenderer.setScale(entityId, x, y, z));
+      return window.mcGltfSetScale(gltfEntityRenderer, entityId, x, y, z);
     },
     lookAtXz(entityId, x, z) {
-      return gltfEntitiesReady.then(() => gltfEntityRenderer.lookAtXz(entityId, x, z));
+      return window.mcGltfLookAtXz(gltfEntityRenderer, entityId, x, z);
     },
     lookAtXyz(entityId, x, y, z) {
-      return gltfEntitiesReady.then(() => gltfEntityRenderer.lookAtXyz(entityId, x, y, z));
+      return window.mcGltfLookAtXyz(gltfEntityRenderer, entityId, x, y, z);
     },
     getEntityIds() {
-      return gltfEntityRenderer.getEntityIds();
+      return window.mcGltfEntityIds(gltfEntityRenderer);
     },
     getInstanceCount() {
-      return gltfEntityRenderer.getInstanceCount();
+      return window.mcGltfEntityCount(gltfEntityRenderer);
     },
   };
   const rawWaterLayer = textures?.textureIndex?.get("water_still");
@@ -1518,6 +1501,8 @@ function renderTestChunk({
     canvas,
     worldMinY,
     spawnPosition: spawn.position,
+    spawnYaw: window.mcSpawnYaw,
+    spawnPitch: window.mcSpawnPitch,
     gameMode: normalizeGameMode(window.mcGameMode),
     chunkMap: chunkDatas,
     chunkSize: size,
@@ -2325,7 +2310,7 @@ function renderTestChunk({
     if (!runtimeState.inventoryOpen) {
       player.update(delta);
     }
-    gltfEntityRenderer.update(delta);
+    window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
     rebuildMeshIfNeeded();
 
     const eyeHeight = 1.65;
@@ -2512,14 +2497,15 @@ function renderTestChunk({
       gl.disable(gl.BLEND);
     }
 
-    gltfEntityRenderer.render({
+    window.mcRenderGltfRenderer(
+      gltfEntityRenderer,
       viewMatrix,
-      viewProjMatrix: mvpMatrix,
-      cameraPosition: camera.position,
-      fogColor: activeFogColor,
+      mvpMatrix,
+      camera.position,
+      activeFogColor,
       fogNear,
       fogFar,
-    });
+    );
 
     if (outlineBlock) {
       gl.useProgram(outlineProgram);

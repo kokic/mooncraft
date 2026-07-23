@@ -23,6 +23,14 @@ pub const SPAWN_SURFACE_OFFSET : Int = 3
 pub const SPAWN_FALLBACK_Y : Int = @level.CHUNK_Y_SIZE
 
 ///|
+/// Initial horizontal view angle, aimed toward the demo entity area.
+pub const SPAWN_YAW : Double = 0.7853981633974483
+
+///|
+/// Initial vertical view angle, aimed near entity torso height.
+pub const SPAWN_PITCH : Double = -0.12
+
+///|
 pub fn compute_spawn_position(
   chunk_map : @ffi.JsValue,
   size : Int,

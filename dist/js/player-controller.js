@@ -4,6 +4,8 @@ function createPlayerController({
   canvas,
   worldMinY,
   spawnPosition,
+  spawnYaw,
+  spawnPitch,
   speed = 8,
   sensitivity = 0.0014,
   gameMode,
@@ -12,10 +14,13 @@ function createPlayerController({
   entityHeight = 1.8,
   entityRadius = 0.3,
 }) {
+  if (!Number.isFinite(spawnYaw) || !Number.isFinite(spawnPitch)) {
+    throw new Error("player spawn yaw and pitch must be finite numbers");
+  }
   const state = {
     position: [...spawnPosition],
-    yaw: -Math.PI * 0.75,
-    pitch: -0.35,
+    yaw: spawnYaw,
+    pitch: spawnPitch,
     speed,
     gameMode,
     entityHeight,

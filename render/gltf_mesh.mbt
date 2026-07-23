@@ -3,42 +3,63 @@ pub fn build_gltf_primitive(
   gl : WebGLRenderingContext,
   info : GltfProgramInfo,
   pos : Float32Array,
-  normal : Float32Array?,
-  uv0 : Float32Array?,
-  indices_data : Float32Array?,
+  normal : Float32Array,
+  uv0 : Float32Array,
+  indices_data : Float32Array,
   material_index : Int,
 ) -> GltfPrimitiveInstance {
   let vertex_count = pos.length() / 3
   // Build normals.
-  let normals = match normal {
-    Some(n) if n.length() == vertex_count * 3 => n
-    _ => {
-      let out = Float32Array::new(vertex_count * 3)
-      let out_vals = out.values()
-      for i in 0..<vertex_count { out_vals[i * 3 + 1] = 1.0 }
-      out
+  let normals = if normal.length() == vertex_count * 3 {
+    normal
+  } else {
+    let out = Float32Array::new(vertex_count * 3)
+    let out_vals = out.values()
+    for i in 0..<vertex_count {
+      out_vals[i * 3 + 1] = 1.0
     }
+    out
   }
   // Build UVs.
-  let uvs = match uv0 {
-    Some(u) if u.length() == vertex_count * 2 => u
-    _ => Float32Array::new(vertex_count * 2)
+  let uvs = if uv0.length() == vertex_count * 2 {
+    uv0
+  } else {
+    Float32Array::new(vertex_count * 2)
   }
   let vao = gl.create_vertex_array()
   gl.bind_vertex_array(vao)
   let pos_buf = upload_f32_attrib(gl, info.a_position, pos, 3)
   let n_buf = upload_f32_attrib(gl, info.a_normal, normals, 3)
   let uv_buf = upload_f32_attrib(gl, info.a_uv, uvs, 2)
-  let (index_buf, index_type, count) = match indices_data {
-    Some(idx) => {
-      let buf = gl.create_buffer()
-      gl.bind_buffer(GL_ELEMENT_ARRAY_BUFFER, buf)
-      let needs_32 = has_index_32(idx)
-      if needs_32 { gl.buffer_data_u32(GL_ELEMENT_ARRAY_BUFFER, as_uint32(idx), GL_STATIC_DRAW) }
-      else { gl.buffer_data_u16(GL_ELEMENT_ARRAY_BUFFER, as_uint16(idx), GL_STATIC_DRAW) }
-      (Some(buf), if needs_32 { GL_UNSIGNED_INT } else { GL_UNSIGNED_SHORT }, idx.length())
+  let (index_buf, index_type, count) = if indices_data.length() > 0 {
+    let idx = indices_data
+    let buf = gl.create_buffer()
+    gl.bind_buffer(GL_ELEMENT_ARRAY_BUFFER, buf)
+    let needs_32 = has_index_32(idx)
+    if needs_32 {
+      gl.buffer_data_u32(
+        GL_ELEMENT_ARRAY_BUFFER,
+        as_uint32(idx),
+        GL_STATIC_DRAW,
+      )
+    } else {
+      gl.buffer_data_u16(
+        GL_ELEMENT_ARRAY_BUFFER,
+        as_uint16(idx),
+        GL_STATIC_DRAW,
+      )
     }
-    None => (None, 0, vertex_count)
+    (
+      Some(buf),
+      if needs_32 {
+        GL_UNSIGNED_INT
+      } else {
+        GL_UNSIGNED_SHORT
+      },
+      idx.length(),
+    )
+  } else {
+    (None, 0, vertex_count)
   }
   gl.unbind_vertex_array()
 
@@ -55,7 +76,10 @@ pub fn build_gltf_primitive(
   let vc = if vertex_count > 0 { vertex_count } else { 1 }
   let inv_n = 1.0F / Float::from_int(vc)
   {
-    vao, pos_buf, n_buf, uv_buf,
+    vao,
+    pos_buf,
+    n_buf,
+    uv_buf,
     index_buf,
     index_type,
     count,
@@ -87,7 +111,9 @@ fn has_index_32(data : Float32Array) -> Bool {
   let len = data.length()
   let mut i = 0
   while i < len {
-    if vals[i] > 65535.0 { return true }
+    if vals[i] > 65535.0 {
+      return true
+    }
     i += 1
   }
   false
@@ -102,31 +128,24 @@ fn as_uint16(data : Float32Array) -> Uint16Array {
 }
 
 ///|
-extern "js" fn js_copy_f32_to_u16(src : Float32Array, dst : Uint16Array, len : Int) -> Unit =
+extern "js" fn js_copy_f32_to_u16(
+  src : Float32Array,
+  dst : Uint16Array,
+  len : Int,
+) -> Unit =
   #| (src, dst, len) => {
   #|   for (let i = 0; i < len; i++) dst[i] = src[i]
   #| }
 
 ///|
-extern "js" fn js_copy_f32_to_u32(src : Float32Array, dst : Uint32Array, len : Int) -> Unit =
+extern "js" fn js_copy_f32_to_u32(
+  src : Float32Array,
+  dst : Uint32Array,
+  len : Int,
+) -> Unit =
   #| (src, dst, len) => {
   #|   for (let i = 0; i < len; i++) dst[i] = src[i]
   #| }
-
-///|
-///|
-pub fn build_gltf_mesh_instance(
-  gl : WebGLRenderingContext,
-  info : GltfProgramInfo,
-  pos : Float32Array,
-  normals : Float32Array?,
-  uvs : Float32Array?,
-  indices : Float32Array?,
-  material_index : Int,
-) -> GltfMeshInstance {
-  let prim = build_gltf_primitive(gl, info, pos, normals, uvs, indices, material_index)
-  GltfMeshInstance::{ primitives: [prim] }
-}
 
 ///|
 fn as_uint32(data : Float32Array) -> Uint32Array {

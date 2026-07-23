@@ -1,81 +1,128 @@
 ///|
-fn sample_keyframe(times : Float32Array, t : Float) -> Int {
+fn animation_keyframe(times : Float32Array, time : Float) -> Int {
   let count = times.length()
-  if count <= 1 { return 0 }
-  let times_vals = times.values()
-  if t <= Float::from_double(times_vals[0]) { return 0 }
+  guard count > 1 else { 0 }
+  let values = times.values()
+  guard time > Float::from_double(values[0]) else { 0 }
   let last = count - 1
-  if t >= Float::from_double(times_vals[last]) { return last - 1 }
-  let mut lo = 0
-  let mut hi = last
-  while lo + 1 < hi {
-    let mid = (lo + hi) >> 1
-    if Float::from_double(times_vals[mid]) <= t { lo = mid } else { hi = mid }
+  guard time < Float::from_double(values[last]) else { last - 1 }
+  for low = 0, high = last; low + 1 < high; {
+    let middle = (low + high) >> 1
+    if Float::from_double(values[middle]) <= time {
+      continue middle, high
+    } else {
+      continue low, middle
+    }
+  } nobreak {
+    low
   }
-  lo
 }
 
 ///|
-fn slerp_result(a : Array[Double], b : Array[Double], frac : Float) -> Array[Double] {
-  let out = [0.0, 0.0, 0.0, 1.0]
-  ignore(@math3d.quat_slerp(out, a, b, frac.to_double()))
-  out
-}
-
-///|
-pub fn sample_animation_channel(
-  input : Float32Array,
-  output : Float32Array,
-  path : String,
-  interpolation : String,
+fn sample_animation_channel(
+  channel : GltfAnimationChannel,
   time : Float,
-) -> Float32Array {
-  let comps = if path == "rotation" { 4 } else { 3 }
-  let k = sample_keyframe(input, time)
-  let input_vals = input.values()
-  let t0 = Float::from_double(input_vals[k])
-  let next = if k + 1 < input.length() { k + 1 } else { k }
-  let t1 = Float::from_double(input_vals[next])
-  let f = if t1 > t0 { (time - t0) / (t1 - t0) } else { 0.0F }
-  let frac = if interpolation == "STEP" { 0.0F } else { f }
-  let out = Float32Array::new(comps)
-  let out_vals = out.values()
-  let output_vals = output.values()
-  if path == "rotation" {
-    let i0 = k * 4
-    let i1 = next * 4
-    let qa = [output_vals[i0], output_vals[i0 + 1], output_vals[i0 + 2], output_vals[i0 + 3]]
-    let qb = [output_vals[i1], output_vals[i1 + 1], output_vals[i1 + 2], output_vals[i1 + 3]]
-    let result = slerp_result(qa, qb, frac)
-    for i in 0..<4 { out_vals[i] = result[i] }
+  translation : Array[Double],
+  rotation : Array[Double],
+  scale : Array[Double],
+) -> Unit {
+  let key = animation_keyframe(channel.input, time)
+  let next = if key + 1 < channel.input.length() { key + 1 } else { key }
+  let times = channel.input.values()
+  let t0 = Float::from_double(times[key])
+  let t1 = Float::from_double(times[next])
+  let fraction = if channel.interpolation == "STEP" || t1 <= t0 {
+    0.0
   } else {
-    let mul = 3
-    let i0 = k * mul
-    let i1 = next * mul
-    for c in 0..<comps {
-      let v0 = Float::from_double(output_vals[i0 + c])
-      let v1 = Float::from_double(output_vals[i1 + c])
-      out_vals[c] = (v0 + (v1 - v0) * frac).to_double()
-    }
+    ((time - t0) / (t1 - t0)).to_double()
   }
-  out
+  let values = channel.output.values()
+  if channel.path == "rotation" {
+    let first = key * 4
+    let second = next * 4
+    ignore(@math3d.quat_slerp(
+      rotation,
+      [values[first], values[first + 1], values[first + 2], values[first + 3]],
+      [values[second], values[second + 1], values[second + 2], values[second + 3]],
+      fraction,
+    ))
+    return
+  }
+  let destination = if channel.path == "translation" { translation } else { scale }
+  let first = key * 3
+  let second = next * 3
+  for component in 0..<3 {
+    let start = values[first + component]
+    destination[component] = start + (values[second + component] - start) * fraction
+  }
 }
 
 ///|
-pub fn compute_node_world(
-  parent_world : Float32Array?,
-  local_t : Array[Double],
-  local_r : Array[Double],
-  local_s : Array[Double],
-) -> Float32Array {
-  let local_mat = mat4_create()
-  ignore(mat4_from_trs(local_mat, local_t, local_r, local_s))
-  match parent_world {
-    Some(parent) => {
-      let out = mat4_create()
-      ignore(mat4_mul(out, parent, local_mat))
-      out
+fn GltfInstance::update_node_world(
+  self : GltfInstance,
+  node_index : Int,
+  parent : Float32Array?,
+) -> Unit {
+  let world = self.node_world[node_index]
+  match parent {
+    Some(parent_world) => ignore(mat4_mul(world, parent_world, self.node_local[node_index]))
+    None => ignore(mat4_copy(world, self.node_local[node_index]))
+  }
+  for child in self.asset.nodes[node_index].children {
+    guard child >= 0 && child < self.asset.nodes.length() else { continue }
+    self.update_node_world(child, Some(world))
+  }
+}
+
+///|
+fn GltfInstance::update(self : GltfInstance, delta_seconds : Double) -> Unit {
+  let nodes = self.asset.nodes
+  let translations = nodes.map(node => node.translation.copy())
+  let rotations = nodes.map(node => node.rotation.copy())
+  let scales = nodes.map(node => node.scale.copy())
+  if self.animation_index >= 0 &&
+    self.asset.animations.get(self.animation_index) is Some(animation) {
+    self.animation_time += Float::from_double(delta_seconds) * self.animation_speed
+    if animation.duration > 0.0F {
+      if self.animation_looped {
+        self.animation_time = self.animation_time % animation.duration
+        if self.animation_time < 0.0F {
+          self.animation_time += animation.duration
+        }
+      } else {
+        self.animation_time = self.animation_time.clamp(
+          min=0.0F,
+          max=animation.duration,
+        )
+      }
+    } else {
+      self.animation_time = 0.0F
     }
-    None => local_mat
+    for channel in animation.channels {
+      guard channel.node >= 0 && channel.node < nodes.length() else { continue }
+      guard nodes[channel.node].matrix is None else { continue }
+      sample_animation_channel(
+        channel,
+        self.animation_time,
+        translations[channel.node],
+        rotations[channel.node],
+        scales[channel.node],
+      )
+    }
+  }
+  for index, node in nodes {
+    match node.matrix {
+      Some(matrix) => ignore(mat4_copy(self.node_local[index], matrix))
+      None => ignore(mat4_from_trs(
+        self.node_local[index],
+        translations[index],
+        rotations[index],
+        scales[index],
+      ))
+    }
+  }
+  for root in self.asset.roots {
+    guard root >= 0 && root < nodes.length() else { continue }
+    self.update_node_world(root, None)
   }
 }

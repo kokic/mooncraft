@@ -31,9 +31,15 @@ fn GltfRenderer::load_texture(
         absolute_url,
         image => {
           let texture = create_texture_from_image(
-            self.gl, image, 9728, 9728, 33071, 33071,
+            self.gl,
+            image,
+            9728,
+            9728,
+            33071,
+            33071,
           )
-          guard self.textures.get(absolute_url) is Some(LoadingTexture(callbacks)) else {
+          guard self.textures.get(absolute_url)
+            is Some(LoadingTexture(callbacks)) else {
             ()
           }
           self.textures[absolute_url] = ReadyTexture(texture)
@@ -50,11 +56,19 @@ fn GltfRenderer::load_texture(
 
 ///|
 fn GltfAsset::animation_index(self : GltfAsset, name : String) -> Int {
-  if name == "none" { return -1 }
-  for index, animation in self.animations {
-    if animation.name == name { return index }
+  if name == "none" {
+    return -1
   }
-  if self.animations.length() > 0 { 0 } else { -1 }
+  for index, animation in self.animations {
+    if animation.name == name {
+      return index
+    }
+  }
+  if self.animations.length() > 0 {
+    0
+  } else {
+    -1
+  }
 }
 
 ///|
@@ -89,19 +103,19 @@ fn GltfRenderer::create_instance(
   self.instances.push(instance)
   instance.update(0.0)
   if config.texture.length() > 0 {
-    self.load_texture(config.texture, texture => instance.default_texture = Some(texture))
+    self.load_texture(config.texture, texture => {
+      instance.default_texture = Some(texture)
+    })
   }
   for texture_override in config.texture_overrides {
-    self.load_texture(
-      texture_override.texture,
-      texture => instance.texture_by_index[texture_override.index] = texture,
-    )
+    self.load_texture(texture_override.texture, texture => {
+      instance.texture_by_index[texture_override.index] = texture
+    })
   }
   for material_override in config.material_texture_overrides {
-    self.load_texture(
-      material_override.texture,
-      texture => instance.texture_by_name[material_override.material] = texture,
-    )
+    self.load_texture(material_override.texture, texture => {
+      instance.texture_by_name[material_override.material] = texture
+    })
   }
 }
 
@@ -119,16 +133,18 @@ pub fn create_gltf_renderer(
     instances: [],
   }
   for config in configs {
-    renderer.load_asset(
-      config.url,
-      asset => renderer.create_instance(config, asset),
-    )
+    renderer.load_asset(config.url, asset => {
+      renderer.create_instance(config, asset)
+    })
   }
   renderer
 }
 
 ///|
-pub fn update_gltf_renderer(renderer : GltfRenderer, delta_seconds : Double) -> Unit {
+pub fn update_gltf_renderer(
+  renderer : GltfRenderer,
+  delta_seconds : Double,
+) -> Unit {
   renderer.instances.each(instance => instance.update(delta_seconds))
 }
 
@@ -137,15 +153,17 @@ fn GltfInstance::material_for(
   self : GltfInstance,
   primitive : GltfPrimitiveInstance,
 ) -> (GltfMaterial, WebGLTexture, Bool) {
-  let material = self.asset.materials.get(primitive.material_index).unwrap_or(
-    self.asset.materials[0],
-  )
-  let texture_override = match self.texture_by_index.get(primitive.material_index) {
+  let material = self.asset.materials
+    .get(primitive.material_index)
+    .unwrap_or(self.asset.materials[0])
+  let texture_override = match
+    self.texture_by_index.get(primitive.material_index) {
     Some(texture) => Some(texture)
-    None => match material.name {
-      Some(name) => self.texture_by_name.get(name)
-      None => None
-    }
+    None =>
+      match material.name {
+        Some(name) => self.texture_by_name.get(name)
+        None => None
+      }
   }
   let selected_texture = match texture_override {
     Some(texture) => Some(texture)
@@ -163,7 +181,7 @@ fn sort_gltf_blend_entries(entries : Array[GltfDrawEntry]) -> Unit {
     let entry = entries[index]
     let mut destination = index
     while destination > 0 &&
-      entry.distance_squared > entries[destination - 1].distance_squared {
+          entry.distance_squared > entries[destination - 1].distance_squared {
       entries[destination] = entries[destination - 1]
       destination -= 1
     }
@@ -187,15 +205,13 @@ fn GltfRenderer::collect_draw_entries(
       ignore(mat4_mul(model, instance.model, instance.node_world[node_index]))
       for primitive in mesh.primitives {
         let (material, texture, has_texture) = instance.material_for(primitive)
-        ignore(transform_point(
-          world_center,
-          model,
-          [
+        ignore(
+          transform_point(world_center, model, [
             primitive.center_x.to_double(),
             primitive.center_y.to_double(),
             primitive.center_z.to_double(),
-          ],
-        ))
+          ]),
+        )
         let dx = Float::from_double(world_center[0] - camera_position[0])
         let dy = Float::from_double(world_center[1] - camera_position[1])
         let dz = Float::from_double(world_center[2] - camera_position[2])
@@ -252,14 +268,22 @@ fn draw_gltf_entries(
     )
     gl.uniform_1i(program.u_alpha_mask, if entry.alpha_mask { 1 } else { 0 })
     gl.uniform_1f(program.u_alpha_cutoff, entry.alpha_cutoff)
-    if entry.double_sided { gl.disable(GL_CULL_FACE) } else { gl.enable(GL_CULL_FACE) }
+    if entry.double_sided {
+      gl.disable(GL_CULL_FACE)
+    } else {
+      gl.enable(GL_CULL_FACE)
+    }
     gl.active_texture(33984)
     gl.bind_texture_2d(entry.texture)
     gl.bind_vertex_array(entry.primitive.vao)
     match entry.primitive.index_buf {
-      Some(_) => gl.draw_elements(
-        GL_TRIANGLES, entry.primitive.count, entry.primitive.index_type, 0,
-      )
+      Some(_) =>
+        gl.draw_elements(
+          GL_TRIANGLES,
+          entry.primitive.count,
+          entry.primitive.index_type,
+          0,
+        )
       None => gl.draw_arrays(GL_TRIANGLES, 0, entry.primitive.count)
     }
   }
@@ -305,9 +329,14 @@ pub fn render_gltf_renderer(
 }
 
 ///|
-fn GltfRenderer::find_instance(self : GltfRenderer, id : String) -> GltfInstance? {
+fn GltfRenderer::find_instance(
+  self : GltfRenderer,
+  id : String,
+) -> GltfInstance? {
   for instance in self.instances {
-    if instance.id == id { return Some(instance) }
+    if instance.id == id {
+      return Some(instance)
+    }
   }
   None
 }
@@ -315,9 +344,14 @@ fn GltfRenderer::find_instance(self : GltfRenderer, id : String) -> GltfInstance
 ///|
 fn GltfInstance::refresh_model(self : GltfInstance) -> Unit {
   ignore(@math3d.quat_normalize(self.model_rotation, self.model_rotation))
-  ignore(mat4_from_trs(
-    self.model, self.model_position, self.model_rotation, self.model_scale,
-  ))
+  ignore(
+    mat4_from_trs(
+      self.model,
+      self.model_position,
+      self.model_rotation,
+      self.model_scale,
+    ),
+  )
 }
 
 ///|
@@ -333,7 +367,11 @@ pub fn gltf_set_animation(
 }
 
 ///|
-pub fn gltf_set_texture(renderer : GltfRenderer, id : String, url : String) -> Bool {
+pub fn gltf_set_texture(
+  renderer : GltfRenderer,
+  id : String,
+  url : String,
+) -> Bool {
   guard renderer.find_instance(id) is Some(instance) else { false }
   renderer.load_texture(url, texture => instance.default_texture = Some(texture))
   true
@@ -349,9 +387,13 @@ pub fn gltf_set_rotation(
   w : Double,
 ) -> Bool {
   guard renderer.find_instance(id) is Some(instance) else { false }
-  ignore(@math3d.quat_apply_yaw_offset(
-    instance.model_rotation, [x, y, z, w], @math.PI,
-  ))
+  ignore(
+    @math3d.quat_apply_yaw_offset(
+      instance.model_rotation,
+      [x, y, z, w],
+      @math.PI,
+    ),
+  )
   instance.refresh_model()
   true
 }
@@ -359,9 +401,13 @@ pub fn gltf_set_rotation(
 ///|
 pub fn gltf_set_yaw(renderer : GltfRenderer, id : String, yaw : Double) -> Bool {
   guard renderer.find_instance(id) is Some(instance) else { false }
-  ignore(@math3d.quat_apply_yaw_offset(
-    instance.model_rotation, [0.0, 0.0, 0.0, 1.0], yaw + @math.PI,
-  ))
+  ignore(
+    @math3d.quat_apply_yaw_offset(
+      instance.model_rotation,
+      [0.0, 0.0, 0.0, 1.0],
+      yaw + @math.PI,
+    ),
+  )
   instance.refresh_model()
   true
 }
@@ -397,14 +443,20 @@ fn gltf_look_at(
   let dy = y - instance.model_position[1]
   let dz = z - instance.model_position[2]
   let horizontal = (dx * dx + dz * dz).sqrt()
-  guard horizontal > 0.000001 || (with_pitch && dy.abs() > 0.000001) else { false }
+  guard horizontal > 0.000001 || (with_pitch && dy.abs() > 0.000001) else {
+    false
+  }
   let yaw = @math.atan2(dz, dx)
   let pitch = if with_pitch { @math.atan2(dy, horizontal) } else { 0.0 }
   let look = [0.0, 0.0, 0.0, 1.0]
   ignore(@math3d.quat_from_yaw_pitch(look, yaw, pitch))
-  ignore(@math3d.quat_mul(
-    instance.model_rotation, look, instance.base_model_rotation,
-  ))
+  ignore(
+    @math3d.quat_mul(
+      instance.model_rotation,
+      look,
+      instance.base_model_rotation,
+    ),
+  )
   instance.refresh_model()
   true
 }
@@ -438,4 +490,32 @@ pub fn gltf_entity_ids(renderer : GltfRenderer) -> Array[String] {
 ///|
 pub fn gltf_entity_count(renderer : GltfRenderer) -> Int {
   renderer.instances.length()
+}
+
+///|
+pub fn gltf_get_position(
+  renderer : GltfRenderer,
+  id : String,
+) -> Array[Double]? {
+  guard renderer.find_instance(id) is Some(instance) else { None }
+  Some(instance.model_position.copy())
+}
+
+///|
+pub fn gltf_set_position(
+  renderer : GltfRenderer,
+  id : String,
+  x : Double,
+  y : Double,
+  z : Double,
+) -> Bool {
+  for instance in renderer.instances {
+    guard instance.id == id else { continue }
+    instance.model_position[0] = x
+    instance.model_position[1] = y
+    instance.model_position[2] = z
+    instance.refresh_model()
+    return true
+  }
+  false
 }

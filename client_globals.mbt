@@ -150,6 +150,11 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGltfLookAtXyz", @render.gltf_look_at_xyz)
   set_global("mcGltfEntityIds", @render.gltf_entity_ids)
   set_global("mcGltfEntityCount", @render.gltf_entity_count)
+  set_global("mcGltfGetPosition", @render.gltf_get_position)
+  set_global("mcGltfSetPosition", @render.gltf_set_position)
+
+  set_global("mcNavigateEntityTo", @mob.navigate_entity_to)
+  set_global("mcTickEntityNavigation", @mob.tick_entity_navigation)
 }
 
 ///|

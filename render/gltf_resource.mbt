@@ -82,5 +82,6 @@ fn is_data_uri(uri : String) -> Bool {
 
 ///|
 fn is_glb_buffer(buffer : ArrayBuffer) -> Bool {
-  buffer.byte_length() >= 4 && DataView::new(buffer).get_uint32_le(0) == 0x46546c67
+  buffer.byte_length() >= 4 &&
+  DataView::new(buffer).get_uint32_le(0) == 0x46546c67
 }

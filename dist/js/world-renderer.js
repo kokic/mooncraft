@@ -2226,8 +2226,24 @@ function renderTestChunk({
     } else if (event.button === 2) {
       const slotIndex = getSelectedHotbarIndex();
       const selectedItem = runtimeState.hotbarItems[slotIndex];
-      const category = selectedItem?.category ?? null;
-      if (!selectedItem) return;
+      if (!selectedItem) {
+        console.log("[nav] empty-hand right-click, raycasting...");
+        const emptyHit = raycastBlocks(raycastCamera.position, raycastCamera.direction, 10, 0.05, false);
+        console.log("[nav] raycast result:", emptyHit);
+        if (emptyHit && typeof window.mcNavigateEntityTo === "function") {
+          console.log("[nav] calling mcNavigateEntityTo ->", emptyHit.block);
+          window.mcNavigateEntityTo(
+            "zombie_0", gltfEntityRenderer, chunkDatas, size,
+            emptyHit.block[0], emptyHit.block[1], emptyHit.block[2],
+          );
+        } else if (!emptyHit) {
+          console.log("[nav] raycast missed (no block hit)");
+        } else {
+          console.log("[nav] mcNavigateEntityTo not available, typeof =", typeof window.mcNavigateEntityTo);
+        }
+        return;
+      }
+      const category = selectedItem.category;
       if (category == null) {
         console.error("[hotbar] missing category on item", selectedItem);
         return;
@@ -2311,6 +2327,12 @@ function renderTestChunk({
       player.update(delta);
     }
     window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
+    if (typeof window.mcTickEntityNavigation === "function") {
+      if (!window.__navTickLogged) { window.__navTickLogged = true; console.log("[nav] mcTickEntityNavigation IS a function, calling each frame"); }
+      window.mcTickEntityNavigation(gltfEntityRenderer, delta);
+    } else {
+      if (!window.__navTickMissing) { window.__navTickMissing = true; console.log("[nav] mcTickEntityNavigation NOT a function, type =", typeof window.mcTickEntityNavigation); }
+    }
     rebuildMeshIfNeeded();
 
     const eyeHeight = 1.65;

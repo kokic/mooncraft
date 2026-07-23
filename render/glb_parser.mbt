@@ -1,6 +1,10 @@
 ///|
 const GLB_MAGIC = 0x46546c67
+
+///|
 const GLB_JSON_TYPE = 0x4e4f534a
+
+///|
 const GLB_BIN_TYPE = 0x004e4942
 
 ///|

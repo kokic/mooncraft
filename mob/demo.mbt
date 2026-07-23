@@ -18,9 +18,9 @@ pub fn demo_entities(world : @level.World) -> Array[@render.GltfEntityConfig] {
 ///|
 pub fn install_default_demo(world : @level.World) -> Unit {
   @render.publish_entities(demo_entities(world))
-  @render.start_animation_cycle(
-    "zombie_0",
-    zombie_demo_clips(),
-    interval_ms=@render.DEFAULT_DEMO_INTERVAL_MS,
-  )
+  // @render.start_animation_cycle(
+  //   "zombie_0",
+  //   zombie_demo_clips(),
+  //   interval_ms=@render.DEFAULT_DEMO_INTERVAL_MS,
+  // )
 }

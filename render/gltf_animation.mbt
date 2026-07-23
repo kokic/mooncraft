@@ -40,20 +40,32 @@ fn sample_animation_channel(
   if channel.path == "rotation" {
     let first = key * 4
     let second = next * 4
-    ignore(@math3d.quat_slerp(
-      rotation,
-      [values[first], values[first + 1], values[first + 2], values[first + 3]],
-      [values[second], values[second + 1], values[second + 2], values[second + 3]],
-      fraction,
-    ))
+    ignore(
+      @math3d.quat_slerp(
+        rotation,
+        [values[first], values[first + 1], values[first + 2], values[first + 3]],
+        [
+          values[second],
+          values[second + 1],
+          values[second + 2],
+          values[second + 3],
+        ],
+        fraction,
+      ),
+    )
     return
   }
-  let destination = if channel.path == "translation" { translation } else { scale }
+  let destination = if channel.path == "translation" {
+    translation
+  } else {
+    scale
+  }
   let first = key * 3
   let second = next * 3
   for component in 0..<3 {
     let start = values[first + component]
-    destination[component] = start + (values[second + component] - start) * fraction
+    destination[component] = start +
+      (values[second + component] - start) * fraction
   }
 }
 
@@ -65,7 +77,8 @@ fn GltfInstance::update_node_world(
 ) -> Unit {
   let world = self.node_world[node_index]
   match parent {
-    Some(parent_world) => ignore(mat4_mul(world, parent_world, self.node_local[node_index]))
+    Some(parent_world) =>
+      ignore(mat4_mul(world, parent_world, self.node_local[node_index]))
     None => ignore(mat4_copy(world, self.node_local[node_index]))
   }
   for child in self.asset.nodes[node_index].children {
@@ -82,7 +95,8 @@ fn GltfInstance::update(self : GltfInstance, delta_seconds : Double) -> Unit {
   let scales = nodes.map(node => node.scale.copy())
   if self.animation_index >= 0 &&
     self.asset.animations.get(self.animation_index) is Some(animation) {
-    self.animation_time += Float::from_double(delta_seconds) * self.animation_speed
+    self.animation_time += Float::from_double(delta_seconds) *
+      self.animation_speed
     if animation.duration > 0.0F {
       if self.animation_looped {
         self.animation_time = self.animation_time % animation.duration
@@ -113,12 +127,15 @@ fn GltfInstance::update(self : GltfInstance, delta_seconds : Double) -> Unit {
   for index, node in nodes {
     match node.matrix {
       Some(matrix) => ignore(mat4_copy(self.node_local[index], matrix))
-      None => ignore(mat4_from_trs(
-        self.node_local[index],
-        translations[index],
-        rotations[index],
-        scales[index],
-      ))
+      None =>
+        ignore(
+          mat4_from_trs(
+            self.node_local[index],
+            translations[index],
+            rotations[index],
+            scales[index],
+          ),
+        )
     }
   }
   for root in self.asset.roots {

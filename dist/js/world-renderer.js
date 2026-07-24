@@ -8,10 +8,9 @@ const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
 const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v2";
-const DEFAULT_SAVE_SCHEMA_VERSION = 1;
 
 function normalizeGameMode(mode) {
-  return mode === "spectator" ? "spectator" : "creative";
+  return mode === "survival" || mode === "spectator" ? mode : "creative";
 }
 
 function toFiniteInt(value, fallback = 0) {
@@ -19,15 +18,12 @@ function toFiniteInt(value, fallback = 0) {
   return Number.isFinite(num) ? Math.floor(num) : fallback;
 }
 
-function readJsonFromStorage(key) {
+function readLevelSaveText(key) {
   try {
-    const raw = globalThis.localStorage?.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
+    return globalThis.localStorage?.getItem(key) ?? "";
   } catch (err) {
     console.warn("[save] failed to read local storage payload", err);
-    return null;
+    return "";
   }
 }
 
@@ -417,177 +413,21 @@ function renderTestChunk({
   const spawnSurfaceOffset = toFiniteInt(window.mcSpawnSurfaceOffset, 3);
   const spawnFallbackY = toFiniteInt(window.mcSpawnFallbackY, size);
   const saveStorageKey = window.mcSaveStorageKey ?? DEFAULT_SAVE_STORAGE_KEY;
-  const saveSchemaVersion = Math.max(1, toFiniteInt(window.mcSaveSchemaVersion, DEFAULT_SAVE_SCHEMA_VERSION));
-  const worldSeed = toFiniteInt(window.mcWorldSeed, 0);
-  const worldType = window.mcWorldType || "Infinite";
-  const migrateSavePayload = (input) => {
-    if (!input || typeof input !== "object") return null;
-    const inputVersion = Number(input.version ?? 1);
-    const isLegacy = !Number.isFinite(inputVersion) || inputVersion < 1;
-    const rawWorld = isLegacy
-      ? (input.world ?? { seed: input.seed, worldType: input.worldType })
-      : input.world;
-    if (!rawWorld || typeof rawWorld !== "object") return null;
-    const seed = Number(rawWorld.seed);
-    if (!Number.isFinite(seed)) return null;
-    const worldTypeName = typeof rawWorld.worldType === "string"
-      ? rawWorld.worldType
-      : null;
-    if (!worldTypeName) return null;
-    const rawRuntime = isLegacy
-      ? (input.runtime ?? {
-        player: input.player,
-        hotbar: input.hotbar,
-        ui: { inventoryOpen: input.inventoryOpen },
-      })
-      : input.runtime;
-    const rawBlockDeltas = isLegacy
-      ? (input.blockDeltas ?? input.blocks ?? input.delta ?? [])
-      : (input.blockDeltas ?? []);
-    const blockDeltas = [];
-    if (Array.isArray(rawBlockDeltas)) {
-      for (const entry of rawBlockDeltas) {
-        if (!entry || typeof entry !== "object") continue;
-        const wx = Number(entry.wx);
-        const wy = Number(entry.wy);
-        const wz = Number(entry.wz);
-        const id = Number(entry.id);
-        if (!Number.isFinite(wx) || !Number.isFinite(wy) || !Number.isFinite(wz) || !Number.isFinite(id)) {
-          continue;
-        }
-        blockDeltas.push({
-          wx: Math.floor(wx),
-          wy: Math.floor(wy),
-          wz: Math.floor(wz),
-          id: Math.floor(id),
-        });
-      }
-    } else if (rawBlockDeltas && typeof rawBlockDeltas === "object") {
-      for (const [posKey, idValue] of Object.entries(rawBlockDeltas)) {
-        const coords = posKey.split(",");
-        if (coords.length !== 3) continue;
-        const wx = Number(coords[0]);
-        const wy = Number(coords[1]);
-        const wz = Number(coords[2]);
-        const id = Number(idValue);
-        if (!Number.isFinite(wx) || !Number.isFinite(wy) || !Number.isFinite(wz) || !Number.isFinite(id)) {
-          continue;
-        }
-        blockDeltas.push({
-          wx: Math.floor(wx),
-          wy: Math.floor(wy),
-          wz: Math.floor(wz),
-          id: Math.floor(id),
-        });
-      }
-    }
-    return {
-      version: saveSchemaVersion,
-      world: {
-        seed: Math.max(0, Math.floor(seed)),
-        worldType: worldTypeName,
-      },
-      runtime: rawRuntime && typeof rawRuntime === "object" ? rawRuntime : null,
-      blockDeltas,
-    };
-  };
-  const loadedSave = migrateSavePayload(readJsonFromStorage(saveStorageKey));
-  const saveWorldMatches = !!loadedSave &&
-    loadedSave.world.seed === worldSeed &&
-    loadedSave.world.worldType === worldType;
-  if (loadedSave && !saveWorldMatches) {
-    console.warn("[save] world metadata mismatch, ignoring runtime/chunk deltas", {
-      savedSeed: loadedSave.world.seed,
-      savedWorldType: loadedSave.world.worldType,
-      worldSeed,
-      worldType,
-    });
+  const levelSaveText = readLevelSaveText(saveStorageKey);
+  const loadedLevel = levelSaveText && typeof window.mcLoadLevelSave === "function"
+    ? window.mcLoadLevelSave(levelSaveText)
+    : null;
+  if (levelSaveText && !loadedLevel) {
+    console.warn("[level] ignored invalid or mismatched save payload");
   }
-  const loadedRuntimeSnapshot = saveWorldMatches ? loadedSave.runtime : null;
-  const loadedBlockDeltaEntries = saveWorldMatches ? loadedSave.blockDeltas : [];
-  const blockDeltasByWorld = new Map();
-  const blockDeltasByChunk = new Map();
+  const loadedPlayer = loadedLevel?.player ?? null;
   let suppressAutosave = false;
   let requestAutosave = () => { };
-  const worldPosKey = (wx, wy, wz) => `${wx},${wy},${wz}`;
-  const chunkKeyByWorld = (wx, wy, wz) => {
-    const cx = Math.floor(wx / size);
-    const cy = Math.floor(wy / size);
-    const cz = Math.floor(wz / size);
-    return `${cx},${cy},${cz}`;
-  };
-  const localIndexByWorld = (wx, wy, wz) => {
-    const cx = Math.floor(wx / size);
-    const cy = Math.floor(wy / size);
-    const cz = Math.floor(wz / size);
-    const lx = wx - cx * size;
-    const ly = wy - cy * size;
-    const lz = wz - cz * size;
-    if (lx < 0 || lx >= size || ly < 0 || ly >= size || lz < 0 || lz >= size) {
-      return -1;
-    }
-    return ((ly * size) + lz) * size + lx;
-  };
-  const recordBlockDelta = (wx, wy, wz, id, emitSave = true) => {
-    const bx = Number(wx);
-    const by = Number(wy);
-    const bz = Number(wz);
-    const longId = Number(id);
-    if (!Number.isFinite(bx) || !Number.isFinite(by) || !Number.isFinite(bz) || !Number.isFinite(longId)) {
-      return;
-    }
-    const ix = Math.floor(bx);
-    const iy = Math.floor(by);
-    const iz = Math.floor(bz);
-    const iid = Math.floor(longId);
-    const posKey = worldPosKey(ix, iy, iz);
-    blockDeltasByWorld.set(posKey, { wx: ix, wy: iy, wz: iz, id: iid });
-    const chunkKey = chunkKeyByWorld(ix, iy, iz);
-    const localIndex = localIndexByWorld(ix, iy, iz);
-    if (localIndex < 0) return;
-    let chunkEntries = blockDeltasByChunk.get(chunkKey);
-    if (!(chunkEntries instanceof Map)) {
-      chunkEntries = new Map();
-      blockDeltasByChunk.set(chunkKey, chunkEntries);
-    }
-    chunkEntries.set(localIndex, iid);
-    if (emitSave) requestAutosave();
-  };
-  const applyChunkBlockDeltas = (chunkKey, chunkDataArray) => {
-    const chunkEntries = blockDeltasByChunk.get(chunkKey);
-    if (!(chunkEntries instanceof Map)) return;
-    if (!chunkDataArray || typeof chunkDataArray.length !== "number") return;
-    for (const [index, id] of chunkEntries.entries()) {
-      if (!Number.isInteger(index) || index < 0 || index >= chunkDataArray.length) continue;
-      chunkDataArray[index] = id;
-    }
-  };
-  for (const entry of loadedBlockDeltaEntries) {
-    recordBlockDelta(entry.wx, entry.wy, entry.wz, entry.id, false);
+  const chunkDatas = window.mcChunkRuntimeChunkMap;
+  if (!(chunkDatas instanceof Map)) {
+    throw new Error("MoonBit chunk runtime did not provide its chunk map");
   }
-  let data = normalizeChunkData(chunkData);
-  const chunkDatas = new Map();
-  if (data) {
-    applyChunkBlockDeltas("0,0,0", data);
-    chunkDatas.set("0,0,0", data);
-  }
-  const pendingChunks = new Set();
-  const chunkQueue = [];
-  let chunkQueueHead = 0;
   const chunkMeshes = new Map();
-  const chunkLights = new Map();
-  const dirtyMeshKeys = new Set();
-  const dirtySectionKeys = new Set();
-  const maxGenPerFrame = window.mcChunkGenPerFrame ?? 2;
-  const maxMeshBuildPerFrame = window.mcMeshBuildPerFrame ?? 2;
-  const maxLightUpdatePerFrame = window.mcLightUpdatePerFrame ?? 3;
-  const localLightUseDesired = window.mcLocalLightUseDesired === true;
-  const lightPropagationRange = Math.max(
-    0,
-    Number.isFinite(Number(window.mcLightPropagationRange))
-      ? Math.floor(Number(window.mcLightPropagationRange))
-      : 2,
-  );
   const worldMinY = window.mcWorldMinY ?? 0;
   const worldMaxY = window.mcWorldMaxY ?? 0;
   const chunkMinY = Math.floor(worldMinY / size);
@@ -623,13 +463,6 @@ function renderTestChunk({
     spawnFallbackY,
   });
 
-  let lightDirty = true;
-  const dirtyLightKeys = new Set();
-  const lightUpdateQueue = [];
-  let lightUpdateHead = 0;
-  const pendingLightSeeds = new Set();
-
-  const fallbackChunk = new Array(size * size * size).fill(0);
   const fallbackSectionLight = new Uint8Array(sectionCellCount);
   fallbackSectionLight.fill(15);
   const deleteMeshBuffers = (buffers) => {
@@ -659,245 +492,6 @@ function renderTestChunk({
     deleteMeshBuffers(mesh.leaf);
     deleteMeshBuffers(mesh.water);
     deleteMeshBuffers(mesh.translucent);
-  };
-  const markLightDirty = (key) => {
-    lightDirty = true;
-    if (typeof key === "string") dirtyLightKeys.add(key);
-  };
-  const markMeshDirty = (key) => {
-    if (typeof key === "string") dirtyMeshKeys.add(key);
-  };
-  const sectionKeyOf = (chunkKey, sx, sy, sz) => `${chunkKey}|${sx},${sy},${sz}`;
-  const parseSectionKey = (value) => {
-    if (typeof value !== "string") return null;
-    const sep = value.indexOf("|");
-    if (sep <= 0) return null;
-    const key = value.slice(0, sep);
-    const parts = value.slice(sep + 1).split(",");
-    if (parts.length !== 3) return null;
-    const sx = Number(parts[0]);
-    const sy = Number(parts[1]);
-    const sz = Number(parts[2]);
-    if (!Number.isInteger(sx) || !Number.isInteger(sy) || !Number.isInteger(sz)) {
-      return null;
-    }
-    if (sx < 0 || sy < 0 || sz < 0) return null;
-    if (sx >= sectionsPerAxis || sy >= sectionsPerAxis || sz >= sectionsPerAxis) {
-      return null;
-    }
-    return { key, sx, sy, sz };
-  };
-  const clearDirtySectionsForChunk = (chunkKey) => {
-    const prefix = `${chunkKey}|`;
-    for (const sectionKey of Array.from(dirtySectionKeys)) {
-      if (sectionKey.startsWith(prefix)) {
-        dirtySectionKeys.delete(sectionKey);
-      }
-    }
-  };
-  const markSectionDirtyByWorld = (wx, wy, wz, touchedChunkKeys) => {
-    const cx = Math.floor(wx / size);
-    const cy = Math.floor(wy / size);
-    const cz = Math.floor(wz / size);
-    const key = `${cx},${cy},${cz}`;
-    if (!chunkDatas.has(key)) return;
-    const lx = wx - cx * size;
-    const ly = wy - cy * size;
-    const lz = wz - cz * size;
-    const sx = Math.floor(lx / meshSectionSize);
-    const sy = Math.floor(ly / meshSectionSize);
-    const sz = Math.floor(lz / meshSectionSize);
-    if (sx < 0 || sy < 0 || sz < 0) return;
-    if (sx >= sectionsPerAxis || sy >= sectionsPerAxis || sz >= sectionsPerAxis) return;
-    dirtySectionKeys.add(sectionKeyOf(key, sx, sy, sz));
-    if (touchedChunkKeys instanceof Set) {
-      touchedChunkKeys.add(key);
-    }
-  };
-  const markVoxelAndNeighborSectionsDirty = (wx, wy, wz) => {
-    const touched = new Set();
-    markSectionDirtyByWorld(wx, wy, wz, touched);
-    markSectionDirtyByWorld(wx - 1, wy, wz, touched);
-    markSectionDirtyByWorld(wx + 1, wy, wz, touched);
-    markSectionDirtyByWorld(wx, wy - 1, wz, touched);
-    markSectionDirtyByWorld(wx, wy + 1, wz, touched);
-    markSectionDirtyByWorld(wx, wy, wz - 1, touched);
-    markSectionDirtyByWorld(wx, wy, wz + 1, touched);
-    return touched;
-  };
-  const enqueueLightSeed = (wx, wy, wz) => {
-    const scx = Math.floor(Math.floor(wx) / size);
-    const scy = Math.floor(Math.floor(wy) / size);
-    const scz = Math.floor(Math.floor(wz) / size);
-    const seedKey = `${scx},${scy},${scz}`;
-    if (pendingLightSeeds.has(seedKey)) return;
-    pendingLightSeeds.add(seedKey);
-    lightUpdateQueue.push({ scx, scy, scz, seedKey });
-  };
-  const isLocalLightSeedReady = (seed, desiredKeys, readyRadius) => {
-    if (!seed) return false;
-    const { scx, scy, scz } = seed;
-    if (!Number.isInteger(scx) || !Number.isInteger(scy) || !Number.isInteger(scz)) {
-      return false;
-    }
-    for (let dx = -readyRadius; dx <= readyRadius; dx += 1) {
-      for (let dz = -readyRadius; dz <= readyRadius; dz += 1) {
-        const key = `${scx + dx},${scy},${scz + dz}`;
-        if (desiredKeys && !desiredKeys.has(key)) continue;
-        if (!chunkDatas.has(key)) return false;
-      }
-    }
-    return true;
-  };
-  const enqueueLightEdit = (wx, wy, wz, keys) => {
-    enqueueLightSeed(wx, wy, wz);
-    const scx = Math.floor(wx / size);
-    const scy = Math.floor(wy / size);
-    const scz = Math.floor(wz / size);
-    if (!Array.isArray(keys)) return;
-    for (const key of keys) {
-      const xyz = chunkXyzByKey(key);
-      if (!xyz) continue;
-      const dx = Math.abs(xyz.x - scx);
-      const dy = Math.abs(xyz.y - scy);
-      const dz = Math.abs(xyz.z - scz);
-      if (dx > 1 || dy > 1 || dz > 1) {
-        markLightDirty(key);
-      }
-    }
-  };
-  const processLocalLightQueue = (desiredKeys) => {
-    if (useFixedLight) return;
-    if (lightUpdateHead >= lightUpdateQueue.length) return;
-    let remaining = maxLightUpdatePerFrame;
-    const chunkRadius = Math.max(0, Math.ceil(lightPropagationRange / size));
-    const readyRadius = Math.max(1, chunkRadius + 1);
-    const deferredSeeds = [];
-    const localKeySet = new Set();
-    while (remaining > 0 && lightUpdateHead < lightUpdateQueue.length) {
-      const seed = lightUpdateQueue[lightUpdateHead];
-      lightUpdateHead += 1;
-      if (!seed) continue;
-      if (!isLocalLightSeedReady(seed, desiredKeys, readyRadius)) {
-        deferredSeeds.push(seed);
-        continue;
-      }
-      pendingLightSeeds.delete(seed.seedKey);
-      const { scx, scy, scz } = seed;
-      for (let dx = -chunkRadius; dx <= chunkRadius; dx += 1) {
-        for (let dz = -chunkRadius; dz <= chunkRadius; dz += 1) {
-          const key = `${scx + dx},${scy},${scz + dz}`;
-          if (!chunkDatas.has(key)) continue;
-          if (desiredKeys && !desiredKeys.has(key)) continue;
-          localKeySet.add(key);
-        }
-      }
-      remaining -= 1;
-    }
-    if (lightUpdateHead >= lightUpdateQueue.length) {
-      lightUpdateQueue.length = 0;
-      lightUpdateHead = 0;
-    } else if (lightUpdateHead > 128 && lightUpdateHead * 2 >= lightUpdateQueue.length) {
-      lightUpdateQueue.splice(0, lightUpdateHead);
-      lightUpdateHead = 0;
-    }
-    if (deferredSeeds.length > 0) {
-      lightUpdateQueue.push(...deferredSeeds);
-    }
-    if (localKeySet.size === 0 && !(localLightUseDesired && desiredKeys?.size > 0)) return;
-    const sourceKeys = localLightUseDesired && desiredKeys?.size > 0
-      ? Array.from(desiredKeys)
-      : Array.from(expandLightKeysHorizontal(localKeySet, 1));
-    if (sourceKeys.length === 0) return;
-    // Skylight depends on global top boundary; local updates still need full vertical range.
-    const updatedKeys = rebuildLightMaps(sourceKeys, false, worldMinY, worldMaxY);
-    for (const key of updatedKeys) {
-      if (desiredKeys && !desiredKeys.has(key)) continue;
-      if (!chunkMeshes.has(key)) continue;
-      const res = updateChunkColors(key);
-      if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
-        console.error("[lighting] failed to update chunk colors", key, res);
-      }
-    }
-  };
-  const markNeighborLightDirty = (key) => {
-    const xyz = chunkXyzByKey(key);
-    if (!xyz) return;
-    const keys = [
-      `${xyz.x - 1},${xyz.y},${xyz.z}`,
-      `${xyz.x + 1},${xyz.y},${xyz.z}`,
-      `${xyz.x},${xyz.y - 1},${xyz.z}`,
-      `${xyz.x},${xyz.y + 1},${xyz.z}`,
-      `${xyz.x},${xyz.y},${xyz.z - 1}`,
-      `${xyz.x},${xyz.y},${xyz.z + 1}`,
-    ];
-    for (const nkey of keys) {
-      if (chunkDatas.has(nkey)) {
-        markLightDirty(nkey);
-      }
-    }
-  };
-  const rebuildLightMaps = (
-    keys,
-    replaceAll = false,
-    minY = worldMinY,
-    maxY = worldMaxY,
-  ) => {
-    const entries = buildWorldLight(chunkDatas, size, keys, minY, maxY);
-    if (!entries) return [];
-    if (replaceAll) chunkLights.clear();
-    const updatedKeys = [];
-    for (const entry of entries) {
-      if (!entry) continue;
-      const key = entry._0;
-      const light = entry._1;
-      if (typeof key === "string" && light) {
-        chunkLights.set(key, light);
-        updatedKeys.push(key);
-      }
-    }
-    return updatedKeys;
-  };
-  const expandLightKeys = (keys) => {
-    const expanded = new Set();
-    for (const key of keys) {
-      expanded.add(key);
-      const xyz = chunkXyzByKey(key);
-      if (!xyz) continue;
-      for (let dx = -1; dx <= 1; dx += 1) {
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dz = -1; dz <= 1; dz += 1) {
-            const nkey = `${xyz.x + dx},${xyz.y + dy},${xyz.z + dz}`;
-            if (chunkDatas.has(nkey)) {
-              expanded.add(nkey);
-            }
-          }
-        }
-      }
-    }
-    return expanded;
-  };
-  const expandLightKeysHorizontal = (keys, radius = 1) => {
-    const expanded = new Set();
-    for (const key of keys) {
-      const xyz = chunkXyzByKey(key);
-      if (!xyz) continue;
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        for (let dz = -radius; dz <= radius; dz += 1) {
-          const nkey = `${xyz.x + dx},${xyz.y},${xyz.z + dz}`;
-          if (chunkDatas.has(nkey)) {
-            expanded.add(nkey);
-          }
-        }
-      }
-    }
-    return expanded;
-  };
-  const enqueueChunk = (cx, cy, cz) => {
-    const key = `${cx},${cy},${cz}`;
-    if (chunkDatas.has(key) || pendingChunks.has(key)) return;
-    pendingChunks.add(key);
-    chunkQueue.push({ key, cx, cy, cz });
   };
   const toBuffers = (mesh) => {
     const positions = new Float32Array(mesh.positions);
@@ -979,7 +573,9 @@ function renderTestChunk({
   };
   const buildSectionLight = (key, sx, sy, sz) => {
     if (useFixedLight) return fallbackSectionLight;
-    const chunkLight = chunkLights.get(key);
+    const chunkLight = typeof window.mcChunkRuntimeLight === "function"
+      ? window.mcChunkRuntimeLight(key)
+      : null;
     if (!chunkLight || typeof chunkLight.length !== "number") {
       return fallbackSectionLight;
     }
@@ -1064,23 +660,6 @@ function renderTestChunk({
       }
     }
   };
-  const markNeighborMeshDirty = (key) => {
-    const xyz = chunkXyzByKey(key);
-    if (!xyz) return;
-    const keys = [
-      `${xyz.x - 1},${xyz.y},${xyz.z}`,
-      `${xyz.x + 1},${xyz.y},${xyz.z}`,
-      `${xyz.x},${xyz.y - 1},${xyz.z}`,
-      `${xyz.x},${xyz.y + 1},${xyz.z}`,
-      `${xyz.x},${xyz.y},${xyz.z - 1}`,
-      `${xyz.x},${xyz.y},${xyz.z + 1}`,
-    ];
-    for (const nkey of keys) {
-      if (chunkDatas.has(nkey)) {
-        markMeshDirty(nkey);
-      }
-    }
-  };
   const updateSectionColors = (chunkKey, mesh, section) => {
     const sectionData = Array.isArray(section.dataPadded)
       ? section.dataPadded
@@ -1133,82 +712,6 @@ function renderTestChunk({
     }
     return { ok: true };
   };
-
-  const processChunkQueue = () => {
-    let remaining = maxGenPerFrame;
-    while (remaining > 0 && chunkQueueHead < chunkQueue.length) {
-      const next = chunkQueue[chunkQueueHead];
-      chunkQueueHead += 1;
-      if (!next) break;
-      const { key, cx, cy, cz } = next;
-      let data = null;
-      try {
-        data = chunkGenerator(cx, cy, cz);
-      } catch (err) {
-        console.warn("chunk gen failed", key, err);
-      }
-      if (window.mcDebugChunkGen) {
-        console.log("chunk gen", key, "type:", data?.constructor?.name, "length:", data?.length);
-      }
-      if (data) {
-        data = normalizeChunkData(data);
-        if (data) {
-          applyChunkBlockDeltas(key, data);
-          chunkDatas.set(key, data);
-          markMeshDirty(key);
-          markNeighborMeshDirty(key);
-          markLightDirty(key);
-        }
-      }
-      pendingChunks.delete(key);
-      remaining -= 1;
-    }
-    if (chunkQueueHead >= chunkQueue.length) {
-      chunkQueue.length = 0;
-      chunkQueueHead = 0;
-    } else if (chunkQueueHead > 256 && chunkQueueHead * 2 >= chunkQueue.length) {
-      chunkQueue.splice(0, chunkQueueHead);
-      chunkQueueHead = 0;
-    }
-  };
-
-  const getChunkData = (cx, cy, cz) => {
-    const key = `${cx},${cy},${cz}`;
-    const cached = chunkDatas.get(key);
-    if (cached) return cached;
-    enqueueChunk(cx, cy, cz);
-    return fallbackChunk;
-  };
-
-  // Return only cached chunk data, without falling back to placeholder air.
-  const getChunkDataIfLoaded = (cx, cy, cz) => {
-    const key = `${cx},${cy},${cz}`;
-    return chunkDatas.get(key) ?? null;
-  };
-
-  // Ensure the full spawn XZ column is loaded before computing spawn surface.
-  if (typeof chunkGenerator === "function") {
-    try {
-      let loaded = 0;
-      for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
-        const key = `${spawnChunkX},${cy},${spawnChunkZ}`;
-        if (chunkDatas.has(key)) continue;
-        let seedData = chunkGenerator(spawnChunkX, cy, spawnChunkZ);
-        seedData = normalizeChunkData(seedData);
-        if (!seedData) continue;
-        applyChunkBlockDeltas(key, seedData);
-        chunkDatas.set(key, seedData);
-        loaded += 1;
-      }
-      console.debug("[spawn] seed column loaded", {
-        x: spawnChunkX,
-        z: spawnChunkZ,
-        loaded,
-      });
-    } catch (err) {
-      console.warn("spawn chunk gen failed", err);
-    }
-  }
 
   const computeSpawn = window.mcComputeSpawnPosition;
   const spawn = typeof computeSpawn === "function"
@@ -1514,7 +1017,10 @@ function renderTestChunk({
     if (prev === next) {
       return next;
     }
-    window.mcGameMode = next;
+    const snapshot = typeof window.mcSetPlayerGameMode === "function"
+      ? window.mcSetPlayerGameMode(next)
+      : null;
+    window.mcGameMode = snapshot?.game_mode ?? next;
     if (typeof player.setGameMode === "function") {
       player.setGameMode(next);
     }
@@ -1560,28 +1066,7 @@ function renderTestChunk({
   });
   window.mcHotbar = hotbar;
 
-  const collectDesiredKeys = (cx, cz, renderDistance) => {
-    const collectKeys = window.mcCollectRenderChunkKeys;
-    if (typeof collectKeys === "function") {
-      const keys = collectKeys(cx, cz, renderDistance, chunkMinY, chunkMaxY);
-      if (Array.isArray(keys)) return keys;
-    }
-    const keys = [];
-    for (let ring = 0; ring <= renderDistance; ring += 1) {
-      for (let dx = -ring; dx <= ring; dx += 1) {
-        for (let dz = -ring; dz <= ring; dz += 1) {
-          if (Math.abs(dx) !== ring && Math.abs(dz) !== ring) continue;
-          for (let cy = chunkMinY; cy <= chunkMaxY; cy += 1) {
-            keys.push(`${cx + dx},${cy},${cz + dz}`);
-          }
-        }
-      }
-    }
-    return keys;
-  };
-
   const rebuildMeshIfNeeded = () => {
-    processChunkQueue();
     const cx = Math.floor(player.state.position[0] / size);
     const cz = Math.floor(player.state.position[2] / size);
     const renderDistance = window.mcRenderDistance ?? 2;
@@ -1591,135 +1076,34 @@ function renderTestChunk({
         waterTintState.renderDistance !== renderDistance)) {
       rebuildWaterTintTexture(cx, cz, renderDistance);
     }
-    const nextCenterKey = `${cx},0,${cz}`;
-    let missing = false;
-    const desiredKeys = new Set();
-    const keys = collectDesiredKeys(cx, cz, renderDistance);
-    for (const key of keys) {
-      desiredKeys.add(key);
-      if (!chunkDatas.has(key)) {
-        const xyz = chunkXyzByKey(key);
-        if (xyz) {
-          enqueueChunk(xyz.x, xyz.y, xyz.z);
-          missing = true;
-        }
-      }
+    const tickRuntime = window.mcTickChunkRuntime;
+    if (typeof tickRuntime !== "function") {
+      throw new Error("MoonBit chunk runtime tick is unavailable");
     }
-    if (missing || nextCenterKey !== player.state.centerKey) {
-      player.state.centerKey = nextCenterKey;
+    const frame = tickRuntime(cx, cz);
+    player.state.centerKey = `${cx},0,${cz}`;
+    for (const key of frame?.evicted ?? []) {
+      const mesh = chunkMeshes.get(key);
+      if (mesh) deleteChunkMesh(mesh);
+      chunkMeshes.delete(key);
     }
-
-    // Drop far chunks to cap memory/draw calls.
-    for (const key of chunkMeshes.keys()) {
-      if (!desiredKeys.has(key)) {
-        const mesh = chunkMeshes.get(key);
-        if (mesh) deleteChunkMesh(mesh);
-        chunkMeshes.delete(key);
-        chunkLights.delete(key);
-        dirtyMeshKeys.delete(key);
-        clearDirtySectionsForChunk(key);
-      }
-    }
-    const removedDataKeys = [];
-    for (const key of chunkDatas.keys()) {
-      if (!desiredKeys.has(key)) {
-        removedDataKeys.push(key);
-        chunkDatas.delete(key);
-        chunkLights.delete(key);
-        dirtyMeshKeys.delete(key);
-        clearDirtySectionsForChunk(key);
-      }
-    }
-    for (const key of removedDataKeys) {
-      markNeighborLightDirty(key);
-    }
-
-    let built = 0;
-    for (const key of Array.from(dirtyMeshKeys)) {
-      if (built >= maxMeshBuildPerFrame) break;
-      if (!desiredKeys.has(key)) {
-        dirtyMeshKeys.delete(key);
-        continue;
-      }
-      const data = chunkDatas.get(key);
-      if (!data) {
-        dirtyMeshKeys.delete(key);
-        continue;
-      }
+    for (const key of frame?.full_rebuilds ?? []) {
       const xyz = chunkXyzByKey(key);
-      if (!xyz) {
-        dirtyMeshKeys.delete(key);
-        continue;
-      }
-      buildChunkMesh(key, xyz.x, xyz.y, xyz.z, data);
-      dirtyMeshKeys.delete(key);
-      clearDirtySectionsForChunk(key);
-      built += 1;
+      if (!xyz || !chunkDatas.has(key)) continue;
+      buildChunkMesh(key, xyz.x, xyz.y, xyz.z);
     }
-    for (const sectionKey of Array.from(dirtySectionKeys)) {
-      if (built >= maxMeshBuildPerFrame) break;
-      const parsed = parseSectionKey(sectionKey);
-      if (!parsed) {
-        dirtySectionKeys.delete(sectionKey);
-        continue;
-      }
-      if (!desiredKeys.has(parsed.key)) {
-        dirtySectionKeys.delete(sectionKey);
-        continue;
-      }
-      if (dirtyMeshKeys.has(parsed.key)) {
-        continue;
-      }
-      if (!chunkDatas.has(parsed.key)) {
-        dirtySectionKeys.delete(sectionKey);
-        continue;
-      }
-      const xyz = chunkXyzByKey(parsed.key);
-      if (!xyz) {
-        dirtySectionKeys.delete(sectionKey);
-        continue;
-      }
-      buildChunkSectionMesh(parsed.key, xyz.x, xyz.y, xyz.z, parsed.sx, parsed.sy, parsed.sz);
-      dirtySectionKeys.delete(sectionKey);
-      built += 1;
+    for (const section of frame?.section_rebuilds ?? []) {
+      const key = section?.chunk_key;
+      const xyz = typeof key === "string" ? chunkXyzByKey(key) : null;
+      if (!xyz || !chunkDatas.has(key)) continue;
+      buildChunkSectionMesh(key, xyz.x, xyz.y, xyz.z, section.x, section.y, section.z);
     }
-    for (const key of desiredKeys) {
-      if (built >= maxMeshBuildPerFrame) break;
-      if (chunkMeshes.has(key)) continue;
-      const data = chunkDatas.get(key);
-      if (!data) continue;
-      const xyz = chunkXyzByKey(key);
-      if (!xyz) continue;
-      buildChunkMesh(key, xyz.x, xyz.y, xyz.z, data);
-      clearDirtySectionsForChunk(key);
-      built += 1;
-    }
-
-    processLocalLightQueue(desiredKeys);
-
-    if (!missing && lightDirty) {
-      if (!useFixedLight) {
-        const sourceKeys = dirtyLightKeys.size > 0
-          ? Array.from(expandLightKeys(dirtyLightKeys))
-          : Array.from(desiredKeys);
-        const replaceAll = dirtyLightKeys.size === 0;
-        const updateKeys = rebuildLightMaps(
-          sourceKeys,
-          replaceAll,
-          worldMinY,
-          worldMaxY,
-        );
-        for (const key of updateKeys) {
-          if (!desiredKeys.has(key)) continue;
-          if (!chunkMeshes.has(key)) continue;
-          const res = updateChunkColors(key);
-          if (!res.ok && res.reason !== "missing-mesh" && res.reason !== "missing-data") {
-            console.error("[lighting] failed to update chunk colors", key, res);
-          }
-        }
+    for (const key of frame?.recolors ?? []) {
+      if (!chunkMeshes.has(key)) continue;
+      const result = updateChunkColors(key);
+      if (!result.ok && result.reason !== "missing-mesh") {
+        console.error("[lighting] failed to update chunk colors", key, result);
       }
-      dirtyLightKeys.clear();
-      lightDirty = false;
     }
   };
 
@@ -1779,11 +1163,21 @@ function renderTestChunk({
     }
   };
 
-  const runtimeState = {
-    hotbarItems: normalizeHotbarItems(window.mcCollectHotbarItems?.() ?? []),
-    inventoryOpen: false,
-  };
-  window.mcInventoryOpen = runtimeState.inventoryOpen;
+  const getInventorySnapshot = () => typeof window.mcPlayerInventorySnapshot === "function"
+    ? window.mcPlayerInventorySnapshot()
+    : null;
+  const initialInventorySnapshot = getInventorySnapshot();
+  const restoredHotbarSlots = Array.isArray(initialInventorySnapshot?.hotbar_slots)
+    ? initialInventorySnapshot.hotbar_slots
+    : [];
+  const hasRestoredHotbar = restoredHotbarSlots.some((slot) => slot != null);
+  let hotbarViewItems = normalizeHotbarItems(
+    hasRestoredHotbar
+      ? restoredHotbarSlots
+      : (window.mcCollectHotbarItems?.() ?? []),
+  );
+  const isInventoryOpen = () => getInventorySnapshot()?.inventory_open === true;
+  window.mcInventoryOpen = isInventoryOpen();
   const uiItemsByName = new Map();
   const uiItemKey = (name, category) => `${category ?? "none"}:${name ?? ""}`;
   const indexUiItems = (items) => {
@@ -1829,22 +1223,28 @@ function renderTestChunk({
   };
 
   const getSelectedHotbarIndex = () => {
-    const raw = typeof hotbar.getSelectedIndex === "function"
-      ? hotbar.getSelectedIndex()
-      : (window.mcHotbarSelectedIndex ?? 0);
+    const snapshot = typeof window.mcPlayerInventorySnapshot === "function"
+      ? window.mcPlayerInventorySnapshot()
+      : null;
+    const raw = snapshot?.selected_hotbar_index ?? 0;
     return clampHotbarIndex(raw);
   };
 
   const setHotbarItems = (items, emitSave = true) => {
-    runtimeState.hotbarItems = normalizeHotbarItems(
+    hotbarViewItems = normalizeHotbarItems(
       Array.isArray(items)
         ? items.map((entry) => resolveSavedHotbarItem(entry))
         : [],
     );
-    indexUiItems(runtimeState.hotbarItems);
-    reportMissingTextures(runtimeState.hotbarItems, "hotbar");
+    indexUiItems(hotbarViewItems);
+    reportMissingTextures(hotbarViewItems, "hotbar");
     if (typeof hotbar.setItems === "function") {
-      hotbar.setItems(runtimeState.hotbarItems, textures);
+      hotbar.setItems(hotbarViewItems, textures);
+    }
+    if (typeof window.mcSetPlayerHotbarSlot === "function") {
+      hotbarViewItems.forEach((item, index) => {
+        window.mcSetPlayerHotbarSlot(index, item?.name ?? "", item?.category ?? "");
+      });
     }
     if (emitSave && !suppressAutosave) {
       requestAutosave();
@@ -1858,12 +1258,15 @@ function renderTestChunk({
       console.error("[hotbar] missing category on item", item);
       return;
     }
-    runtimeState.hotbarItems[slot] = value;
+    hotbarViewItems[slot] = value;
     indexUiItems([value]);
     if (typeof hotbar.setItem === "function") {
       hotbar.setItem(slot, value, textures);
     } else if (typeof hotbar.setItems === "function") {
-      hotbar.setItems(runtimeState.hotbarItems, textures);
+      hotbar.setItems(hotbarViewItems, textures);
+    }
+    if (typeof window.mcSetPlayerHotbarSlot === "function") {
+      window.mcSetPlayerHotbarSlot(slot, value?.name ?? "", value?.category ?? "");
     }
     if (emitSave && !suppressAutosave) {
       requestAutosave();
@@ -1873,10 +1276,14 @@ function renderTestChunk({
   const selectHotbarIndex = (index, emitSave = true) => {
     const prev = getSelectedHotbarIndex();
     const slot = clampHotbarIndex(index);
+    const snapshot = typeof window.mcSelectPlayerHotbar === "function"
+      ? window.mcSelectPlayerHotbar(slot)
+      : null;
+    const selected = clampHotbarIndex(snapshot?.selected_hotbar_index ?? slot);
     if (typeof hotbar.select === "function") {
-      hotbar.select(slot);
+      hotbar.select(selected);
     } else {
-      window.mcHotbarSelectedIndex = slot;
+      window.mcHotbarSelectedIndex = selected;
     }
     const next = getSelectedHotbarIndex();
     if (emitSave && next !== prev && !suppressAutosave) {
@@ -1884,7 +1291,7 @@ function renderTestChunk({
     }
   };
 
-  setHotbarItems(runtimeState.hotbarItems, false);
+  setHotbarItems(hotbarViewItems, false);
 
   const inventoryColumns = window.mcInventoryGridX ?? 9;
   const inventoryRows = window.mcInventoryGridY ?? 6;
@@ -1894,7 +1301,7 @@ function renderTestChunk({
   );
   indexUiItems(inventoryItems);
   let setInventoryOpen = (open) => {
-    runtimeState.inventoryOpen = open === true;
+    window.mcInventoryOpen = open === true;
   };
   reportMissingTextures(inventoryItems, "inventory");
   const inventory = createInventoryUI({
@@ -1916,19 +1323,22 @@ function renderTestChunk({
       setInventoryOpen(false);
     },
     onToggle: () => {
-      setInventoryOpen(!runtimeState.inventoryOpen);
+      setInventoryOpen(!isInventoryOpen());
     },
     canToggle: () => getGameMode() === "creative",
   });
-  setInventoryOpen = (open, emitSave = true) => {
+  setInventoryOpen = (open, emitSave = true, forceRender = false) => {
     const next = open === true;
-    if (runtimeState.inventoryOpen === next) {
+    if (isInventoryOpen() === next && !forceRender) {
       return;
     }
-    runtimeState.inventoryOpen = next;
-    window.mcInventoryOpen = next;
-    inventory.setOpen(next);
-    if (next) {
+    const snapshot = typeof window.mcSetPlayerInventoryOpen === "function"
+      ? window.mcSetPlayerInventoryOpen(next)
+      : null;
+    const openState = snapshot?.inventory_open ?? next;
+    window.mcInventoryOpen = openState;
+    inventory.setOpen(openState);
+    if (openState) {
       if (document.pointerLockElement) document.exitPointerLock();
       crosshair.style.display = "none";
     } else {
@@ -1941,119 +1351,24 @@ function renderTestChunk({
     }
   };
 
-  const toSavedHotbarItem = (item) => {
-    if (!item || typeof item !== "object") return null;
-    if (typeof item.name !== "string" || item.name.length === 0) return null;
-    return {
-      name: item.name,
-      category: typeof item.category === "string" ? item.category : "none",
-    };
-  };
-
-  const captureRuntimeState = () => ({
-    version: 1,
-    gameMode: getGameMode(),
-    player: {
-      position: [...player.state.position],
-      yaw: player.state.yaw,
-      pitch: player.state.pitch,
-      gameMode: getGameMode(),
-    },
-    hotbar: {
-      selectedIndex: getSelectedHotbarIndex(),
-      items: runtimeState.hotbarItems.map(toSavedHotbarItem),
-    },
-    ui: {
-      inventoryOpen: runtimeState.inventoryOpen,
-    },
-  });
-
-  const applyRuntimeState = (snapshot, emitSave = true) => {
-    if (!snapshot || typeof snapshot !== "object") return false;
-    const prevSuppress = suppressAutosave;
-    if (!emitSave) {
-      suppressAutosave = true;
+  if (loadedPlayer && Array.isArray(loadedPlayer.position) && loadedPlayer.position.length >= 3) {
+    const [x, y, z] = loadedPlayer.position.map(Number);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+      player.state.position[0] = x;
+      player.state.position[1] = y;
+      player.state.position[2] = z;
     }
-    try {
-      const playerState = snapshot.player;
-      if (playerState && typeof playerState === "object") {
-        if (Array.isArray(playerState.position) && playerState.position.length >= 3) {
-          const px = Number(playerState.position[0]);
-          const py = Number(playerState.position[1]);
-          const pz = Number(playerState.position[2]);
-          if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(pz)) {
-            player.state.position[0] = px;
-            player.state.position[1] = py;
-            player.state.position[2] = pz;
-          }
-        }
-        const yaw = Number(playerState.yaw);
-        if (Number.isFinite(yaw)) {
-          player.state.yaw = yaw;
-        }
-        const pitch = Number(playerState.pitch);
-        if (Number.isFinite(pitch)) {
-          player.state.pitch = Math.max(-1.55, Math.min(1.55, pitch));
-        }
-        if (typeof playerState.gameMode === "string") {
-          setGameMode(playerState.gameMode);
-        }
-      }
-      if (typeof snapshot.gameMode === "string") {
-        setGameMode(snapshot.gameMode);
-      }
-      const hotbarState = snapshot.hotbar;
-      if (hotbarState && typeof hotbarState === "object") {
-        if (Array.isArray(hotbarState.items)) {
-          setHotbarItems(hotbarState.items, emitSave);
-        }
-        if (hotbarState.selectedIndex != null) {
-          selectHotbarIndex(hotbarState.selectedIndex, emitSave);
-        }
-      }
-      const uiState = snapshot.ui;
-      if (uiState && typeof uiState === "object" &&
-        typeof uiState.inventoryOpen === "boolean") {
-        setInventoryOpen(uiState.inventoryOpen, emitSave);
-      } else if (typeof snapshot.inventoryOpen === "boolean") {
-        setInventoryOpen(snapshot.inventoryOpen, emitSave);
-      }
-    } finally {
-      suppressAutosave = prevSuppress;
+    const yaw = Number(loadedPlayer.yaw);
+    const pitch = Number(loadedPlayer.pitch);
+    if (Number.isFinite(yaw)) player.state.yaw = yaw;
+    if (Number.isFinite(pitch)) {
+      player.state.pitch = Math.max(-1.55, Math.min(1.55, pitch));
     }
-    if (emitSave && !suppressAutosave) {
-      requestAutosave();
-    }
-    return true;
-  };
-
-  window.mcRuntimeState = {
-    capture: captureRuntimeState,
-    apply: applyRuntimeState,
-    getGameMode,
-    setGameMode,
-  };
-  window.mcCaptureRuntimeState = captureRuntimeState;
-  window.mcApplyRuntimeState = applyRuntimeState;
-  window.mcSetGameMode = setGameMode;
-
-  if (loadedRuntimeSnapshot && typeof loadedRuntimeSnapshot === "object") {
-    applyRuntimeState(loadedRuntimeSnapshot, false);
-  } else if (window.mcRuntimeStateBootstrap && typeof window.mcRuntimeStateBootstrap === "object") {
-    applyRuntimeState(window.mcRuntimeStateBootstrap, false);
   }
-  const collectBlockDeltaEntries = () => Array.from(blockDeltasByWorld.values());
-  const buildSavePayload = () => ({
-    version: saveSchemaVersion,
-    savedAt: Date.now(),
-    world: {
-      seed: worldSeed,
-      worldType,
-      saveVersion: saveSchemaVersion,
-    },
-    runtime: captureRuntimeState(),
-    blockDeltas: collectBlockDeltaEntries(),
-  });
+  const restoredInventory = getInventorySnapshot();
+  setGameMode(restoredInventory?.game_mode ?? "creative");
+  selectHotbarIndex(restoredInventory?.selected_hotbar_index ?? 0, false);
+  setInventoryOpen(restoredInventory?.inventory_open === true, false, true);
   let saveDirty = false;
   let pendingSaveTimer = null;
   let lastSavedAt = 0;
@@ -2062,8 +1377,16 @@ function renderTestChunk({
   const flushSave = (force = false) => {
     if (!force && !saveDirty) return true;
     try {
-      const payload = buildSavePayload();
-      globalThis.localStorage?.setItem(saveStorageKey, JSON.stringify(payload));
+      if (typeof window.mcBuildLevelSave !== "function") {
+        throw new Error("MoonBit level save encoder is unavailable");
+      }
+      const payload = window.mcBuildLevelSave(
+        Date.now(),
+        player.state.position,
+        player.state.yaw,
+        player.state.pitch,
+      );
+      globalThis.localStorage?.setItem(saveStorageKey, payload);
       saveDirty = false;
       lastSavedAt = Date.now();
       return true;
@@ -2086,26 +1409,21 @@ function renderTestChunk({
     }, wait);
   };
   requestAutosave = scheduleSave;
-  window.mcOnBlockChanged = (wx, wy, wz, id) => {
-    recordBlockDelta(wx, wy, wz, id, true);
-  };
+  window.mcOnBlockChanged = () => requestAutosave();
   let runtimeFingerprint = "";
   const computeRuntimeFingerprint = () => {
-    const runtime = captureRuntimeState();
-    const player = runtime?.player ?? {};
-    const hotbar = runtime?.hotbar ?? {};
-    const ui = runtime?.ui ?? {};
-    const pos = Array.isArray(player.position) ? player.position : [0, 0, 0];
+    const snapshot = getInventorySnapshot();
+    const pos = player.state.position;
     const p0 = Number.isFinite(Number(pos[0])) ? Number(pos[0]).toFixed(2) : "0";
     const p1 = Number.isFinite(Number(pos[1])) ? Number(pos[1]).toFixed(2) : "0";
     const p2 = Number.isFinite(Number(pos[2])) ? Number(pos[2]).toFixed(2) : "0";
-    const yaw = Number.isFinite(Number(player.yaw)) ? Number(player.yaw).toFixed(3) : "0";
-    const pitch = Number.isFinite(Number(player.pitch)) ? Number(player.pitch).toFixed(3) : "0";
-    const mode = typeof runtime.gameMode === "string" ? runtime.gameMode : "creative";
-    const selectedIndex = toFiniteInt(hotbar.selectedIndex, 0);
-    const inventoryOpen = ui.inventoryOpen === true ? "1" : "0";
-    const hotbarNames = Array.isArray(hotbar.items)
-      ? hotbar.items.map((item) => `${item?.name ?? ""}:${item?.category ?? ""}`).join("|")
+    const yaw = Number.isFinite(Number(player.state.yaw)) ? Number(player.state.yaw).toFixed(3) : "0";
+    const pitch = Number.isFinite(Number(player.state.pitch)) ? Number(player.state.pitch).toFixed(3) : "0";
+    const mode = snapshot?.game_mode ?? "creative";
+    const selectedIndex = toFiniteInt(snapshot?.selected_hotbar_index, 0);
+    const inventoryOpen = snapshot?.inventory_open === true ? "1" : "0";
+    const hotbarNames = Array.isArray(snapshot?.hotbar_slots)
+      ? snapshot.hotbar_slots.map((item) => `${item?.name ?? ""}:${item?.category ?? ""}`).join("|")
       : "";
     return `${mode}:${p0},${p1},${p2}:${yaw}:${pitch}:${selectedIndex}:${inventoryOpen}:${hotbarNames}`;
   };
@@ -2122,12 +1440,9 @@ function renderTestChunk({
   });
   requestAutosave();
   const markEditedVoxelSections = (wx, wy, wz, keys) => {
-    const touched = markVoxelAndNeighborSectionsDirty(wx, wy, wz);
-    if (!Array.isArray(keys)) return;
-    for (const key of keys) {
-      if (!touched.has(key)) {
-        markMeshDirty(key);
-      }
+    if (!Array.isArray(keys) || keys.length === 0) return;
+    if (typeof window.mcMarkChunkBlockChanged === "function") {
+      window.mcMarkChunkBlockChanged(wx, wy, wz);
     }
   };
 
@@ -2152,7 +1467,6 @@ function renderTestChunk({
     const keys = setBlockIdAt(chunkDatas, size, wx, wy, wz, id);
     if (!Array.isArray(keys) || keys.length === 0) return false;
     markEditedVoxelSections(wx, wy, wz, keys);
-    enqueueLightEdit(wx, wy, wz, keys);
     return true;
   };
 
@@ -2207,7 +1521,7 @@ function renderTestChunk({
       const hit = raycastBlocks(raycastCamera.position, raycastCamera.direction);
       if (!hit) return;
       const slotIndex = getSelectedHotbarIndex();
-      const selectedItem = runtimeState.hotbarItems[slotIndex];
+      const selectedItem = hotbarViewItems[slotIndex];
       const category = selectedItem?.category ?? "none";
       if (selectedItem && selectedItem.category == null) {
         console.error("[hotbar] missing category on item", selectedItem);
@@ -2220,26 +1534,18 @@ function renderTestChunk({
         const keys = applyUse(chunkDatas, size, action);
         if (Array.isArray(keys)) {
           markEditedVoxelSections(hit.block[0], hit.block[1], hit.block[2], keys);
-          enqueueLightEdit(hit.block[0], hit.block[1], hit.block[2], keys);
         }
       }
     } else if (event.button === 2) {
       const slotIndex = getSelectedHotbarIndex();
-      const selectedItem = runtimeState.hotbarItems[slotIndex];
+      const selectedItem = hotbarViewItems[slotIndex];
       if (!selectedItem) {
-        console.log("[nav] empty-hand right-click, raycasting...");
         const emptyHit = raycastBlocks(raycastCamera.position, raycastCamera.direction, 10, 0.05, false);
-        console.log("[nav] raycast result:", emptyHit);
-        if (emptyHit && typeof window.mcNavigateEntityTo === "function") {
-          console.log("[nav] calling mcNavigateEntityTo ->", emptyHit.block);
-          window.mcNavigateEntityTo(
-            "zombie_0", gltfEntityRenderer, chunkDatas, size,
+        if (emptyHit && typeof window.mcRequestZombieNavigation === "function") {
+          window.mcRequestZombieNavigation(
+            chunkDatas, size,
             emptyHit.block[0], emptyHit.block[1], emptyHit.block[2],
           );
-        } else if (!emptyHit) {
-          console.log("[nav] raycast missed (no block hit)");
-        } else {
-          console.log("[nav] mcNavigateEntityTo not available, typeof =", typeof window.mcNavigateEntityTo);
         }
         return;
       }
@@ -2272,7 +1578,6 @@ function renderTestChunk({
         );
         if (Array.isArray(keys)) {
           markEditedVoxelSections(hit.prev[0], hit.prev[1], hit.prev[2], keys);
-          enqueueLightEdit(hit.prev[0], hit.prev[1], hit.prev[2], keys);
         }
       }
     }
@@ -2282,7 +1587,7 @@ function renderTestChunk({
   canvas.addEventListener("mousedown", onMouseDown);
   if (hotbar?.host) {
     hotbar.host.addEventListener("hotbarselect", (event) => {
-      const _ = event.detail?.index ?? 0;
+      selectHotbarIndex(event.detail?.index ?? 0);
     });
   }
 
@@ -2323,15 +1628,12 @@ function renderTestChunk({
     const now = performance.now();
     const delta = Math.min(0.05, (now - player.state.lastTime) / 1000);
     player.state.lastTime = now;
-    if (!runtimeState.inventoryOpen) {
+    if (!isInventoryOpen()) {
       player.update(delta);
     }
     window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
-    if (typeof window.mcTickEntityNavigation === "function") {
-      if (!window.__navTickLogged) { window.__navTickLogged = true; console.log("[nav] mcTickEntityNavigation IS a function, calling each frame"); }
-      window.mcTickEntityNavigation(gltfEntityRenderer, delta);
-    } else {
-      if (!window.__navTickMissing) { window.__navTickMissing = true; console.log("[nav] mcTickEntityNavigation NOT a function, type =", typeof window.mcTickEntityNavigation); }
+    if (typeof window.mcTickEntityRuntime === "function") {
+      window.mcTickEntityRuntime(gltfEntityRenderer, delta);
     }
     rebuildMeshIfNeeded();
 

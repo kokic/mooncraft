@@ -3,6 +3,6 @@ import {
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
   "kokic/mooncraft/ffi",
-  "kokic/mooncraft/util",
   "kokic/mooncraft/block",
+  "kokic/mooncraft/entity",
 }

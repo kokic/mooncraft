@@ -1,0 +1,76 @@
+///|
+pub struct EntityRuntime {
+  priv entities : Map[String, EntityState]
+}
+
+///|
+pub fn EntityRuntime::new() -> EntityRuntime {
+  { entities: {} }
+}
+
+///|
+pub fn EntityRuntime::spawn(
+  self : EntityRuntime,
+  id : String,
+  spawn : EntitySpawn,
+) -> Bool {
+  guard !self.entities.contains(id) else { false }
+  self.entities[id] = EntityState::new(id, spawn)
+  true
+}
+
+///|
+pub fn EntityRuntime::position(
+  self : EntityRuntime,
+  id : String,
+) -> EntityPosition? {
+  self.entities.get(id).map(entity => entity.position)
+}
+
+///|
+pub fn EntityRuntime::set_path(
+  self : EntityRuntime,
+  id : String,
+  waypoints : Array[EntityPosition],
+) -> Bool {
+  guard self.entities.get(id) is Some(entity) else { false }
+  entity.set_path(waypoints)
+}
+
+///|
+pub fn EntityRuntime::cancel_movement(
+  self : EntityRuntime,
+  id : String,
+) -> EntityEvent? {
+  guard self.entities.get(id) is Some(entity) else { None }
+  guard entity.movement is Some(_) else { None }
+  entity.movement = None
+  Some(EntityEvent::MovementCancelled(id))
+}
+
+///|
+pub fn EntityRuntime::tick(
+  self : EntityRuntime,
+  delta : Double,
+) -> Array[EntityEvent] {
+  let events = []
+  for id in self.entities.keys() {
+    guard self.entities.get(id) is Some(entity) else { continue }
+    match entity.movement {
+      Some(plan) => {
+        if !plan.started {
+          plan.started = true
+          events.push(EntityEvent::MovementStarted(id))
+        }
+        events.append(entity.advance(delta))
+      }
+      None => ()
+    }
+  }
+  events
+}
+
+///|
+pub fn EntityRuntime::snapshots(self : EntityRuntime) -> Array[EntitySnapshot] {
+  self.entities.values().map(entity => entity.snapshot()).to_array()
+}

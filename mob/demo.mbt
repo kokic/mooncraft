@@ -1,26 +1,17 @@
 ///|
-pub fn demo_entities(world : @level.World) -> Array[@render.GltfEntityConfig] {
-  // STATUS: INCOMPLETE - this is a static showcase layer, not the runtime mob
-  // system. No AI, persistence, collision, damage, or spawn rules are modeled.
-  let entities = zombie_demo_entities(world)
-
-  // for entity in rabbit_demo_entities(world) {
-  //   entities.push(entity)
-  // }
-
-  // for entity in snowman_demo_entities(world) {
-  //   entities.push(entity)
-  // }
-
-  entities
-}
-
-///|
 pub fn install_default_demo(world : @level.World) -> Unit {
-  @render.publish_entities(demo_entities(world))
-  // @render.start_animation_cycle(
-  //   "zombie_0",
-  //   zombie_demo_clips(),
-  //   interval_ms=@render.DEFAULT_DEMO_INTERVAL_MS,
-  // )
+  @render.publish_entities(zombie_demo_entities(world))
+  for spawn in zombie_spawns(world) {
+    ignore(
+      entity_runtime.spawn(
+        spawn.id,
+        @entity.EntitySpawn::new(
+          spawn.position,
+          ZOMBIE_RENDER_Y_OFFSET,
+          ZOMBIE_MOVE_SPEED,
+          ZOMBIE_TURN_SPEED,
+        ),
+      ),
+    )
+  }
 }

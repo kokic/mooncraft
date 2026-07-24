@@ -12,7 +12,7 @@ fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   // STATUS: NEEDS_ADJUSTMENT - render distance, update budgets, and debug flags
   // are runtime tuning knobs but are still compiled into this setup path.
   set_global("mcUpdateLabel", "1:10")
-  set_global("mcSaveSchemaVersion", 1)
+  set_global("mcSaveSchemaVersion", @save.SAVE_SCHEMA_VERSION)
   set_global("mcSaveStorageKey", @ffi.active_save_storage_key())
   set_global("mcWorldSeed", world.seed())
   set_global("mcWorldType", world.world_type_name())
@@ -49,7 +49,7 @@ fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
 
 ///|
 /// Register JS-callable entry points that forward to MoonBit logic.
-fn register_api(world : @level.World) -> Unit {
+fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   // STATUS: COMPLETE - this is the intended boundary between MoonBit gameplay
   // logic and the JS renderer/input loop. Keep exported names stable.
   set_global(
@@ -85,6 +85,86 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcUnpackLongId", @util.unpack_long_id)
   set_global("mcChunkXyzByKey", @level.chunk_xyz_by_chunk_key)
   set_global("mcCollectRenderChunkKeys", @render.collect_render_chunk_keys)
+  let chunk_runtime = @render.ChunkRuntime::new(
+    world,
+    chunk_data,
+    spawn_chunk_x=@player.SPAWN_CHUNK_X,
+    spawn_chunk_z=@player.SPAWN_CHUNK_Z,
+  )
+  set_global("mcChunkRuntimeChunkMap", chunk_runtime.chunk_map())
+  set_global("mcTickChunkRuntime", fn(center_x : Int, center_z : Int) {
+    chunk_runtime.tick(center_x, center_z)
+  })
+  set_global("mcChunkRuntimeLight", fn(key : String) {
+    chunk_runtime.chunk_light(key)
+  })
+  set_global("mcMarkChunkBlockChanged", fn(wx : Int, wy : Int, wz : Int) {
+    chunk_runtime.mark_block_changed(wx, wy, wz)
+  })
+  set_global("mcLoadChunkRuntimeBlockDelta", fn(
+    x : Int,
+    y : Int,
+    z : Int,
+    id : UInt,
+  ) {
+    chunk_runtime.load_block_delta(x, y, z, id)
+  })
+  set_global("mcChunkRuntimeBlockDeltas", fn() { chunk_runtime.block_deltas() })
+  let player_inventory = @player.PlayerInventoryRuntime::new()
+  set_global("mcPlayerInventorySnapshot", fn() { player_inventory.snapshot() })
+  set_global("mcSetPlayerGameMode", fn(mode : String) {
+    player_inventory.set_game_mode(mode)
+  })
+  set_global("mcSelectPlayerHotbar", fn(index : Int) {
+    player_inventory.select_hotbar(index)
+  })
+  set_global("mcSetPlayerHotbarSlot", fn(
+    index : Int,
+    name : String,
+    category : String,
+  ) {
+    let slot = if name.length() == 0 {
+      None
+    } else {
+      Some(@player.HotbarSlot::new(name, category))
+    }
+    player_inventory.set_hotbar_slot(index, slot)
+  })
+  set_global("mcSetPlayerInventoryOpen", fn(open : Bool) {
+    player_inventory.set_inventory_open(open)
+  })
+  set_global("mcLoadLevelSave", fn(text : String) {
+    match @save.migrate_save_payload(text) {
+      Some(payload) if payload.matches_world(
+          world.seed(),
+          world.world_type_name(),
+        ) => {
+        ignore(player_inventory.restore(payload.inventory()))
+        for delta in payload.block_deltas() {
+          chunk_runtime.load_block_delta(delta.x, delta.y, delta.z, delta.id)
+        }
+        Some(payload)
+      }
+      _ => None
+    }
+  })
+  set_global("mcBuildLevelSave", fn(
+    saved_at : Double,
+    position : Array[Double],
+    yaw : Double,
+    pitch : Double,
+  ) {
+    @save.SavePayload::new(
+      saved_at,
+      world.seed(),
+      world.world_type_name(),
+      position,
+      yaw,
+      pitch,
+      player_inventory.snapshot(),
+      chunk_runtime.block_deltas(),
+    ).encode()
+  })
   set_global("mcCanPlaceBlock", @player.can_place_block)
   set_global("mcBuildChunkMesh", @render.build_chunk_mesh)
   set_global("mcBuildChunkColors", @render.build_chunk_colors)
@@ -150,16 +230,13 @@ fn register_api(world : @level.World) -> Unit {
   set_global("mcGltfLookAtXyz", @render.gltf_look_at_xyz)
   set_global("mcGltfEntityIds", @render.gltf_entity_ids)
   set_global("mcGltfEntityCount", @render.gltf_entity_count)
-  set_global("mcGltfGetPosition", @render.gltf_get_position)
-  set_global("mcGltfSetPosition", @render.gltf_set_position)
-
-  set_global("mcNavigateEntityTo", @mob.navigate_entity_to)
-  set_global("mcTickEntityNavigation", @mob.tick_entity_navigation)
+  set_global("mcRequestZombieNavigation", @mob.request_zombie_0_navigation)
+  set_global("mcTickEntityRuntime", @mob.tick_entity_runtime)
 }
 
 ///|
 /// Main entry: register all JS globals.
 fn register_globals(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   register_config(world, chunk_data)
-  register_api(world)
+  register_api(world, chunk_data)
 }

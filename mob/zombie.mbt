@@ -5,7 +5,17 @@ pub const ZOMBIE_MODEL_URL : String = "./assets/models/zombie.gltf"
 pub const ZOMBIE_TEXTURE_URL : String = "./assets/images/entity/zombie.png"
 
 ///|
+const ZOMBIE_0_ID : String = "zombie_0"
+
+///|
 pub const ZOMBIE_Y_OFFSET : Double = 2.35
+
+///|
+const ZOMBIE_FEET_SURFACE_OFFSET : Double = 1.0
+
+///|
+const ZOMBIE_RENDER_Y_OFFSET : Double = ZOMBIE_Y_OFFSET -
+  ZOMBIE_FEET_SURFACE_OFFSET
 
 ///|
 fn demo_spawn_base_wxz() -> (Int, Int) {
@@ -29,6 +39,34 @@ fn zombie_1_wxz() -> (Int, Int) {
 }
 
 ///|
+priv struct ZombieSpawn {
+  id : String
+  position : @entity.EntityPosition
+  animation : String
+}
+
+///|
+fn zombie_spawn(
+  world : @level.World,
+  id : String,
+  wx : Int,
+  wz : Int,
+  animation : String,
+) -> ZombieSpawn {
+  let feet_y = @level.surface_height(world, wx, wz).to_double() +
+    ZOMBIE_FEET_SURFACE_OFFSET
+  {
+    id,
+    position: @entity.EntityPosition::new(
+      wx.to_double() + 0.5,
+      feet_y,
+      wz.to_double() + 0.5,
+    ),
+    animation,
+  }
+}
+
+///|
 fn surface_position(
   world : @level.World,
   wx : Int,
@@ -40,45 +78,37 @@ fn surface_position(
 }
 
 ///|
-pub fn zombie_demo_entities(
-  world : @level.World,
-) -> Array[@render.GltfEntityConfig] {
-  // STATUS: NEEDS_ADJUSTMENT - demo placement and clip choices are hard-coded
-  // so model/animation coverage can be inspected before gameplay logic exists.
+fn zombie_spawns(world : @level.World) -> Array[ZombieSpawn] {
   let (wx0, wz0) = zombie_0_wxz()
   let (wx1, wz1) = zombie_1_wxz()
   [
-    @render.entity_config(
-      "zombie_0",
-      ZOMBIE_MODEL_URL,
-      texture=ZOMBIE_TEXTURE_URL,
-      position=surface_position(world, wx0, wz0),
-      animation="animation.zombie.walk",
-      speed=1.0,
-      looped=true,
-    ),
-    // @entity.entity_config(
-    //   "zombie_1",
-    //   ZOMBIE_MODEL_URL,
-    //   texture=ZOMBIE_TEXTURE_URL,
-    //   position=surface_position(world, wx1, wz1),
-    //   animation="animation.zombie.attack",
-    //   speed=1.0,
-    //   looped=true,
-    // ),
-    @render.entity_config(
-      "zombie_1",
-      ZOMBIE_MODEL_URL,
-      texture=ZOMBIE_TEXTURE_URL,
-      position=surface_position(world, wx1, wz1),
-      animation="riding",
-      speed=1.0,
-      looped=true,
-    ),
+    zombie_spawn(world, ZOMBIE_0_ID, wx0, wz0, "none"),
+    zombie_spawn(world, "zombie_1", wx1, wz1, "riding"),
   ]
 }
 
 ///|
-pub fn zombie_demo_clips() -> Array[String] {
-  ["animation.zombie.walk", "animation.zombie.attack", "riding", "none"]
+fn ZombieSpawn::render_config(self : ZombieSpawn) -> @render.GltfEntityConfig {
+  @render.entity_config(
+    self.id,
+    ZOMBIE_MODEL_URL,
+    texture=ZOMBIE_TEXTURE_URL,
+    position=[
+      self.position.x,
+      self.position.y + ZOMBIE_RENDER_Y_OFFSET,
+      self.position.z,
+    ],
+    animation=self.animation,
+    speed=1.0,
+    looped=true,
+  )
+}
+
+///|
+fn zombie_demo_entities(
+  world : @level.World,
+) -> Array[@render.GltfEntityConfig] {
+  // STATUS: NEEDS_ADJUSTMENT - demo placement and clip choices are hard-coded
+  // so model/animation coverage can be inspected before gameplay logic exists.
+  zombie_spawns(world).map(spawn => spawn.render_config())
 }

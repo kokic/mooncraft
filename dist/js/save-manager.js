@@ -76,13 +76,15 @@ function parseSaveInfo(key) {
     };
   }
   const seed = Number(payload.world?.seed);
-  const blockDeltas = Array.isArray(payload.blockDeltas) ? payload.blockDeltas : [];
-  const savedAt = Number(payload.savedAt);
+  const blockDeltas = Array.isArray(payload.block_deltas)
+    ? payload.block_deltas
+    : (Array.isArray(payload.blockDeltas) ? payload.blockDeltas : []);
+  const savedAt = Number(payload.saved_at ?? payload.savedAt);
   return {
     exists: true,
     seed: Number.isFinite(seed) ? Math.floor(seed) : null,
-    worldType: typeof payload.world?.worldType === "string"
-      ? payload.world.worldType
+    worldType: typeof (payload.world?.world_type ?? payload.world?.worldType) === "string"
+      ? (payload.world.world_type ?? payload.world.worldType)
       : null,
     blockDeltaCount: blockDeltas.length,
     savedAt: Number.isFinite(savedAt) ? savedAt : null,

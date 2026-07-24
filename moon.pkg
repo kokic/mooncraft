@@ -13,6 +13,7 @@ import {
   "kokic/mooncraft/math3d",
   "kokic/mooncraft/mob",
   "kokic/mooncraft/render",
+  "kokic/mooncraft/level/save",
 }
 
 pkgtype(kind: "executable")

@@ -12,6 +12,20 @@ pub struct MoveInput {
 }
 
 ///|
+pub fn MoveInput::new(
+  forward? : Bool = false,
+  back? : Bool = false,
+  left? : Bool = false,
+  right? : Bool = false,
+  up? : Bool = false,
+  down? : Bool = false,
+  sprint? : Bool = false,
+  fast? : Bool = false,
+) -> MoveInput {
+  { forward, back, left, right, up, down, sprint, fast }
+}
+
+///|
 fn intersects(
   a_min_x : Double,
   a_min_y : Double,

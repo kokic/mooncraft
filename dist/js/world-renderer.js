@@ -39,8 +39,6 @@ function getTorchShapeBoxByState(state) {
   return value;
 }
 
-window.mcGameMode = normalizeGameMode(window.mcGameMode);
-
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
@@ -84,24 +82,6 @@ function setBlockIdAt(chunkDatas, size, wx, wy, wz, id) {
   return value;
 }
 
-function buildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY) {
-  const entries = window.mcBuildWorldLight(chunkDatas, size, keys, worldMinY, worldMaxY);
-  if (!Array.isArray(entries)) throw new Error("mcBuildWorldLight returned non-array");
-  return entries;
-}
-
-function buildChunkColorsSplit(registry, data, light, size) {
-  const value = window.mcBuildChunkColorsSplit(registry, data, light, size);
-  if (!value ||
-    !Array.isArray(value.normal) ||
-    !Array.isArray(value.leaf) ||
-    !Array.isArray(value.water) ||
-    !Array.isArray(value.translucent)) {
-    throw new Error("mcBuildChunkColorsSplit returned invalid data");
-  }
-  return value;
-}
-
 function normalizeWaterTintSample(value) {
   if (!Array.isArray(value) || value.length < 4) return [1, 1, 1, 1];
   return value.map((v) => { const n = Number(v); return Number.isFinite(n) ? n : 1; });
@@ -111,11 +91,6 @@ function toColorByte(value) {
   const v = Number.isFinite(value) ? value : 1;
   const scaled = Math.round(Math.min(1, Math.max(0, v)) * 255);
   return scaled & 0xff;
-}
-
-function chunkXyzByKey(key) {
-  const out = window.mcChunkXyzByKey(key);
-  return { x: Number(out._0) | 0, y: Number(out._1) | 0, z: Number(out._2) | 0 };
 }
 
 function createOutlineProgram(gl) {
@@ -249,9 +224,7 @@ function resizeCanvas(gl, canvas) {
 function renderTestChunk({
   blockRegistry,
   textures,
-  chunkData,
   chunkSize,
-  chunkGenerator,
 }) {
   const {
     mcUpVector: UP_VECTOR,
@@ -406,21 +379,14 @@ function renderTestChunk({
     return buffer;
   };
   const size = chunkSize ?? 16;
-  const spawnChunkX = toFiniteInt(window.mcSpawnChunkX, 0);
-  const spawnChunkZ = toFiniteInt(window.mcSpawnChunkZ, 0);
-  const spawnLocalX = Math.max(0, Math.min(size - 1, toFiniteInt(window.mcSpawnLocalX, Math.floor(size / 2))));
-  const spawnLocalZ = Math.max(0, Math.min(size - 1, toFiniteInt(window.mcSpawnLocalZ, Math.floor(size / 2))));
-  const spawnSurfaceOffset = toFiniteInt(window.mcSpawnSurfaceOffset, 3);
-  const spawnFallbackY = toFiniteInt(window.mcSpawnFallbackY, size);
   const saveStorageKey = window.mcSaveStorageKey ?? DEFAULT_SAVE_STORAGE_KEY;
   const levelSaveText = readLevelSaveText(saveStorageKey);
-  const loadedLevel = levelSaveText && typeof window.mcLoadLevelSave === "function"
+  const loadedLevel = levelSaveText.length > 0 && typeof window.mcLoadLevelSave === "function"
     ? window.mcLoadLevelSave(levelSaveText)
-    : null;
+    : false;
   if (levelSaveText && !loadedLevel) {
     console.warn("[level] ignored invalid or mismatched save payload");
   }
-  const loadedPlayer = loadedLevel?.player ?? null;
   let suppressAutosave = false;
   let requestAutosave = () => { };
   const chunkDatas = window.mcChunkRuntimeChunkMap;
@@ -428,43 +394,12 @@ function renderTestChunk({
     throw new Error("MoonBit chunk runtime did not provide its chunk map");
   }
   const chunkMeshes = new Map();
-  const worldMinY = window.mcWorldMinY ?? 0;
-  const worldMaxY = window.mcWorldMaxY ?? 0;
-  const chunkMinY = Math.floor(worldMinY / size);
-  const chunkMaxY = Math.floor(worldMaxY / size);
-  const useFixedLight = window.mcUseFixedLight === true;
   const rawAirLongId = Number(window.mcAirLongId ?? 0);
   const airLongId = Number.isFinite(rawAirLongId) ? rawAirLongId : 0;
-  const meshSectionRaw = Number(window.mcMeshSectionSize ?? DEFAULT_MESH_SECTION_SIZE);
-  const meshSectionCandidate = Number.isFinite(meshSectionRaw)
+  const meshSectionRaw = Number(window.mcChunkSectionSize ?? DEFAULT_MESH_SECTION_SIZE);
+  const meshSectionSize = Number.isFinite(meshSectionRaw)
     ? Math.max(1, Math.floor(meshSectionRaw))
     : DEFAULT_MESH_SECTION_SIZE;
-  const meshSectionSize = size % meshSectionCandidate === 0 ? meshSectionCandidate : size;
-  const sectionsPerAxis = Math.max(1, Math.floor(size / meshSectionSize));
-  const sectionCellCount = meshSectionSize * meshSectionSize * meshSectionSize;
-  if (meshSectionSize !== meshSectionCandidate) {
-    console.warn("[mesh] section size must divide chunk size; fallback to full chunk", {
-      requested: meshSectionCandidate,
-      chunkSize: size,
-      sectionSize: meshSectionSize,
-    });
-  }
-  console.debug("[spawn] world bounds", {
-    worldMinY,
-    worldMaxY,
-    chunkMinY,
-    chunkMaxY,
-    size,
-    spawnChunkX,
-    spawnChunkZ,
-    spawnLocalX,
-    spawnLocalZ,
-    spawnSurfaceOffset,
-    spawnFallbackY,
-  });
-
-  const fallbackSectionLight = new Uint8Array(sectionCellCount);
-  fallbackSectionLight.fill(15);
   const deleteMeshBuffers = (buffers) => {
     if (!buffers) return;
     if (buffers.vaoWorld) gl.deleteVertexArray(buffers.vaoWorld);
@@ -535,101 +470,27 @@ function renderTestChunk({
       layerBuffer,
     };
   };
-  const getOrCreateChunkMesh = (key, cx, cy, cz) => {
+  const getOrCreateChunkMesh = (key) => {
     const prev = chunkMeshes.get(key);
     if (prev && prev.sections instanceof Map) {
-      prev.cx = cx;
-      prev.cy = cy;
-      prev.cz = cz;
       return prev;
     }
     if (prev) {
       deleteChunkMesh(prev);
     }
-    const mesh = { cx, cy, cz, sections: new Map() };
+    const mesh = { sections: new Map() };
     chunkMeshes.set(key, mesh);
     return mesh;
   };
-  const buildSectionPaddedData = (baseWorldX, baseWorldY, baseWorldZ) => {
-    const pad = meshSectionSize + 2;
-    const padded = new Array(pad * pad * pad);
-    let idx = 0;
-    for (let y = -1; y <= meshSectionSize; y += 1) {
-      for (let z = -1; z <= meshSectionSize; z += 1) {
-        for (let x = -1; x <= meshSectionSize; x += 1) {
-          padded[idx] = getBlockIdAtOrDefault(
-            chunkDatas,
-            size,
-            baseWorldX + x,
-            baseWorldY + y,
-            baseWorldZ + z,
-            airLongId,
-          );
-          idx += 1;
-        }
-      }
+  const applyMeshCommand = (command) => {
+    const key = command?.chunk_key;
+    const mesh = command?.mesh;
+    if (typeof key !== "string" ||
+      !mesh?.normal || !mesh?.leaf || !mesh?.water || !mesh?.translucent) {
+      throw new Error("MoonBit emitted an invalid chunk mesh command");
     }
-    return padded;
-  };
-  const buildSectionLight = (key, sx, sy, sz) => {
-    if (useFixedLight) return fallbackSectionLight;
-    const chunkLight = typeof window.mcChunkRuntimeLight === "function"
-      ? window.mcChunkRuntimeLight(key)
-      : null;
-    if (!chunkLight || typeof chunkLight.length !== "number") {
-      return fallbackSectionLight;
-    }
-    const chunkCellCount = size * size * size;
-    const chunkPad = size + 2;
-    const chunkPadCount = chunkPad * chunkPad * chunkPad;
-    const useBase = chunkLight.length === chunkCellCount;
-    const usePad = chunkLight.length === chunkPadCount;
-    if (!useBase && !usePad) {
-      return fallbackSectionLight;
-    }
-    const sectionLight = new Uint8Array(sectionCellCount);
-    const offsetX = sx * meshSectionSize;
-    const offsetY = sy * meshSectionSize;
-    const offsetZ = sz * meshSectionSize;
-    let idx = 0;
-    for (let y = 0; y < meshSectionSize; y += 1) {
-      for (let z = 0; z < meshSectionSize; z += 1) {
-        for (let x = 0; x < meshSectionSize; x += 1) {
-          const lx = offsetX + x;
-          const ly = offsetY + y;
-          const lz = offsetZ + z;
-          const lightIndex = useBase
-            ? ((ly * size) + lz) * size + lx
-            : (((ly + 1) * chunkPad) + (lz + 1)) * chunkPad + (lx + 1);
-          sectionLight[idx] = Number(chunkLight[lightIndex] ?? 15);
-          idx += 1;
-        }
-      }
-    }
-    return sectionLight;
-  };
-  const buildChunkSectionMesh = (key, cx, cy, cz, sx, sy, sz) => {
-    const sectionChunkX = cx * sectionsPerAxis + sx;
-    const sectionChunkY = cy * sectionsPerAxis + sy;
-    const sectionChunkZ = cz * sectionsPerAxis + sz;
-    const baseWorldX = sectionChunkX * meshSectionSize;
-    const baseWorldY = sectionChunkY * meshSectionSize;
-    const baseWorldZ = sectionChunkZ * meshSectionSize;
-    const sectionData = buildSectionPaddedData(baseWorldX, baseWorldY, baseWorldZ);
-    const sectionLight = buildSectionLight(key, sx, sy, sz);
-    const entries = [{
-      x: sectionChunkX,
-      y: sectionChunkY,
-      z: sectionChunkZ,
-      data: sectionData,
-      light: sectionLight,
-    }];
-    const meshPair = window.mcBuildWorldMeshSplit(blockRegistry, entries, meshSectionSize);
-    if (!meshPair || !meshPair.normal || !meshPair.leaf || !meshPair.water || !meshPair.translucent) {
-      throw new Error("mcBuildWorldMeshSplit returned invalid data");
-    }
-    const chunkMesh = getOrCreateChunkMesh(key, cx, cy, cz);
-    const id = `${sx},${sy},${sz}`;
+    const chunkMesh = getOrCreateChunkMesh(key);
+    const id = `${command.x},${command.y},${command.z}`;
     const prevSection = chunkMesh.sections.get(id);
     if (prevSection) {
       deleteMeshBuffers(prevSection.normal);
@@ -638,44 +499,20 @@ function renderTestChunk({
       deleteMeshBuffers(prevSection.translucent);
     }
     chunkMesh.sections.set(id, {
-      sx,
-      sy,
-      sz,
-      centerX: baseWorldX + meshSectionSize * 0.5,
-      centerY: baseWorldY + meshSectionSize * 0.5,
-      centerZ: baseWorldZ + meshSectionSize * 0.5,
-      dataPadded: sectionData,
-      normal: toBuffers(meshPair.normal),
-      leaf: toBuffers(meshPair.leaf),
-      water: toBuffers(meshPair.water),
-      translucent: toBuffers(meshPair.translucent),
+      centerX: Number(command.center_x),
+      centerY: Number(command.center_y),
+      centerZ: Number(command.center_z),
+      normal: toBuffers(mesh.normal),
+      leaf: toBuffers(mesh.leaf),
+      water: toBuffers(mesh.water),
+      translucent: toBuffers(mesh.translucent),
     });
   };
-  const buildChunkMesh = (key, cx, cy, cz, _data) => {
-    for (let sy = 0; sy < sectionsPerAxis; sy += 1) {
-      for (let sz = 0; sz < sectionsPerAxis; sz += 1) {
-        for (let sx = 0; sx < sectionsPerAxis; sx += 1) {
-          buildChunkSectionMesh(key, cx, cy, cz, sx, sy, sz);
-        }
-      }
-    }
-  };
-  const updateSectionColors = (chunkKey, mesh, section) => {
-    const sectionData = Array.isArray(section.dataPadded)
-      ? section.dataPadded
-      : buildSectionPaddedData(
-        (section.sx + mesh.cx * sectionsPerAxis) * meshSectionSize,
-        (section.sy + mesh.cy * sectionsPerAxis) * meshSectionSize,
-        (section.sz + mesh.cz * sectionsPerAxis) * meshSectionSize,
-      );
-    const sectionLight = buildSectionLight(chunkKey, section.sx, section.sy, section.sz);
-    const colorsPair = buildChunkColorsSplit(
-      blockRegistry,
-      sectionData,
-      sectionLight,
-      meshSectionSize,
-    );
-    if (!colorsPair) return { ok: false, reason: "invalid-colors" };
+  const applyRecolorCommand = (command) => {
+    const chunkMesh = chunkMeshes.get(command?.chunk_key);
+    const section = chunkMesh?.sections?.get(`${command?.x},${command?.y},${command?.z}`);
+    const colors = command?.colors;
+    if (!section || !colors) return false;
     const uploadColors = (part, colors) => {
       const expected = part.count * 4;
       const arr = Float32Array.from(colors ?? []);
@@ -686,55 +523,11 @@ function renderTestChunk({
       gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
       return true;
     };
-    if (!uploadColors(section.normal, colorsPair.normal)) {
-      return { ok: false, reason: "mismatch-normal" };
-    }
-    if (!uploadColors(section.leaf, colorsPair.leaf)) {
-      return { ok: false, reason: "mismatch-leaf" };
-    }
-    if (!uploadColors(section.water, colorsPair.water)) {
-      return { ok: false, reason: "mismatch-water" };
-    }
-    if (!uploadColors(section.translucent, colorsPair.translucent)) {
-      return { ok: false, reason: "mismatch-translucent" };
-    }
-    return { ok: true };
+    return uploadColors(section.normal, colors.normal) &&
+      uploadColors(section.leaf, colors.leaf) &&
+      uploadColors(section.water, colors.water) &&
+      uploadColors(section.translucent, colors.translucent);
   };
-  const updateChunkColors = (key) => {
-    if (useFixedLight) return { ok: true };
-    const mesh = chunkMeshes.get(key);
-    if (!mesh || !(mesh.sections instanceof Map)) {
-      return { ok: false, reason: "missing-mesh" };
-    }
-    for (const section of mesh.sections.values()) {
-      const res = updateSectionColors(key, mesh, section);
-      if (!res.ok) return res;
-    }
-    return { ok: true };
-  };
-
-  const computeSpawn = window.mcComputeSpawnPosition;
-  const spawn = typeof computeSpawn === "function"
-    ? computeSpawn(
-      chunkDatas,
-      size,
-      chunkMinY,
-      chunkMaxY,
-      spawnChunkX,
-      spawnChunkZ,
-      spawnLocalX,
-      spawnLocalZ,
-      spawnSurfaceOffset,
-      spawnFallbackY,
-    )
-    : {
-      position: [
-        spawnLocalX + 0.5,
-        spawnFallbackY + spawnSurfaceOffset,
-        spawnLocalZ + 0.5,
-      ],
-      surfaceY: null,
-    };
 
   const textureArray = createTextureArray(gl, textures);
   const gltfEntityRenderer = window.mcCreateGltfRenderer(
@@ -1000,17 +793,12 @@ function renderTestChunk({
 
   const getBlockId = (wx, wy, wz) =>
     getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, airLongId);
-  const player = createPlayerController({
-    canvas,
-    worldMinY,
-    spawnPosition: spawn.position,
-    spawnYaw: window.mcSpawnYaw,
-    spawnPitch: window.mcSpawnPitch,
-    gameMode: normalizeGameMode(window.mcGameMode),
-    chunkMap: chunkDatas,
-    chunkSize: size,
-  });
-  const getGameMode = () => normalizeGameMode(window.mcGameMode);
+  const player = createPlayerController({ canvas });
+  let lastFrameTime = performance.now();
+  const getInventorySnapshot = () => typeof window.mcPlayerInventorySnapshot === "function"
+    ? window.mcPlayerInventorySnapshot()
+    : null;
+  const getGameMode = () => normalizeGameMode(getInventorySnapshot()?.game_mode);
   const setGameMode = (mode) => {
     const next = normalizeGameMode(mode);
     const prev = getGameMode();
@@ -1020,16 +808,11 @@ function renderTestChunk({
     const snapshot = typeof window.mcSetPlayerGameMode === "function"
       ? window.mcSetPlayerGameMode(next)
       : null;
-    window.mcGameMode = snapshot?.game_mode ?? next;
-    if (typeof player.setGameMode === "function") {
-      player.setGameMode(next);
-    }
     if (!suppressAutosave) {
       requestAutosave();
     }
-    return next;
+    return normalizeGameMode(snapshot?.game_mode ?? next);
   };
-  setGameMode(window.mcGameMode);
 
   const debugHud = document.createElement("div");
   debugHud.style.position = "fixed";
@@ -1080,29 +863,18 @@ function renderTestChunk({
     if (typeof tickRuntime !== "function") {
       throw new Error("MoonBit chunk runtime tick is unavailable");
     }
-    const frame = tickRuntime(cx, cz);
-    player.state.centerKey = `${cx},0,${cz}`;
+    const frame = tickRuntime(blockRegistry, cx, cz);
     for (const key of frame?.evicted ?? []) {
       const mesh = chunkMeshes.get(key);
       if (mesh) deleteChunkMesh(mesh);
       chunkMeshes.delete(key);
     }
-    for (const key of frame?.full_rebuilds ?? []) {
-      const xyz = chunkXyzByKey(key);
-      if (!xyz || !chunkDatas.has(key)) continue;
-      buildChunkMesh(key, xyz.x, xyz.y, xyz.z);
+    for (const command of frame?.mesh_updates ?? []) {
+      applyMeshCommand(command);
     }
-    for (const section of frame?.section_rebuilds ?? []) {
-      const key = section?.chunk_key;
-      const xyz = typeof key === "string" ? chunkXyzByKey(key) : null;
-      if (!xyz || !chunkDatas.has(key)) continue;
-      buildChunkSectionMesh(key, xyz.x, xyz.y, xyz.z, section.x, section.y, section.z);
-    }
-    for (const key of frame?.recolors ?? []) {
-      if (!chunkMeshes.has(key)) continue;
-      const result = updateChunkColors(key);
-      if (!result.ok && result.reason !== "missing-mesh") {
-        console.error("[lighting] failed to update chunk colors", key, result);
+    for (const command of frame?.recolors ?? []) {
+      if (!applyRecolorCommand(command)) {
+        console.error("[lighting] failed to apply recolor command", command);
       }
     }
   };
@@ -1163,9 +935,6 @@ function renderTestChunk({
     }
   };
 
-  const getInventorySnapshot = () => typeof window.mcPlayerInventorySnapshot === "function"
-    ? window.mcPlayerInventorySnapshot()
-    : null;
   const initialInventorySnapshot = getInventorySnapshot();
   const restoredHotbarSlots = Array.isArray(initialInventorySnapshot?.hotbar_slots)
     ? initialInventorySnapshot.hotbar_slots
@@ -1351,22 +1120,7 @@ function renderTestChunk({
     }
   };
 
-  if (loadedPlayer && Array.isArray(loadedPlayer.position) && loadedPlayer.position.length >= 3) {
-    const [x, y, z] = loadedPlayer.position.map(Number);
-    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
-      player.state.position[0] = x;
-      player.state.position[1] = y;
-      player.state.position[2] = z;
-    }
-    const yaw = Number(loadedPlayer.yaw);
-    const pitch = Number(loadedPlayer.pitch);
-    if (Number.isFinite(yaw)) player.state.yaw = yaw;
-    if (Number.isFinite(pitch)) {
-      player.state.pitch = Math.max(-1.55, Math.min(1.55, pitch));
-    }
-  }
   const restoredInventory = getInventorySnapshot();
-  setGameMode(restoredInventory?.game_mode ?? "creative");
   selectHotbarIndex(restoredInventory?.selected_hotbar_index ?? 0, false);
   setInventoryOpen(restoredInventory?.inventory_open === true, false, true);
   let saveDirty = false;
@@ -1380,12 +1134,7 @@ function renderTestChunk({
       if (typeof window.mcBuildLevelSave !== "function") {
         throw new Error("MoonBit level save encoder is unavailable");
       }
-      const payload = window.mcBuildLevelSave(
-        Date.now(),
-        player.state.position,
-        player.state.yaw,
-        player.state.pitch,
-      );
+      const payload = window.mcBuildLevelSave(Date.now());
       globalThis.localStorage?.setItem(saveStorageKey, payload);
       saveDirty = false;
       lastSavedAt = Date.now();
@@ -1626,11 +1375,9 @@ function renderTestChunk({
     }
 
     const now = performance.now();
-    const delta = Math.min(0.05, (now - player.state.lastTime) / 1000);
-    player.state.lastTime = now;
-    if (!isInventoryOpen()) {
-      player.update(delta);
-    }
+    const delta = Math.min(0.05, (now - lastFrameTime) / 1000);
+    lastFrameTime = now;
+    player.update(delta, !isInventoryOpen());
     window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
     if (typeof window.mcTickEntityRuntime === "function") {
       window.mcTickEntityRuntime(gltfEntityRenderer, delta);

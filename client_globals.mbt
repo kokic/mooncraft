@@ -7,7 +7,7 @@ fn[V] set_global(name : String, value : V) -> Unit {
 
 ///|
 /// Register scalar config and initial world state for JS bootstrap.
-fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
+fn register_config(world : @level.World) -> Unit {
   // STATUS: COMPLETE - current JS bootstrap contract is centralized here.
   // STATUS: NEEDS_ADJUSTMENT - render distance, update budgets, and debug flags
   // are runtime tuning knobs but are still compiled into this setup path.
@@ -17,12 +17,12 @@ fn register_config(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   set_global("mcWorldSeed", world.seed())
   set_global("mcWorldType", world.world_type_name())
   set_global("mcChunkSize", @level.CHUNK_X_SIZE)
-  set_global("mcChunkData", chunk_data)
   set_global("mcWorldMinY", world.min_y())
   set_global("mcWorldMaxY", world.max_y())
-  set_global("mcRenderDistance", 2)
-  set_global("mcChunkGenPerFrame", 2)
-  set_global("mcMeshBuildPerFrame", 2)
+  set_global("mcRenderDistance", @render.CHUNK_RENDER_DISTANCE)
+  set_global("mcChunkGenPerFrame", @render.CHUNK_GENERATION_BUDGET)
+  set_global("mcMeshBuildPerFrame", @render.CHUNK_MESH_BUDGET)
+  set_global("mcChunkSectionSize", @render.CHUNK_SECTION_SIZE)
   set_global("mcDebugChunkGen", false)
   set_global("mcDebugSolid", false)
   set_global("mcUseFixedLight", @level.USE_FIXED_LIGHT)
@@ -76,27 +76,46 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   set_global("mcQuatApplyYawOffset", @math3d.quat_apply_yaw_offset)
   set_global("mcQuatFromYawPitch", @math3d.quat_from_yaw_pitch)
   set_global("mcQuatSlerp", @math3d.quat_slerp)
-  set_global("mcComputeSpawnPosition", @player.compute_spawn_position)
   set_global("mcTorchShapeBoxByState", @genus.Torch::shape_box_by_state)
   set_global("mcCreateBlockRegistry", @render.BlockRegistry::create)
   set_global("mcGetRenderBlockByLongId", @render.BlockRegistry::get_by_long_id)
   set_global("mcBlockIsSelectable", @block.Block::is_selectable)
   set_global("mcPackLongId", @util.pack_long_id)
   set_global("mcUnpackLongId", @util.unpack_long_id)
-  set_global("mcChunkXyzByKey", @level.chunk_xyz_by_chunk_key)
-  set_global("mcCollectRenderChunkKeys", @render.collect_render_chunk_keys)
   let chunk_runtime = @render.ChunkRuntime::new(
     world,
     chunk_data,
     spawn_chunk_x=@player.SPAWN_CHUNK_X,
     spawn_chunk_z=@player.SPAWN_CHUNK_Z,
   )
+  let spawn = @player.compute_spawn_position(
+    chunk_runtime.chunk_map(),
+    @level.CHUNK_X_SIZE,
+    @util.floor_div(world.min_y(), @level.CHUNK_X_SIZE),
+    @util.floor_div(world.max_y(), @level.CHUNK_X_SIZE),
+    @player.SPAWN_CHUNK_X,
+    @player.SPAWN_CHUNK_Z,
+    @player.SPAWN_LOCAL_X,
+    @player.SPAWN_LOCAL_Z,
+    @player.SPAWN_SURFACE_OFFSET,
+    @player.SPAWN_FALLBACK_Y,
+  )
+  let player_runtime = @player.PlayerRuntime::new(
+    chunk_runtime.chunk_map(),
+    @level.CHUNK_X_SIZE,
+    world.min_y(),
+    @player.PlayerInventoryRuntime::new(),
+    spawn.position,
+    @player.SPAWN_YAW,
+    @player.SPAWN_PITCH,
+  )
   set_global("mcChunkRuntimeChunkMap", chunk_runtime.chunk_map())
-  set_global("mcTickChunkRuntime", fn(center_x : Int, center_z : Int) {
-    chunk_runtime.tick(center_x, center_z)
-  })
-  set_global("mcChunkRuntimeLight", fn(key : String) {
-    chunk_runtime.chunk_light(key)
+  set_global("mcTickChunkRuntime", fn(
+    registry : @render.BlockRegistry,
+    center_x : Int,
+    center_z : Int,
+  ) {
+    chunk_runtime.tick(registry, center_x, center_z)
   })
   set_global("mcMarkChunkBlockChanged", fn(wx : Int, wy : Int, wz : Int) {
     chunk_runtime.mark_block_changed(wx, wy, wz)
@@ -110,13 +129,22 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
     chunk_runtime.load_block_delta(x, y, z, id)
   })
   set_global("mcChunkRuntimeBlockDeltas", fn() { chunk_runtime.block_deltas() })
-  let player_inventory = @player.PlayerInventoryRuntime::new()
-  set_global("mcPlayerInventorySnapshot", fn() { player_inventory.snapshot() })
+  set_global("mcPlayerSnapshot", fn() { player_runtime.snapshot() })
+  set_global("mcSetPlayerMoveIntent", fn(input : @player.MoveInput) {
+    player_runtime.set_move_intent(input)
+  })
+  set_global("mcAddPlayerLookIntent", fn(yaw : Double, pitch : Double) {
+    player_runtime.add_look_intent(yaw, pitch)
+  })
+  set_global("mcTickPlayer", fn(delta : Double) { player_runtime.tick(delta) })
+  set_global("mcPlayerInventorySnapshot", fn() {
+    player_runtime.inventory_snapshot()
+  })
   set_global("mcSetPlayerGameMode", fn(mode : String) {
-    player_inventory.set_game_mode(mode)
+    player_runtime.set_game_mode(mode)
   })
   set_global("mcSelectPlayerHotbar", fn(index : Int) {
-    player_inventory.select_hotbar(index)
+    player_runtime.select_hotbar(index)
   })
   set_global("mcSetPlayerHotbarSlot", fn(
     index : Int,
@@ -128,10 +156,10 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
     } else {
       Some(@player.HotbarSlot::new(name, category))
     }
-    player_inventory.set_hotbar_slot(index, slot)
+    player_runtime.set_hotbar_slot(index, slot)
   })
   set_global("mcSetPlayerInventoryOpen", fn(open : Bool) {
-    player_inventory.set_inventory_open(open)
+    player_runtime.set_inventory_open(open)
   })
   set_global("mcLoadLevelSave", fn(text : String) {
     match @save.migrate_save_payload(text) {
@@ -139,39 +167,36 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
           world.seed(),
           world.world_type_name(),
         ) => {
-        ignore(player_inventory.restore(payload.inventory()))
+        let saved_player = payload.player()
+        ignore(
+          player_runtime.restore(
+            saved_player.position(),
+            saved_player.yaw(),
+            saved_player.pitch(),
+          ),
+        )
+        ignore(player_runtime.restore_inventory(payload.inventory()))
         for delta in payload.block_deltas() {
           chunk_runtime.load_block_delta(delta.x, delta.y, delta.z, delta.id)
         }
-        Some(payload)
+        true
       }
-      _ => None
+      _ => false
     }
   })
-  set_global("mcBuildLevelSave", fn(
-    saved_at : Double,
-    position : Array[Double],
-    yaw : Double,
-    pitch : Double,
-  ) {
+  set_global("mcBuildLevelSave", fn(saved_at : Double) {
     @save.SavePayload::new(
       saved_at,
       world.seed(),
       world.world_type_name(),
-      position,
-      yaw,
-      pitch,
-      player_inventory.snapshot(),
+      player_runtime.position(),
+      player_runtime.yaw(),
+      player_runtime.pitch(),
+      player_runtime.inventory_snapshot(),
       chunk_runtime.block_deltas(),
     ).encode()
   })
   set_global("mcCanPlaceBlock", @player.can_place_block)
-  set_global("mcBuildChunkMesh", @render.build_chunk_mesh)
-  set_global("mcBuildChunkColors", @render.build_chunk_colors)
-  set_global("mcBuildChunkColorsSplit", @render.build_chunk_colors_split)
-  set_global("mcBuildWorldMesh", @render.build_world_mesh)
-  set_global("mcBuildWorldMeshSplit", @render.build_world_mesh_split)
-  set_global("mcBuildWorldLight", @level.build_world_light)
   set_global("mcBuildUiItemMesh", @render.build_ui_item_mesh)
   set_global("mcRaycastBlocks", @level.raycast_blocks)
   set_global("mcGetBlockId", @level.get_block_id)
@@ -188,7 +213,6 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
   ) -> UInt {
     @block.compute_placement_state(long_id, block, prev)
   })
-  set_global("mcMovePlayer", @player.move_player)
   set_global("mcUseItemOn", @item.use_item_on)
   set_global("mcUseItem", @item.use_item)
   set_global("mcGetItemDisplayName", @i18n.item_display_name)
@@ -202,11 +226,6 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
     let (r, g, b, a) = @genus.Water::tint_for_sample(biome, sample)
     [r.to_double(), g.to_double(), b.to_double(), a.to_double()]
   })
-  let gen_chunk = fn(x : Int, y : Int, z : Int) -> Array[UInt] {
-    world.generate_chunk(x, y, z).tile_map
-  }
-  set_global("mcGenChunk", gen_chunk)
-
   // GLTF entity rendering pipeline.
   set_global("mcParseGlb", @render.parse_glb)
   set_global("mcReadAccessorValues", @render.read_accessor_values)
@@ -237,6 +256,6 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
 ///|
 /// Main entry: register all JS globals.
 fn register_globals(world : @level.World, chunk_data : Array[UInt]) -> Unit {
-  register_config(world, chunk_data)
+  register_config(world)
   register_api(world, chunk_data)
 }

@@ -5,14 +5,14 @@ pub const SAVE_SCHEMA_VERSION : Int = 2
 pub struct SaveWorld {
   seed : UInt
   world_type : String
-} derive(Debug, ToJson)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub struct SavePlayer {
   position : Array[Double]
   yaw : Double
   pitch : Double
-} derive(Debug, ToJson)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub struct SavePayload {
@@ -22,7 +22,7 @@ pub struct SavePayload {
   player : SavePlayer
   inventory : @player.PlayerInventorySnapshot
   block_deltas : Array[@render.BlockDelta]
-} derive(Debug, ToJson)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub fn SavePayload::new(
@@ -62,6 +62,21 @@ pub fn SavePayload::matches_world(
 ///|
 pub fn SavePayload::player(self : SavePayload) -> SavePlayer {
   self.player
+}
+
+///|
+pub fn SavePlayer::position(self : SavePlayer) -> Array[Double] {
+  self.position.copy()
+}
+
+///|
+pub fn SavePlayer::yaw(self : SavePlayer) -> Double {
+  self.yaw
+}
+
+///|
+pub fn SavePlayer::pitch(self : SavePlayer) -> Double {
+  self.pitch
 }
 
 ///|

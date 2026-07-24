@@ -11,7 +11,7 @@ function assert_webgl2() {
 }
 
 function loadMooncraftRuntime() {
-  if (typeof window.mcGenChunk === "function") {
+  if (typeof window.mcTickChunkRuntime === "function") {
     return Promise.resolve();
   }
   return new Promise((resolve, reject) => {
@@ -33,16 +33,12 @@ async function bootstrap() {
   window.mcBlocks = blockRegistry;
   window.mcTextures = textures;
 
-  const chunkData = window.mcChunkData;
   const chunkSize = window.mcChunkSize;
-  const chunkGenerator = window.mcGenChunk;
 
   renderTestChunk({
     blockRegistry,
     textures,
-    chunkData,
     chunkSize,
-    chunkGenerator,
   });
 }
 

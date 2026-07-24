@@ -48,3 +48,15 @@ test "current level save encodes canonical snake case fields" {
   assert_true(encoded.contains("\"block_deltas\""))
   assert_false(encoded.contains("\"worldType\""))
 }
+
+///|
+test "reject malformed and unsupported level saves" {
+  let malformed =
+    #|{
+    #|  "version": 1,
+    #|  "savedAt": 42,
+    #|  "world": { "seed": "not-a-seed", "worldType": "Infinite" }
+    #|}
+  assert_true(migrate_save_payload(malformed) is None)
+  assert_true(migrate_save_payload("{\"version\":99}") is None)
+}

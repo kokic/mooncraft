@@ -23,3 +23,82 @@ pub fn collect_render_chunk_keys(
   }
   keys
 }
+
+///|
+/// A mesh section addressed relative to its owning level chunk.
+pub struct ChunkSection {
+  chunk_key : String
+  x : Int
+  y : Int
+  z : Int
+} derive(Debug, ToJson)
+
+///|
+/// One MoonBit-prepared mesh upload for a level section.
+pub struct ChunkMeshCommand {
+  chunk_key : String
+  x : Int
+  y : Int
+  z : Int
+  center_x : Double
+  center_y : Double
+  center_z : Double
+  mesh : MeshSplit
+}
+
+///|
+/// One MoonBit-prepared color-buffer update for a rendered section.
+pub struct ChunkRecolorCommand {
+  chunk_key : String
+  x : Int
+  y : Int
+  z : Int
+  colors : MeshColorsSplit
+}
+
+///|
+/// Work emitted by one world-runtime tick. The browser executes these commands
+/// only by creating, replacing, recoloring, or disposing WebGL resources.
+pub struct ChunkRenderFrame {
+  generated : Array[String]
+  evicted : Array[String]
+  mesh_updates : Array[ChunkMeshCommand]
+  recolors : Array[ChunkRecolorCommand]
+}
+
+///|
+fn ChunkRuntime::take_dirty_sections(
+  self : ChunkRuntime,
+) -> Array[ChunkSection] {
+  let sections : Array[ChunkSection] = []
+  let mut remaining = self.mesh_budget
+  for key in self.dirty_sections.keys().to_array() {
+    guard remaining > 0 else { break }
+    guard self.dirty_sections.get(key) is Some(section) else { continue }
+    self.dirty_sections.remove(key)
+    sections.push(section)
+    remaining = remaining - 1
+  }
+  sections
+}
+
+///|
+/// Advance chunk streaming and lighting. The returned frame is the only work
+/// the browser renderer is allowed to perform for world CPU state this frame.
+pub fn ChunkRuntime::tick(
+  self : ChunkRuntime,
+  registry : BlockRegistry,
+  center_x : Int,
+  center_z : Int,
+) -> ChunkRenderFrame {
+  self.refresh_desired(center_x, center_z)
+  let generated = self.generate_queued()
+  let evicted = self.evict_undesired()
+  let relit = self.refresh_lights()
+  let sections = self.take_dirty_sections()
+  let mesh_updates = sections.map(section => {
+    self.build_mesh_command(registry, section)
+  })
+  let recolors = self.build_recolor_commands(registry, relit, mesh_updates)
+  { generated, evicted, mesh_updates, recolors }
+}

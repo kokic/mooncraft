@@ -1,11 +1,14 @@
 ///|
-/// A mesh section addressed relative to its owning level chunk.
-pub struct ChunkSection {
-  chunk_key : String
-  x : Int
-  y : Int
-  z : Int
-} derive(Debug, ToJson)
+pub const CHUNK_RENDER_DISTANCE : Int = 2
+
+///|
+pub const CHUNK_SECTION_SIZE : Int = 8
+
+///|
+pub const CHUNK_GENERATION_BUDGET : Int = 2
+
+///|
+pub const CHUNK_MESH_BUDGET : Int = 8
 
 ///|
 /// Persistent voxel override applied after procedural generation.
@@ -14,23 +17,12 @@ pub struct BlockDelta {
   y : Int
   z : Int
   id : UInt
-} derive(Debug, ToJson)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub fn BlockDelta::new(x : Int, y : Int, z : Int, id : UInt) -> BlockDelta {
   { x, y, z, id }
 }
-
-///|
-/// Work emitted by one world-runtime tick.  The browser executes these commands
-/// by creating, replacing, recoloring, or disposing WebGL resources.
-pub struct ChunkScheduleFrame {
-  generated : Array[String]
-  evicted : Array[String]
-  full_rebuilds : Array[String]
-  section_rebuilds : Array[ChunkSection]
-  recolors : Array[String]
-} derive(Debug)
 
 ///|
 /// Owns all CPU-side chunk streaming, lighting, and mesh invalidation state.
@@ -51,8 +43,8 @@ pub struct ChunkRuntime {
   queued : Map[String, Bool]
   mut queue : Array[String]
   mut queue_head : Int
-  mut dirty_full : Map[String, Bool]
-  mut dirty_sections : Map[String, ChunkSection]
+  dirty_sections : Map[String, ChunkSection]
+  rendered_sections : Map[String, ChunkSection]
   mut dirty_lights : Map[String, Bool]
   lights : Map[String, Bytes]
   block_deltas : Map[String, BlockDelta]
@@ -76,10 +68,10 @@ fn chunk_key_by_world(size : Int, wx : Int, wy : Int, wz : Int) -> String {
 pub fn ChunkRuntime::new(
   world : @level.World,
   initial_chunk : Array[UInt],
-  render_distance? : Int = 2,
-  section_size? : Int = 8,
-  generation_budget? : Int = 2,
-  mesh_budget? : Int = 2,
+  render_distance? : Int = CHUNK_RENDER_DISTANCE,
+  section_size? : Int = CHUNK_SECTION_SIZE,
+  generation_budget? : Int = CHUNK_GENERATION_BUDGET,
+  mesh_budget? : Int = CHUNK_MESH_BUDGET,
   spawn_chunk_x? : Int = 0,
   spawn_chunk_z? : Int = 0,
 ) -> ChunkRuntime {
@@ -94,7 +86,6 @@ pub fn ChunkRuntime::new(
   let chunk_min_y = @util.floor_div(world.min_y(), chunk_size)
   let chunk_max_y = @util.floor_div(world.max_y(), chunk_size)
   let loaded : Map[String, Bool] = Map([])
-  let dirty_full : Map[String, Bool] = Map([])
   let dirty_lights : Map[String, Bool] = Map([])
   // Spawn surface selection needs a complete column before the first frame.
   for cy in chunk_min_y..<=chunk_max_y {
@@ -106,10 +97,9 @@ pub fn ChunkRuntime::new(
     }
     @ffi.map_set_value(chunk_map, key, data)
     loaded[key] = true
-    dirty_full[key] = true
     dirty_lights[key] = true
   }
-  {
+  let runtime = {
     world,
     chunk_map,
     chunk_size,
@@ -137,12 +127,16 @@ pub fn ChunkRuntime::new(
     queued: {},
     queue: [],
     queue_head: 0,
-    dirty_full,
     dirty_sections: {},
+    rendered_sections: {},
     dirty_lights,
     lights: {},
     block_deltas: {},
   }
+  for key in loaded.keys() {
+    runtime.mark_chunk_sections_dirty(key)
+  }
+  runtime
 }
 
 ///|
@@ -198,8 +192,9 @@ fn ChunkRuntime::generate_queued(self : ChunkRuntime) -> Array[String] {
     self.apply_block_deltas(key, data)
     @ffi.map_set_value(self.chunk_map, key, data)
     self.loaded[key] = true
-    self.dirty_full[key] = true
+    self.mark_chunk_sections_dirty(key)
     self.dirty_lights[key] = true
+    self.mark_loaded_neighbors_dirty(x, y, z)
     generated.push(key)
     remaining = remaining - 1
   }
@@ -208,6 +203,31 @@ fn ChunkRuntime::generate_queued(self : ChunkRuntime) -> Array[String] {
     self.queue_head = 0
   }
   generated
+}
+
+///|
+fn ChunkRuntime::mark_loaded_neighbors_dirty(
+  self : ChunkRuntime,
+  x : Int,
+  y : Int,
+  z : Int,
+) -> Unit {
+  for
+    offset in [
+      (-1, 0, 0),
+      (1, 0, 0),
+      (0, -1, 0),
+      (0, 1, 0),
+      (0, 0, -1),
+      (0, 0, 1),
+    ] {
+    let (dx, dy, dz) = offset
+    let key = @level.chunk_key_by_chunk_xyz(x + dx, y + dy, z + dz)
+    if self.loaded.contains(key) {
+      self.mark_chunk_sections_dirty(key)
+      self.dirty_lights[key] = true
+    }
+  }
 }
 
 ///|
@@ -274,14 +294,35 @@ fn ChunkRuntime::evict_undesired(self : ChunkRuntime) -> Array[String] {
     if self.desired.contains(key) {
       continue
     }
+    let (x, y, z) = @level.chunk_xyz_by_chunk_key(key)
+    self.mark_loaded_neighbors_dirty(x, y, z)
     self.loaded.remove(key)
-    self.dirty_full.remove(key)
+    self.remove_chunk_sections(key)
     self.dirty_lights.remove(key)
     self.lights.remove(key)
     ignore(@ffi.map_delete(self.chunk_map, key))
     evicted.push(key)
   }
   evicted
+}
+
+///|
+fn ChunkRuntime::remove_chunk_sections(
+  self : ChunkRuntime,
+  chunk_key : String,
+) -> Unit {
+  for key in self.dirty_sections.keys().to_array() {
+    guard self.dirty_sections.get(key) is Some(section) else { continue }
+    if section.chunk_key == chunk_key {
+      self.dirty_sections.remove(key)
+    }
+  }
+  for key in self.rendered_sections.keys().to_array() {
+    guard self.rendered_sections.get(key) is Some(section) else { continue }
+    if section.chunk_key == chunk_key {
+      self.rendered_sections.remove(key)
+    }
+  }
 }
 
 ///|
@@ -304,43 +345,6 @@ fn ChunkRuntime::refresh_lights(self : ChunkRuntime) -> Array[String] {
   }
   self.dirty_lights = {}
   updated
-}
-
-///|
-fn ChunkRuntime::take_full_rebuilds(self : ChunkRuntime) -> Array[String] {
-  let keys = self.dirty_full.keys().to_array()
-  self.dirty_full = {}
-  keys
-}
-
-///|
-fn ChunkRuntime::take_section_rebuilds(
-  self : ChunkRuntime,
-) -> Array[ChunkSection] {
-  let sections = self.dirty_sections.values().to_array()
-  self.dirty_sections = {}
-  sections
-}
-
-///|
-/// Advance chunk streaming and lighting. The returned frame is the only work
-/// the browser renderer is allowed to perform for world CPU state this frame.
-pub fn ChunkRuntime::tick(
-  self : ChunkRuntime,
-  center_x : Int,
-  center_z : Int,
-) -> ChunkScheduleFrame {
-  self.refresh_desired(center_x, center_z)
-  let generated = self.generate_queued()
-  let evicted = self.evict_undesired()
-  let recolors = self.refresh_lights()
-  {
-    generated,
-    evicted,
-    full_rebuilds: self.take_full_rebuilds(),
-    section_rebuilds: self.take_section_rebuilds(),
-    recolors,
-  }
 }
 
 ///|
@@ -367,6 +371,168 @@ fn ChunkRuntime::mark_section_by_world(
   }
   let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
   self.dirty_sections[section_key(chunk_key, sx, sy, sz)] = section
+}
+
+///|
+fn ChunkRuntime::mark_chunk_sections_dirty(
+  self : ChunkRuntime,
+  chunk_key : String,
+) -> Unit {
+  for sx in 0..<self.sections_per_axis {
+    for sy in 0..<self.sections_per_axis {
+      for sz in 0..<self.sections_per_axis {
+        let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
+        self.dirty_sections[section_key(chunk_key, sx, sy, sz)] = section
+      }
+    }
+  }
+}
+
+///|
+fn ChunkRuntime::section_data(
+  self : ChunkRuntime,
+  section : ChunkSection,
+) -> Array[UInt] {
+  let (cx, cy, cz) = @level.chunk_xyz_by_chunk_key(section.chunk_key)
+  let base_x = (cx * self.sections_per_axis + section.x) * self.section_size
+  let base_y = (cy * self.sections_per_axis + section.y) * self.section_size
+  let base_z = (cz * self.sections_per_axis + section.z) * self.section_size
+  let pad = self.section_size + 2
+  let data : Array[UInt] = []
+  for y in -1..<=self.section_size {
+    for z in -1..<=self.section_size {
+      for x in -1..<=self.section_size {
+        data.push(
+          @level.get_block_id(
+            self.chunk_map,
+            self.chunk_size,
+            base_x + x,
+            base_y + y,
+            base_z + z,
+          ).unwrap_or(@block.AIR_LONG_ID),
+        )
+      }
+    }
+  }
+  guard data.length() == pad * pad * pad else { abort("invalid section data") }
+  data
+}
+
+///|
+fn ChunkRuntime::section_light(
+  self : ChunkRuntime,
+  section : ChunkSection,
+) -> Bytes {
+  let cell_count = self.section_size * self.section_size * self.section_size
+  guard !@level.USE_FIXED_LIGHT else { return Bytes::make(cell_count, 15) }
+  guard self.lights.get(section.chunk_key) is Some(chunk_light) else {
+    return Bytes::make(cell_count, 15)
+  }
+  let chunk_cell_count = self.chunk_size * self.chunk_size * self.chunk_size
+  let chunk_pad = self.chunk_size + 2
+  let chunk_pad_count = chunk_pad * chunk_pad * chunk_pad
+  guard chunk_light.length() == chunk_cell_count ||
+    chunk_light.length() == chunk_pad_count else {
+    return Bytes::make(cell_count, 15)
+  }
+  let offset_x = section.x * self.section_size
+  let offset_y = section.y * self.section_size
+  let offset_z = section.z * self.section_size
+  let light : Array[Byte] = []
+  for y in 0..<self.section_size {
+    for z in 0..<self.section_size {
+      for x in 0..<self.section_size {
+        let lx = offset_x + x
+        let ly = offset_y + y
+        let lz = offset_z + z
+        let index = if chunk_light.length() == chunk_cell_count {
+          (ly * self.chunk_size + lz) * self.chunk_size + lx
+        } else {
+          ((ly + 1) * chunk_pad + (lz + 1)) * chunk_pad + lx + 1
+        }
+        light.push(chunk_light[index])
+      }
+    }
+  }
+  Bytes::from_array(light)
+}
+
+///|
+fn ChunkRuntime::section_entry(
+  self : ChunkRuntime,
+  section : ChunkSection,
+) -> ChunkEntry {
+  let (cx, cy, cz) = @level.chunk_xyz_by_chunk_key(section.chunk_key)
+  {
+    x: cx * self.sections_per_axis + section.x,
+    y: cy * self.sections_per_axis + section.y,
+    z: cz * self.sections_per_axis + section.z,
+    data: self.section_data(section),
+    light: self.section_light(section),
+  }
+}
+
+///|
+fn ChunkRuntime::build_mesh_command(
+  self : ChunkRuntime,
+  registry : BlockRegistry,
+  section : ChunkSection,
+) -> ChunkMeshCommand {
+  let entry = self.section_entry(section)
+  let half = self.section_size.to_double() * 0.5
+  self.rendered_sections[section_key(
+    section.chunk_key,
+    section.x,
+    section.y,
+    section.z,
+  )] = section
+  {
+    chunk_key: section.chunk_key,
+    x: section.x,
+    y: section.y,
+    z: section.z,
+    center_x: (entry.x * self.section_size).to_double() + half,
+    center_y: (entry.y * self.section_size).to_double() + half,
+    center_z: (entry.z * self.section_size).to_double() + half,
+    mesh: build_world_mesh_split(registry, [entry], self.section_size),
+  }
+}
+
+///|
+fn ChunkRuntime::build_recolor_commands(
+  self : ChunkRuntime,
+  registry : BlockRegistry,
+  relit_chunks : Array[String],
+  mesh_updates : Array[ChunkMeshCommand],
+) -> Array[ChunkRecolorCommand] {
+  let relit : Map[String, Bool] = Map([])
+  for key in relit_chunks {
+    relit[key] = true
+  }
+  let rebuilt : Map[String, Bool] = Map([])
+  for command in mesh_updates {
+    rebuilt[section_key(command.chunk_key, command.x, command.y, command.z)] = true
+  }
+  let commands : Array[ChunkRecolorCommand] = []
+  for key, section in self.rendered_sections {
+    guard relit.contains(section.chunk_key) && !rebuilt.contains(key) else {
+      continue
+    }
+    let entry = self.section_entry(section)
+    commands.push({
+      chunk_key: section.chunk_key,
+      x: section.x,
+      y: section.y,
+      z: section.z,
+      colors: build_chunk_colors_split(
+        registry,
+        entry.data,
+        entry.light,
+        self.section_size,
+      ),
+    })
+  }
+  commands
 }
 
 ///|

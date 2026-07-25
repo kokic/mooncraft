@@ -11,7 +11,7 @@ function assert_webgl2() {
 }
 
 function loadMooncraftRuntime() {
-  if (typeof window.mcTickChunkRuntime === "function") {
+  if (typeof window.mcTickGame === "function") {
     return Promise.resolve();
   }
   return new Promise((resolve, reject) => {

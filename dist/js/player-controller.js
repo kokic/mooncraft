@@ -7,11 +7,9 @@ function createPlayerController({
   const readSnapshot = window.mcPlayerSnapshot;
   const setMoveIntent = window.mcSetPlayerMoveIntent;
   const addLookIntent = window.mcAddPlayerLookIntent;
-  const tickPlayer = window.mcTickPlayer;
   if (typeof readSnapshot !== "function" ||
     typeof setMoveIntent !== "function" ||
-    typeof addLookIntent !== "function" ||
-    typeof tickPlayer !== "function") {
+    typeof addLookIntent !== "function") {
     throw new Error("MoonBit player runtime is unavailable");
   }
 
@@ -99,10 +97,11 @@ function createPlayerController({
     fast: active && (keys.has("ControlLeft") || keys.has("ControlRight")),
   });
 
-  const update = (delta, active = true) => {
+  const applyIntent = (active = true) => {
     setMoveIntent(buildMoveIntent(active));
-    syncSnapshot(tickPlayer(delta));
   };
+
+  const sync = (snapshot) => syncSnapshot(snapshot);
 
   const dispose = () => {
     window.removeEventListener("keydown", onKeyDown);
@@ -111,7 +110,7 @@ function createPlayerController({
     canvas.removeEventListener("click", onClick);
   };
 
-  return { state, update, dispose };
+  return { state, applyIntent, sync, dispose };
 }
 
 export {

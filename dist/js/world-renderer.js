@@ -13,11 +13,6 @@ function normalizeGameMode(mode) {
   return mode === "survival" || mode === "spectator" ? mode : "creative";
 }
 
-function toFiniteInt(value, fallback = 0) {
-  const num = Number(value);
-  return Number.isFinite(num) ? Math.floor(num) : fallback;
-}
-
 function readLevelSaveText(key) {
   try {
     return globalThis.localStorage?.getItem(key) ?? "";
@@ -387,8 +382,6 @@ function renderTestChunk({
   if (levelSaveText && !loadedLevel) {
     console.warn("[level] ignored invalid or mismatched save payload");
   }
-  let suppressAutosave = false;
-  let requestAutosave = () => { };
   const chunkDatas = window.mcChunkRuntimeChunkMap;
   if (!(chunkDatas instanceof Map)) {
     throw new Error("MoonBit chunk runtime did not provide its chunk map");
@@ -794,10 +787,15 @@ function renderTestChunk({
   const getBlockId = (wx, wy, wz) =>
     getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, airLongId);
   const player = createPlayerController({ canvas });
+  let currentGameFrame = {
+    player: player.state,
+    inventory: typeof window.mcPlayerInventorySnapshot === "function"
+      ? window.mcPlayerInventorySnapshot()
+      : null,
+  };
+  let syncInventorySnapshot = () => { };
   let lastFrameTime = performance.now();
-  const getInventorySnapshot = () => typeof window.mcPlayerInventorySnapshot === "function"
-    ? window.mcPlayerInventorySnapshot()
-    : null;
+  const getInventorySnapshot = () => currentGameFrame?.inventory ?? null;
   const getGameMode = () => normalizeGameMode(getInventorySnapshot()?.game_mode);
   const setGameMode = (mode) => {
     const next = normalizeGameMode(mode);
@@ -808,9 +806,6 @@ function renderTestChunk({
     const snapshot = typeof window.mcSetPlayerGameMode === "function"
       ? window.mcSetPlayerGameMode(next)
       : null;
-    if (!suppressAutosave) {
-      requestAutosave();
-    }
     return normalizeGameMode(snapshot?.game_mode ?? next);
   };
 
@@ -849,7 +844,15 @@ function renderTestChunk({
   });
   window.mcHotbar = hotbar;
 
-  const rebuildMeshIfNeeded = () => {
+  const applyGameFrame = (frame) => {
+    if (!frame?.chunk || !frame?.player || !frame?.inventory) {
+      throw new Error("MoonBit game runtime emitted an invalid frame");
+    }
+    // Player pose is the only state that changes every frame; apply it cheaply.
+    // Inventory/UI state only changes in response to JS events, so it is applied
+    // by those event handlers rather than re-synced to the DOM every frame.
+    currentGameFrame = frame;
+    player.sync(frame.player);
     const cx = Math.floor(player.state.position[0] / size);
     const cz = Math.floor(player.state.position[2] / size);
     const renderDistance = window.mcRenderDistance ?? 2;
@@ -859,24 +862,31 @@ function renderTestChunk({
         waterTintState.renderDistance !== renderDistance)) {
       rebuildWaterTintTexture(cx, cz, renderDistance);
     }
-    const tickRuntime = window.mcTickChunkRuntime;
-    if (typeof tickRuntime !== "function") {
-      throw new Error("MoonBit chunk runtime tick is unavailable");
-    }
-    const frame = tickRuntime(blockRegistry, cx, cz);
-    for (const key of frame?.evicted ?? []) {
+    for (const key of frame.chunk.evicted ?? []) {
       const mesh = chunkMeshes.get(key);
       if (mesh) deleteChunkMesh(mesh);
       chunkMeshes.delete(key);
     }
-    for (const command of frame?.mesh_updates ?? []) {
+    for (const command of frame.chunk.mesh_updates ?? []) {
       applyMeshCommand(command);
     }
-    for (const command of frame?.recolors ?? []) {
+    for (const command of frame.chunk.recolors ?? []) {
       if (!applyRecolorCommand(command)) {
         console.error("[lighting] failed to apply recolor command", command);
       }
     }
+    if (typeof frame.save === "string") {
+      globalThis.localStorage?.setItem(saveStorageKey, frame.save);
+    }
+  };
+
+  const tickGame = (delta, now, active) => {
+    const tick = window.mcTickGame;
+    if (typeof tick !== "function") {
+      throw new Error("MoonBit game runtime tick is unavailable");
+    }
+    player.applyIntent(active);
+    applyGameFrame(tick(blockRegistry, delta, now));
   };
 
   const padItems = (items, limit) => {
@@ -991,15 +1001,10 @@ function renderTestChunk({
     return Math.max(0, Math.min(HOTBAR_SLOT_COUNT - 1, Math.floor(Number(index))));
   };
 
-  const getSelectedHotbarIndex = () => {
-    const snapshot = typeof window.mcPlayerInventorySnapshot === "function"
-      ? window.mcPlayerInventorySnapshot()
-      : null;
-    const raw = snapshot?.selected_hotbar_index ?? 0;
-    return clampHotbarIndex(raw);
-  };
+  const getSelectedHotbarIndex = () =>
+    clampHotbarIndex(getInventorySnapshot()?.selected_hotbar_index ?? 0);
 
-  const setHotbarItems = (items, emitSave = true) => {
+  const setHotbarItems = (items, writeRuntime = true) => {
     hotbarViewItems = normalizeHotbarItems(
       Array.isArray(items)
         ? items.map((entry) => resolveSavedHotbarItem(entry))
@@ -1010,17 +1015,14 @@ function renderTestChunk({
     if (typeof hotbar.setItems === "function") {
       hotbar.setItems(hotbarViewItems, textures);
     }
-    if (typeof window.mcSetPlayerHotbarSlot === "function") {
+    if (writeRuntime && typeof window.mcSetPlayerHotbarSlot === "function") {
       hotbarViewItems.forEach((item, index) => {
         window.mcSetPlayerHotbarSlot(index, item?.name ?? "", item?.category ?? "");
       });
     }
-    if (emitSave && !suppressAutosave) {
-      requestAutosave();
-    }
   };
 
-  const setHotbarItem = (index, item, emitSave = true) => {
+  const setHotbarItem = (index, item) => {
     const slot = clampHotbarIndex(index);
     const value = resolveSavedHotbarItem(item);
     if (value && value.category == null) {
@@ -1037,13 +1039,9 @@ function renderTestChunk({
     if (typeof window.mcSetPlayerHotbarSlot === "function") {
       window.mcSetPlayerHotbarSlot(slot, value?.name ?? "", value?.category ?? "");
     }
-    if (emitSave && !suppressAutosave) {
-      requestAutosave();
-    }
   };
 
-  const selectHotbarIndex = (index, emitSave = true) => {
-    const prev = getSelectedHotbarIndex();
+  const selectHotbarIndex = (index) => {
     const slot = clampHotbarIndex(index);
     const snapshot = typeof window.mcSelectPlayerHotbar === "function"
       ? window.mcSelectPlayerHotbar(slot)
@@ -1054,13 +1052,9 @@ function renderTestChunk({
     } else {
       window.mcHotbarSelectedIndex = selected;
     }
-    const next = getSelectedHotbarIndex();
-    if (emitSave && next !== prev && !suppressAutosave) {
-      requestAutosave();
-    }
   };
 
-  setHotbarItems(hotbarViewItems, false);
+  setHotbarItems(hotbarViewItems);
 
   const inventoryColumns = window.mcInventoryGridX ?? 9;
   const inventoryRows = window.mcInventoryGridY ?? 6;
@@ -1096,7 +1090,7 @@ function renderTestChunk({
     },
     canToggle: () => getGameMode() === "creative",
   });
-  setInventoryOpen = (open, emitSave = true, forceRender = false) => {
+  setInventoryOpen = (open, forceRender = false) => {
     const next = open === true;
     if (isInventoryOpen() === next && !forceRender) {
       return;
@@ -1115,79 +1109,41 @@ function renderTestChunk({
       canvas.focus();
       canvas.requestPointerLock();
     }
-    if (emitSave && !suppressAutosave) {
-      requestAutosave();
-    }
   };
 
-  const restoredInventory = getInventorySnapshot();
-  selectHotbarIndex(restoredInventory?.selected_hotbar_index ?? 0, false);
-  setInventoryOpen(restoredInventory?.inventory_open === true, false, true);
-  let saveDirty = false;
-  let pendingSaveTimer = null;
-  let lastSavedAt = 0;
-  const SAVE_THROTTLE_MS = 1500;
-  const SAVE_HEARTBEAT_MS = 5000;
-  const flushSave = (force = false) => {
-    if (!force && !saveDirty) return true;
-    try {
-      if (typeof window.mcBuildLevelSave !== "function") {
-        throw new Error("MoonBit level save encoder is unavailable");
-      }
-      const payload = window.mcBuildLevelSave(Date.now());
-      globalThis.localStorage?.setItem(saveStorageKey, payload);
-      saveDirty = false;
-      lastSavedAt = Date.now();
-      return true;
-    } catch (err) {
-      console.warn("[save] failed to write local storage payload", err);
-      return false;
+  const initialInventory = getInventorySnapshot();
+  syncInventorySnapshot = (snapshot) => {
+    const next = snapshot ?? initialInventory;
+    const items = normalizeHotbarItems(next?.hotbar_slots ?? []);
+    const changed = items.some((item, index) => {
+      const current = hotbarViewItems[index];
+      return item?.name !== current?.name || item?.category !== current?.category;
+    });
+    if (changed) {
+      setHotbarItems(items, false);
     }
-  };
-  const scheduleSave = () => {
-    saveDirty = true;
-    if (pendingSaveTimer != null) return;
-    const elapsed = Date.now() - lastSavedAt;
-    const wait = Math.max(0, SAVE_THROTTLE_MS - elapsed);
-    pendingSaveTimer = setTimeout(() => {
-      pendingSaveTimer = null;
-      flushSave(false);
-      if (saveDirty) {
-        scheduleSave();
-      }
-    }, wait);
-  };
-  requestAutosave = scheduleSave;
-  window.mcOnBlockChanged = () => requestAutosave();
-  let runtimeFingerprint = "";
-  const computeRuntimeFingerprint = () => {
-    const snapshot = getInventorySnapshot();
-    const pos = player.state.position;
-    const p0 = Number.isFinite(Number(pos[0])) ? Number(pos[0]).toFixed(2) : "0";
-    const p1 = Number.isFinite(Number(pos[1])) ? Number(pos[1]).toFixed(2) : "0";
-    const p2 = Number.isFinite(Number(pos[2])) ? Number(pos[2]).toFixed(2) : "0";
-    const yaw = Number.isFinite(Number(player.state.yaw)) ? Number(player.state.yaw).toFixed(3) : "0";
-    const pitch = Number.isFinite(Number(player.state.pitch)) ? Number(player.state.pitch).toFixed(3) : "0";
-    const mode = snapshot?.game_mode ?? "creative";
-    const selectedIndex = toFiniteInt(snapshot?.selected_hotbar_index, 0);
-    const inventoryOpen = snapshot?.inventory_open === true ? "1" : "0";
-    const hotbarNames = Array.isArray(snapshot?.hotbar_slots)
-      ? snapshot.hotbar_slots.map((item) => `${item?.name ?? ""}:${item?.category ?? ""}`).join("|")
-      : "";
-    return `${mode}:${p0},${p1},${p2}:${yaw}:${pitch}:${selectedIndex}:${inventoryOpen}:${hotbarNames}`;
-  };
-  runtimeFingerprint = computeRuntimeFingerprint();
-  setInterval(() => {
-    const next = computeRuntimeFingerprint();
-    if (next !== runtimeFingerprint) {
-      runtimeFingerprint = next;
-      requestAutosave();
+    const selected = clampHotbarIndex(next?.selected_hotbar_index ?? 0);
+    if (typeof hotbar.select === "function") {
+      hotbar.select(selected);
     }
-  }, SAVE_HEARTBEAT_MS);
+    const open = next?.inventory_open === true;
+    window.mcInventoryOpen = open;
+    inventory.setOpen(open);
+    crosshair.style.display = open ? "none" : "block";
+  };
+  syncInventorySnapshot(initialInventory);
+  setInventoryOpen(initialInventory?.inventory_open === true, true);
   globalThis.addEventListener("beforeunload", () => {
-    flushSave(true);
+    try {
+      const flush = window.mcFlushGameSave;
+      if (typeof flush !== "function") {
+        throw new Error("MoonBit game save encoder is unavailable");
+      }
+      globalThis.localStorage?.setItem(saveStorageKey, flush(Date.now()));
+    } catch (err) {
+      console.warn("[save] failed to flush local storage payload", err);
+    }
   });
-  requestAutosave();
   const markEditedVoxelSections = (wx, wy, wz, keys) => {
     if (!Array.isArray(keys) || keys.length === 0) return;
     if (typeof window.mcMarkChunkBlockChanged === "function") {
@@ -1377,12 +1333,12 @@ function renderTestChunk({
     const now = performance.now();
     const delta = Math.min(0.05, (now - lastFrameTime) / 1000);
     lastFrameTime = now;
-    player.update(delta, !isInventoryOpen());
+    tickGame(delta, now, !isInventoryOpen());
     window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
     if (typeof window.mcTickEntityRuntime === "function") {
       window.mcTickEntityRuntime(gltfEntityRenderer, delta);
     }
-    rebuildMeshIfNeeded();
+
 
     const eyeHeight = 1.65;
     const camera = cameraFromYawPitch(

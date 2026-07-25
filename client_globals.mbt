@@ -109,42 +109,38 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
     @player.SPAWN_YAW,
     @player.SPAWN_PITCH,
   )
-  set_global("mcChunkRuntimeChunkMap", chunk_runtime.chunk_map())
-  set_global("mcTickChunkRuntime", fn(
+  let game = GameRuntime::new(
+    world,
+    chunk_runtime,
+    player_runtime,
+    @level.CHUNK_X_SIZE,
+  )
+  // The chunk map is a zero-copy data bridge; JS reads it, MoonBit owns it.
+  set_global("mcChunkRuntimeChunkMap", game.chunk_map())
+  // Single per-frame entry point: advance the whole runtime, emit one GameFrame.
+  set_global("mcTickGame", fn(
     registry : @render.BlockRegistry,
-    center_x : Int,
-    center_z : Int,
+    delta : Double,
+    now : Double,
   ) {
-    chunk_runtime.tick(registry, center_x, center_z)
+    game.tick(registry, delta, now)
   })
   set_global("mcMarkChunkBlockChanged", fn(wx : Int, wy : Int, wz : Int) {
-    chunk_runtime.mark_block_changed(wx, wy, wz)
+    game.mark_block_changed(wx, wy, wz)
   })
-  set_global("mcLoadChunkRuntimeBlockDelta", fn(
-    x : Int,
-    y : Int,
-    z : Int,
-    id : UInt,
-  ) {
-    chunk_runtime.load_block_delta(x, y, z, id)
-  })
-  set_global("mcChunkRuntimeBlockDeltas", fn() { chunk_runtime.block_deltas() })
-  set_global("mcPlayerSnapshot", fn() { player_runtime.snapshot() })
+  set_global("mcPlayerSnapshot", fn() { game.player_snapshot() })
   set_global("mcSetPlayerMoveIntent", fn(input : @player.MoveInput) {
-    player_runtime.set_move_intent(input)
+    game.set_move_intent(input)
   })
   set_global("mcAddPlayerLookIntent", fn(yaw : Double, pitch : Double) {
-    player_runtime.add_look_intent(yaw, pitch)
+    game.add_look_intent(yaw, pitch)
   })
-  set_global("mcTickPlayer", fn(delta : Double) { player_runtime.tick(delta) })
-  set_global("mcPlayerInventorySnapshot", fn() {
-    player_runtime.inventory_snapshot()
-  })
+  set_global("mcPlayerInventorySnapshot", fn() { game.inventory_snapshot() })
   set_global("mcSetPlayerGameMode", fn(mode : String) {
-    player_runtime.set_game_mode(mode)
+    game.set_game_mode(mode)
   })
   set_global("mcSelectPlayerHotbar", fn(index : Int) {
-    player_runtime.select_hotbar(index)
+    game.select_hotbar(index)
   })
   set_global("mcSetPlayerHotbarSlot", fn(
     index : Int,
@@ -156,10 +152,10 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
     } else {
       Some(@player.HotbarSlot::new(name, category))
     }
-    player_runtime.set_hotbar_slot(index, slot)
+    game.set_hotbar_slot(index, slot)
   })
   set_global("mcSetPlayerInventoryOpen", fn(open : Bool) {
-    player_runtime.set_inventory_open(open)
+    game.set_inventory_open(open)
   })
   set_global("mcLoadLevelSave", fn(text : String) {
     match @save.migrate_save_payload(text) {
@@ -167,35 +163,14 @@ fn register_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
           world.seed(),
           world.world_type_name(),
         ) => {
-        let saved_player = payload.player()
-        ignore(
-          player_runtime.restore(
-            saved_player.position(),
-            saved_player.yaw(),
-            saved_player.pitch(),
-          ),
-        )
-        ignore(player_runtime.restore_inventory(payload.inventory()))
-        for delta in payload.block_deltas() {
-          chunk_runtime.load_block_delta(delta.x, delta.y, delta.z, delta.id)
-        }
+        game.load_save(payload)
         true
       }
       _ => false
     }
   })
-  set_global("mcBuildLevelSave", fn(saved_at : Double) {
-    @save.SavePayload::new(
-      saved_at,
-      world.seed(),
-      world.world_type_name(),
-      player_runtime.position(),
-      player_runtime.yaw(),
-      player_runtime.pitch(),
-      player_runtime.inventory_snapshot(),
-      chunk_runtime.block_deltas(),
-    ).encode()
-  })
+  // Unconditional encode used by JS on unload to guarantee the latest frame.
+  set_global("mcFlushGameSave", fn(now : Double) { game.flush_save(now) })
   set_global("mcCanPlaceBlock", @player.can_place_block)
   set_global("mcBuildUiItemMesh", @render.build_ui_item_mesh)
   set_global("mcRaycastBlocks", @level.raycast_blocks)

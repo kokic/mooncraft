@@ -5,7 +5,12 @@ function getWorldTypes() {
   const types = globalThis.mcWorldTypes;
   return Array.isArray(types) && types.length > 0
     ? types.filter((t) => typeof t === "string")
-    : ["Infinite"];
+    : [];
+}
+
+function defaultWorldType() {
+  const types = getWorldTypes();
+  return types.length > 0 ? types[0] : "Infinite";
 }
 
 function isValidWorldType(wt) {
@@ -42,6 +47,7 @@ function normalizeRecord(input) {
   const id = typeof input.id === "string" && input.id.length > 0
     ? input.id
     : key;
+  const wt = typeof input.worldType === "string" ? input.worldType : "";
   return {
     id,
     key,
@@ -51,9 +57,7 @@ function normalizeRecord(input) {
     createdAt: Number.isFinite(Number(input.createdAt))
       ? Number(input.createdAt)
       : 0,
-    worldType: isValidWorldType(input.worldType)
-      ? input.worldType
-      : getWorldTypes()[0],
+    worldType: isValidWorldType(wt) ? wt : defaultWorldType(),
   };
 }
 
@@ -114,6 +118,7 @@ function discoverSaveSlots() {
       key: DEFAULT_SAVE_STORAGE_KEY,
       name: "Default World",
       createdAt: 0,
+      worldType: getWorldTypes()[0],
     });
   }
   return Array.from(byKey.values())
@@ -136,7 +141,7 @@ function createSaveSlot(name, worldType) {
     key: `${DEFAULT_SAVE_STORAGE_KEY}.${id}`,
     name: name || "New World",
     createdAt: now,
-    worldType: isValidWorldType(worldType) ? worldType : getWorldTypes()[0],
+    worldType: isValidWorldType(worldType) ? worldType : defaultWorldType(),
   };
   saveRegistry([record, ...loadRegistry()]);
   return record;
@@ -419,10 +424,12 @@ function createSaveMenu({ onOpen }) {
     const count = document.createElement("div");
     count.className = "mc-save-count";
     count.textContent = `${slots.length} save${slots.length === 1 ? "" : "s"}`;
+
     const toolbarRight = document.createElement("div");
     toolbarRight.style.display = "flex";
     toolbarRight.style.gap = "10px";
     toolbarRight.style.alignItems = "center";
+
     const worldTypeSelect = document.createElement("select");
     worldTypeSelect.className = "mc-save-world-type";
     const savedType = globalThis.mcNewWorldType;
@@ -431,9 +438,17 @@ function createSaveMenu({ onOpen }) {
       const option = document.createElement("option");
       option.value = wt;
       option.textContent = wt;
-      if (wt === (savedType ?? worldTypes[0])) option.selected = true;
+      if (wt === savedType) option.selected = true;
       worldTypeSelect.append(option);
     }
+    if (worldTypes.length === 0) {
+      const def = defaultWorldType();
+      const option = document.createElement("option");
+      option.value = def;
+      option.textContent = def;
+      worldTypeSelect.append(option);
+    }
+
     const create = createButton("New Save", "mc-save-new", () => {
       const worldType = worldTypeSelect.value;
       globalThis.mcNewWorldType = worldType;

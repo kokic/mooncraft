@@ -11,9 +11,6 @@ function assert_webgl2() {
 }
 
 function loadMooncraftRuntime() {
-  if (typeof window.mcRuntimeReady === "boolean" && window.mcRuntimeReady) {
-    return Promise.resolve();
-  }
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "./js/release/build/mooncraft.js";
@@ -26,37 +23,24 @@ function loadMooncraftRuntime() {
 
 async function bootstrap() {
   assert_webgl2();
-  await loadMooncraftRuntime();
   window.mcLaunchGame();
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
-  
   window.mcBlocks = blockRegistry;
   window.mcTextures = textures;
-
   const chunkSize = window.mcChunkSize;
-
-  renderTestChunk({
-    blockRegistry,
-    textures,
-    chunkSize,
-  });
+  renderTestChunk({ blockRegistry, textures, chunkSize });
 }
 
-function showSaveMenu() {
+async function start() {
+  await loadMooncraftRuntime();
   const menu = createSaveMenu({
     onOpen: () => {
       menu.remove();
-      bootstrap().catch((err) => {
-        console.error(err);
-      });
+      bootstrap().catch((err) => { console.error(err); });
     },
   });
   document.body.appendChild(menu);
 }
 
-async function start() {
-  await loadMooncraftRuntime();
-  showSaveMenu();
-}
 start();

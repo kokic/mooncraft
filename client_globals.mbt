@@ -9,7 +9,6 @@ fn[V] set_global(name : String, value : V) -> Unit {
 /// Register world type list before world creation (lightweight).
 pub fn register_world_types() -> Unit {
   set_global("mcWorldTypes", @level.world_type_names())
-  set_global("mcRuntimeReady", true)
 }
 
 ///|

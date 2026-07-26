@@ -42,6 +42,11 @@ pub fn chunk_key_by_chunk_xyz(
 }
 
 ///|
+pub fn chunk_column_key_by_chunk_xz(chunk_x : Int, chunk_z : Int) -> String {
+  "\{chunk_x},\{chunk_z}"
+}
+
+///|
 pub fn chunk_key_by_block_xyz(
   block_x : Int,
   block_y : Int,
@@ -69,6 +74,23 @@ pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
     parse_int_or_zero(parts[1]),
     parse_int_or_zero(parts[2]),
   )
+}
+
+///|
+pub fn chunk_xz_by_chunk_column_key(column_key : String) -> (Int, Int) {
+  let parts : Array[StringView] = []
+  for part in column_key.split(",") {
+    parts.push(part)
+  }
+  let parse_int_or_zero = fn(sv : StringView) -> Int {
+    try @string.parse_int(sv) catch {
+      _ => 0
+    } noraise {
+      v => v
+    }
+  }
+  guard parts.length() == 2 else { (0, 0) }
+  (parse_int_or_zero(parts[0]), parse_int_or_zero(parts[1]))
 }
 
 ///|

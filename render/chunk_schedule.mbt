@@ -25,6 +25,26 @@ pub fn collect_render_chunk_keys(
 }
 
 ///|
+pub fn collect_render_column_keys(
+  center_x : Int,
+  center_z : Int,
+  render_distance : Int,
+) -> Array[String] {
+  let keys : Array[String] = []
+  for ring in 0..<=render_distance {
+    for dx in -ring..<=ring {
+      for dz in -ring..<=ring {
+        guard dx.abs() == ring || dz.abs() == ring else { continue }
+        keys.push(
+          @level.chunk_column_key_by_chunk_xz(center_x + dx, center_z + dz),
+        )
+      }
+    }
+  }
+  keys
+}
+
+///|
 /// A mesh section addressed relative to its owning level chunk.
 pub struct ChunkSection {
   chunk_key : String

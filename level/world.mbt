@@ -566,3 +566,18 @@ pub fn World::generate_chunk(
       }
   }
 }
+
+///|
+pub fn World::generate_chunk_column(
+  world : World,
+  chunk_x : Int,
+  chunk_z : Int,
+) -> Array[Chunk] {
+  let chunks : Array[Chunk] = []
+  let chunk_min_y = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
+  let chunk_max_y = @util.floor_div(world.max_y(), CHUNK_Y_SIZE)
+  for chunk_y in chunk_min_y..<=chunk_max_y {
+    chunks.push(world.generate_chunk(chunk_x, chunk_y, chunk_z))
+  }
+  chunks
+}

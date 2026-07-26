@@ -9,3 +9,7 @@ import {
   "kokic/mooncraft/item",
   "kokic/mooncraft/level",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

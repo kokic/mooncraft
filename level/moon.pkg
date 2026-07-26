@@ -14,3 +14,7 @@ import {
 import {
   "moonbitlang/core/test",
 } for "wbtest"
+
+import {
+  "moonbitlang/core/test",
+} for "test"

@@ -21,7 +21,7 @@ pub struct SavePayload {
   world : SaveWorld
   player : SavePlayer
   inventory : @player.PlayerInventorySnapshot
-  block_deltas : Array[@render.BlockDelta]
+  block_deltas : Array[@level.BlockDelta]
 } derive(Debug, ToJson, FromJson)
 
 ///|
@@ -33,7 +33,7 @@ pub fn SavePayload::new(
   yaw : Double,
   pitch : Double,
   inventory : @player.PlayerInventorySnapshot,
-  block_deltas : Array[@render.BlockDelta],
+  block_deltas : Array[@level.BlockDelta],
 ) -> SavePayload {
   let position = if position.length() >= 3 {
     [position[0], position[1], position[2]]
@@ -89,7 +89,7 @@ pub fn SavePayload::inventory(
 ///|
 pub fn SavePayload::block_deltas(
   self : SavePayload,
-) -> Array[@render.BlockDelta] {
+) -> Array[@level.BlockDelta] {
   self.block_deltas
 }
 

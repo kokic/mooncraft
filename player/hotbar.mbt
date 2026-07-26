@@ -13,8 +13,3 @@ pub let hotbar_blocks : Array[@block.Block] = [
 // @block.soul_torch_blocks[0],
 // @block.copper_torch_blocks[0],
 ]
-
-///|
-pub fn collect_hotbar_items() -> Array[@render.UiItemView] {
-  hotbar_blocks.map(@render.block_to_ui_item)
-}

@@ -1,19 +1,7 @@
 import {
-  "moonbitlang/core/env",
   "moonbitlang/core/hashmap",
   "kokic/mooncraft/ffi",
-  "kokic/mooncraft/level",
-  "kokic/mooncraft/block",
-  "kokic/mooncraft/player",
-  "kokic/mooncraft/block/genus",
-  "kokic/mooncraft/util",
-  "kokic/mooncraft/biome",
-  "kokic/mooncraft/i18n",
-  "kokic/mooncraft/item",
-  "kokic/mooncraft/math3d",
-  "kokic/mooncraft/mob",
-  "kokic/mooncraft/render",
-  "kokic/mooncraft/level/save",
+  "kokic/mooncraft/client",
 }
 
 pkgtype(kind: "executable")

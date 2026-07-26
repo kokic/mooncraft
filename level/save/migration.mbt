@@ -73,7 +73,7 @@ fn LevelSaveV1::migrate(self : LevelSaveV1) -> SavePayload? {
       self.runtime.player.pitch,
       inventory.snapshot(),
       self.blockDeltas.map(delta => {
-        @render.BlockDelta::new(delta.wx, delta.wy, delta.wz, delta.id)
+        @level.BlockDelta::new(delta.wx, delta.wy, delta.wz, delta.id)
       }),
     ),
   )

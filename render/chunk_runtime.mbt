@@ -14,20 +14,6 @@ pub const CHUNK_GENERATION_WORK_BUDGET : Int = 8
 pub const CHUNK_MESH_BUDGET : Int = 8
 
 ///|
-/// Persistent voxel override applied after procedural generation.
-pub struct BlockDelta {
-  x : Int
-  y : Int
-  z : Int
-  id : UInt
-} derive(Debug, ToJson, FromJson)
-
-///|
-pub fn BlockDelta::new(x : Int, y : Int, z : Int, id : UInt) -> BlockDelta {
-  { x, y, z, id }
-}
-
-///|
 /// Owns all CPU-side chunk streaming, lighting, and mesh invalidation state.
 /// `chunk_map` is an opaque browser map used only as a zero-copy data bridge.
 pub struct ChunkRuntime {
@@ -56,7 +42,7 @@ pub struct ChunkRuntime {
   mut dirty_lights : Map[String, Bool]
   lights : Map[String, Bytes]
   fixed_section_light : Bytes
-  block_deltas : Map[String, BlockDelta]
+  block_deltas : Map[String, @level.BlockDelta]
 }
 
 ///|
@@ -369,7 +355,7 @@ fn ChunkRuntime::record_block_delta(
   z : Int,
   id : UInt,
 ) -> Unit {
-  self.block_deltas["\{x},\{y},\{z}"] = BlockDelta::{ x, y, z, id }
+  self.block_deltas["\{x},\{y},\{z}"] = @level.BlockDelta::new(x, y, z, id)
 }
 
 ///|
@@ -390,7 +376,9 @@ pub fn ChunkRuntime::load_block_delta(
 }
 
 ///|
-pub fn ChunkRuntime::block_deltas(self : ChunkRuntime) -> Array[BlockDelta] {
+pub fn ChunkRuntime::block_deltas(
+  self : ChunkRuntime,
+) -> Array[@level.BlockDelta] {
   self.block_deltas.values().to_array()
 }
 

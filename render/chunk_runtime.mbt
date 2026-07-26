@@ -8,6 +8,9 @@ pub const CHUNK_SECTION_SIZE : Int = 8
 pub const CHUNK_GENERATION_BUDGET : Int = 1
 
 ///|
+pub const CHUNK_GENERATION_WORK_BUDGET : Int = 8
+
+///|
 pub const CHUNK_MESH_BUDGET : Int = 8
 
 ///|
@@ -37,6 +40,7 @@ pub struct ChunkRuntime {
   section_size : Int
   sections_per_axis : Int
   generation_budget : Int
+  generation_work_budget : Int
   mesh_budget : Int
   loaded_columns : Map[String, Bool]
   mut desired_columns : Map[String, Bool]
@@ -46,6 +50,7 @@ pub struct ChunkRuntime {
   queued_columns : Map[String, Bool]
   mut column_queue : Array[String]
   mut queue_head : Int
+  mut active_infinite_column : @level.InfiniteChunkColumnGeneration?
   dirty_sections : Map[String, ChunkSection]
   rendered_sections : Map[String, ChunkSection]
   mut dirty_lights : Map[String, Bool]
@@ -83,6 +88,7 @@ pub fn ChunkRuntime::new(
   render_distance? : Int = CHUNK_RENDER_DISTANCE,
   section_size? : Int = CHUNK_SECTION_SIZE,
   generation_budget? : Int = CHUNK_GENERATION_BUDGET,
+  generation_work_budget? : Int = CHUNK_GENERATION_WORK_BUDGET,
   mesh_budget? : Int = CHUNK_MESH_BUDGET,
   spawn_chunk_x? : Int = 0,
   spawn_chunk_z? : Int = 0,
@@ -139,6 +145,11 @@ pub fn ChunkRuntime::new(
     } else {
       generation_budget
     },
+    generation_work_budget: if generation_work_budget < 1 {
+      1
+    } else {
+      generation_work_budget
+    },
     mesh_budget: if mesh_budget < 1 {
       1
     } else {
@@ -152,6 +163,7 @@ pub fn ChunkRuntime::new(
     queued_columns: {},
     column_queue: [],
     queue_head: 0,
+    active_infinite_column: None,
     dirty_sections: {},
     rendered_sections: {},
     dirty_lights,
@@ -180,7 +192,13 @@ pub fn ChunkRuntime::chunk_light(self : ChunkRuntime, key : String) -> Bytes? {
 
 ///|
 fn ChunkRuntime::enqueue_column(self : ChunkRuntime, key : String) -> Unit {
-  guard !self.loaded_columns.contains(key) && !self.queued_columns.contains(key) else {
+  let is_active = match self.active_infinite_column {
+    Some(generation) => generation.column_key() == key
+    None => false
+  }
+  guard !self.loaded_columns.contains(key) &&
+    !self.queued_columns.contains(key) &&
+    !is_active else {
     return
   }
   self.queued_columns[key] = true
@@ -212,39 +230,100 @@ fn ChunkRuntime::refresh_desired(
 }
 
 ///|
-fn ChunkRuntime::generate_queued(self : ChunkRuntime) -> Array[String] {
-  let generated : Array[String] = []
-  let mut remaining = self.generation_budget
-  while remaining > 0 && self.queue_head < self.column_queue.length() {
+fn ChunkRuntime::take_queued_column(self : ChunkRuntime) -> String? {
+  while self.queue_head < self.column_queue.length() {
     let key = self.column_queue[self.queue_head]
     self.queue_head = self.queue_head + 1
     self.queued_columns.remove(key)
     if self.loaded_columns.contains(key) || !self.desired_columns.contains(key) {
       continue
     }
+    return Some(key)
+  }
+  self.column_queue = []
+  self.queue_head = 0
+  None
+}
+
+///|
+fn ChunkRuntime::publish_generated_column(
+  self : ChunkRuntime,
+  key : String,
+  chunks : Array[@level.Chunk],
+) -> Array[String] {
+  let generated : Array[String] = []
+  let (x, z) = @level.chunk_xz_by_chunk_column_key(key)
+  for chunk in chunks {
+    let chunk_key = chunk.chunk_key()
+    let data = chunk.tile_map
+    self.apply_block_deltas(chunk_key, data)
+    @ffi.map_set_value(self.chunk_map, chunk_key, data)
+    self.mark_chunk_sections_dirty(chunk_key)
+    self.dirty_lights[chunk_key] = true
+    generated.push(chunk_key)
+  }
+  self.loaded_columns[key] = true
+  self.mark_loaded_neighbor_boundaries_dirty(x, z)
+  generated
+}
+
+///|
+fn ChunkRuntime::generate_queued_infinite(self : ChunkRuntime) -> Array[String] {
+  match self.active_infinite_column {
+    Some(generation) =>
+      if !self.desired_columns.contains(generation.column_key()) {
+        self.active_infinite_column = None
+      }
+    None => ()
+  }
+  if self.active_infinite_column is None {
+    guard self.take_queued_column() is Some(key) else { return [] }
     let (x, z) = @level.chunk_xz_by_chunk_column_key(key)
-    for chunk in self.world.generate_chunk_column(x, z) {
-      let chunk_key = chunk.chunk_key()
-      let data = chunk.tile_map
-      self.apply_block_deltas(chunk_key, data)
-      @ffi.map_set_value(self.chunk_map, chunk_key, data)
-      self.mark_chunk_sections_dirty(chunk_key)
-      self.dirty_lights[chunk_key] = true
+    self.active_infinite_column = Some(
+      self.world.begin_infinite_chunk_column_generation(x, z),
+    )
+  }
+  guard self.active_infinite_column is Some(generation) else { return [] }
+  guard generation.advance(self.generation_work_budget) else { return [] }
+  let key = generation.column_key()
+  self.active_infinite_column = None
+  guard self.desired_columns.contains(key) else { return [] }
+  guard generation.completed_chunks() is Some(chunks) else { return [] }
+  self.publish_generated_column(key, chunks)
+}
+
+///|
+fn ChunkRuntime::generate_queued_synchronous(
+  self : ChunkRuntime,
+) -> Array[String] {
+  let generated : Array[String] = []
+  let mut remaining = self.generation_budget
+  while remaining > 0 {
+    guard self.take_queued_column() is Some(key) else { break }
+    let (x, z) = @level.chunk_xz_by_chunk_column_key(key)
+    for
+      chunk_key in self.publish_generated_column(
+        key,
+        self.world.generate_chunk_column(x, z),
+      ) {
       generated.push(chunk_key)
     }
-    self.loaded_columns[key] = true
-    self.mark_loaded_neighbor_columns_dirty(x, z)
     remaining = remaining - 1
-  }
-  if self.queue_head >= self.column_queue.length() {
-    self.column_queue = []
-    self.queue_head = 0
   }
   generated
 }
 
 ///|
-fn ChunkRuntime::mark_loaded_neighbor_columns_dirty(
+fn ChunkRuntime::generate_queued(self : ChunkRuntime) -> Array[String] {
+  if self.world.world_type() is @level.WorldType::Infinite {
+    self.generate_queued_infinite()
+  } else {
+    self.generate_queued_synchronous()
+  }
+}
+
+///|
+fn ChunkRuntime::mark_loaded_neighbor_boundaries_dirty(
   self : ChunkRuntime,
   x : Int,
   z : Int,
@@ -253,7 +332,7 @@ fn ChunkRuntime::mark_loaded_neighbor_columns_dirty(
     let (dx, _, dz) = offset
     let column_key = @level.chunk_column_key_by_chunk_xz(x + dx, z + dz)
     if self.loaded_columns.contains(column_key) {
-      self.mark_column_chunks_dirty(x + dx, z + dz)
+      self.mark_column_boundary_dirty(x + dx, z + dz, dx, dz)
     }
   }
 }
@@ -318,12 +397,17 @@ pub fn ChunkRuntime::block_deltas(self : ChunkRuntime) -> Array[BlockDelta] {
 ///|
 fn ChunkRuntime::evict_undesired(self : ChunkRuntime) -> Array[String] {
   let evicted : Array[String] = []
+  let center_key = @level.chunk_column_key_by_chunk_xz(
+    self.desired_center_x,
+    self.desired_center_z,
+  )
+  guard self.loaded_columns.contains(center_key) else { return evicted }
   for key in self.loaded_columns.keys().to_array() {
     if self.desired_columns.contains(key) {
       continue
     }
     let (x, z) = @level.chunk_xz_by_chunk_column_key(key)
-    self.mark_loaded_neighbor_columns_dirty(x, z)
+    self.mark_loaded_neighbor_boundaries_dirty(x, z)
     self.loaded_columns.remove(key)
     for y in self.chunk_min_y..<=self.chunk_max_y {
       let chunk_key = @level.chunk_key_by_chunk_xyz(x, y, z)
@@ -342,16 +426,13 @@ fn ChunkRuntime::remove_chunk_sections(
   self : ChunkRuntime,
   chunk_key : String,
 ) -> Unit {
-  for key in self.dirty_sections.keys().to_array() {
-    guard self.dirty_sections.get(key) is Some(section) else { continue }
-    if section.chunk_key == chunk_key {
-      self.dirty_sections.remove(key)
-    }
-  }
-  for key in self.rendered_sections.keys().to_array() {
-    guard self.rendered_sections.get(key) is Some(section) else { continue }
-    if section.chunk_key == chunk_key {
-      self.rendered_sections.remove(key)
+  for sx in 0..<self.sections_per_axis {
+    for sy in 0..<self.sections_per_axis {
+      for sz in 0..<self.sections_per_axis {
+        let key = section_key(chunk_key, sx, sy, sz)
+        self.dirty_sections.remove(key)
+        self.rendered_sections.remove(key)
+      }
     }
   }
 }
@@ -440,6 +521,23 @@ fn ChunkRuntime::section_has_non_air(
 }
 
 ///|
+fn ChunkRuntime::mark_section_dirty(
+  self : ChunkRuntime,
+  chunk_key : String,
+  sx : Int,
+  sy : Int,
+  sz : Int,
+) -> Unit {
+  let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
+  let key = section_key(chunk_key, sx, sy, sz)
+  guard self.section_has_non_air(section) ||
+    self.rendered_sections.contains(key) else {
+    return
+  }
+  self.dirty_sections[key] = section
+}
+
+///|
 fn ChunkRuntime::mark_chunk_sections_dirty(
   self : ChunkRuntime,
   chunk_key : String,
@@ -447,15 +545,39 @@ fn ChunkRuntime::mark_chunk_sections_dirty(
   for sx in 0..<self.sections_per_axis {
     for sy in 0..<self.sections_per_axis {
       for sz in 0..<self.sections_per_axis {
-        let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
-        let key = section_key(chunk_key, sx, sy, sz)
-        guard self.section_has_non_air(section) ||
-          self.rendered_sections.contains(key) else {
-          continue
-        }
-        self.dirty_sections[key] = section
+        self.mark_section_dirty(chunk_key, sx, sy, sz)
       }
     }
+  }
+}
+
+///|
+fn ChunkRuntime::mark_column_boundary_dirty(
+  self : ChunkRuntime,
+  x : Int,
+  z : Int,
+  dx : Int,
+  dz : Int,
+) -> Unit {
+  let max_section = self.sections_per_axis - 1
+  for y in self.chunk_min_y..<=self.chunk_max_y {
+    let chunk_key = @level.chunk_key_by_chunk_xyz(x, y, z)
+    if dx != 0 {
+      let sx = if dx < 0 { max_section } else { 0 }
+      for sy in 0..<self.sections_per_axis {
+        for sz in 0..<self.sections_per_axis {
+          self.mark_section_dirty(chunk_key, sx, sy, sz)
+        }
+      }
+    } else {
+      let sz = if dz < 0 { max_section } else { 0 }
+      for sx in 0..<self.sections_per_axis {
+        for sy in 0..<self.sections_per_axis {
+          self.mark_section_dirty(chunk_key, sx, sy, sz)
+        }
+      }
+    }
+    self.dirty_lights[chunk_key] = true
   }
 }
 

@@ -1,19 +1,10 @@
 ///|
-fn ore_noise(
-  noise : @util.PerlinNoise,
-  wx : Int,
-  wy : Int,
-  wz : Int,
-  freq : Double,
-  ox : Double,
-  oy : Double,
-  oz : Double,
-) -> Double {
+fn ore_field(noise : @util.PerlinNoise, wx : Int, wy : Int, wz : Int) -> Double {
   noise
   .gen3d(
-    wx.to_double() * freq + ox,
-    wy.to_double() * freq + oy,
-    wz.to_double() * freq + oz,
+    wx.to_double() * 0.113 + 13.0,
+    wy.to_double() * 0.127 - 7.0,
+    wz.to_double() * 0.109 + 29.0,
   )
   .abs()
 }
@@ -35,45 +26,42 @@ pub fn pick_stone_ore(
   lapis_ore : UInt,
   emerald_ore : UInt,
 ) -> UInt {
+  guard wy <= 28 else { return stone }
+  // Partition one coherent field into rarity bands instead of sampling a
+  // separate 3D noise field for every eligible ore at every solid block.
+  let sample = ore_field(noise, wx, wy, wz)
   if is_mountains && wy >= 4 && wy <= 28 {
-    let emerald_n = ore_noise(noise, wx, wy, wz, 0.115, 13.0, -7.0, 29.0)
-    if emerald_n > 0.82 {
+    if sample > 0.82 {
       return emerald_ore
     }
   }
   if wy <= -18 {
-    let diamond_n = ore_noise(noise, wx, wy, wz, 0.16, -41.0, 23.0, 17.0)
-    if diamond_n > 0.78 {
+    if sample > 0.78 {
       return diamond_ore
     }
   }
   if wy <= -12 {
-    let redstone_n = ore_noise(noise, wx, wy, wz, 0.145, 71.0, -19.0, -37.0)
-    if redstone_n > 0.75 {
+    if sample > 0.74 {
       return redstone_ore
     }
   }
   if wy <= -8 {
-    let lapis_n = ore_noise(noise, wx, wy, wz, 0.132, -27.0, 11.0, 59.0)
-    if lapis_n > 0.8 {
+    if sample > 0.71 {
       return lapis_ore
     }
   }
   if wy <= -4 {
-    let gold_n = ore_noise(noise, wx, wy, wz, 0.124, 31.0, -53.0, 7.0)
-    if gold_n > 0.79 {
+    if sample > 0.68 {
       return gold_ore
     }
   }
   if wy <= 12 {
-    let iron_n = ore_noise(noise, wx, wy, wz, 0.108, -19.0, 5.0, -11.0)
-    if iron_n > 0.71 {
+    if sample > 0.65 {
       return iron_ore
     }
   }
   if wy <= 28 {
-    let coal_n = ore_noise(noise, wx, wy, wz, 0.096, 43.0, -17.0, 23.0)
-    if coal_n > 0.66 {
+    if sample > 0.62 {
       return coal_ore
     }
   }

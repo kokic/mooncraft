@@ -147,3 +147,29 @@ test "Infinite aquifers fill some cave cells with water and deep lava" {
   assert_true(has_water)
   assert_true(has_lava)
 }
+
+///|
+test "Infinite column generation publishes only after incremental completion" {
+  let world = World::new(seed=41U, world_type=WorldType::Infinite)
+  let generation = world.begin_infinite_chunk_column_generation(2, -1)
+  assert_false(generation.advance(1))
+  assert_true(generation.completed_chunks() is None)
+  let mut iterations = 0
+  while !generation.advance(8) {
+    assert_true(generation.completed_chunks() is None)
+    iterations += 1
+    guard iterations < 128 else { abort("incremental column did not complete") }
+  }
+  guard generation.completed_chunks() is Some(chunks) else {
+    abort("completed incremental column has no chunks")
+  }
+  let min_y = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
+  let max_y = @util.floor_div(world.max_y(), CHUNK_Y_SIZE)
+  @test.assert_eq(chunks.length(), max_y - min_y + 1)
+  for index, chunk in chunks {
+    @test.assert_eq(
+      chunk.chunk_key(),
+      chunk_key_by_chunk_xyz(2, min_y + index, -1),
+    )
+  }
+}

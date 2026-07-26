@@ -95,3 +95,71 @@ test "infinite high-air sections are not meshed" {
     runtime.sections_per_axis
   assert_true(frame.mesh_updates.length() < all_sections)
 }
+
+///|
+test "neighbor loading invalidates only the shared section boundary" {
+  let world = @level.World::new(seed=5U, world_type=@level.WorldType::Flat)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(world, initial, render_distance=0)
+  for key in runtime.dirty_sections.keys().to_array() {
+    runtime.dirty_sections.remove(key)
+  }
+  runtime.loaded_columns["1,0"] = true
+  let chunk_key = @level.chunk_key_by_chunk_xyz(1, 0, 0)
+  for sx in 0..<runtime.sections_per_axis {
+    for sy in 0..<runtime.sections_per_axis {
+      for sz in 0..<runtime.sections_per_axis {
+        let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
+        runtime.rendered_sections[section_key(chunk_key, sx, sy, sz)] = section
+      }
+    }
+  }
+  runtime.mark_loaded_neighbor_boundaries_dirty(0, 0)
+  let dirty = runtime.dirty_sections
+    .values()
+    .to_array()
+    .filter(section => section.chunk_key == chunk_key)
+  @test.assert_eq(
+    dirty.length(),
+    runtime.sections_per_axis * runtime.sections_per_axis,
+  )
+  assert_true(dirty.all(section => section.x == 0))
+}
+
+///|
+test "infinite streaming keeps generation and eviction off the crossing frame" {
+  let world = @level.World::new(seed=43U, world_type=@level.WorldType::Infinite)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(
+    world,
+    initial,
+    render_distance=0,
+    generation_work_budget=8,
+    mesh_budget=1,
+  )
+  let registry = BlockRegistry::create([], [])
+  ignore(runtime.tick(registry, 0, 0))
+  let frame = runtime.tick(registry, 1, 0)
+  @test.assert_eq(frame.generated.length(), 0)
+  @test.assert_eq(frame.evicted.length(), 0)
+  assert_true(runtime.active_infinite_column is Some(_))
+  let target_key = @level.chunk_key_by_chunk_xyz(1, 0, 0)
+  assert_true(@level.get_chunk_data(runtime.chunk_map(), target_key) is None)
+  let retained_key = @level.chunk_key_by_chunk_xyz(0, 0, 0)
+  assert_true(
+    @level.get_chunk_data(runtime.chunk_map(), retained_key) is Some(_),
+  )
+  let mut completed = false
+  for _ in 0..<80 {
+    let next = runtime.tick(registry, 1, 0)
+    guard next.generated.length() > 0 else { continue }
+    let column_height = runtime.chunk_max_y - runtime.chunk_min_y + 1
+    @test.assert_eq(next.generated.length(), column_height)
+    @test.assert_eq(next.evicted.length(), column_height)
+    completed = true
+    break
+  }
+  assert_true(completed)
+  assert_true(@level.get_chunk_data(runtime.chunk_map(), target_key) is Some(_))
+  assert_true(@level.get_chunk_data(runtime.chunk_map(), retained_key) is None)
+}

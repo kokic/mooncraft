@@ -18,7 +18,20 @@ pub fn PerlinNoise::gen(
   y : Double,
   z? : Double,
 ) -> Double {
-  z.map(z => self.gen3d(x, y, z)).unwrap_or(self.gen2d(x, y))
+  match z {
+    Some(z) => self.gen3d(x, y, z)
+    None => self.gen2d(x, y)
+  }
+}
+
+///|
+fn gradient_dot(
+  gradient : Vec3[Double],
+  x : Double,
+  y : Double,
+  z : Double,
+) -> Double {
+  gradient.x * x + gradient.y * y + gradient.z * z
 }
 
 ///|
@@ -31,13 +44,10 @@ pub fn PerlinNoise::gen2d(self : PerlinNoise, x : Double, y : Double) -> Double 
   let iy = fy & 255
   let perm = self.base.permutations
   let grad_p = self.grad_p
-  let n00 = Vec3::dot(grad_p[ix + perm[iy]], Vec3::new(rx, ry, 0.0))
-  let n01 = Vec3::dot(grad_p[ix + perm[iy + 1]], Vec3::new(rx, ry - 1.0, 0.0))
-  let n10 = Vec3::dot(grad_p[ix + perm[iy] + 1], Vec3::new(rx - 1.0, ry, 0.0))
-  let n11 = Vec3::dot(
-    grad_p[ix + perm[iy + 1] + 1],
-    Vec3::new(rx - 1.0, ry - 1.0, 0.0),
-  )
+  let n00 = gradient_dot(grad_p[ix + perm[iy]], rx, ry, 0.0)
+  let n01 = gradient_dot(grad_p[ix + perm[iy + 1]], rx, ry - 1.0, 0.0)
+  let n10 = gradient_dot(grad_p[ix + perm[iy] + 1], rx - 1.0, ry, 0.0)
+  let n11 = gradient_dot(grad_p[ix + perm[iy + 1] + 1], rx - 1.0, ry - 1.0, 0.0)
   let u = Noise::fade2(rx)
   Noise::lerp(
     Noise::lerp(n00, n10, u),
@@ -64,34 +74,48 @@ pub fn PerlinNoise::gen3d(
   let iz = fz & 255
   let perm = self.base.permutations
   let grad_p = self.grad_p
-  let n000 = Vec3::dot(grad_p[ix + perm[iy + perm[iz]]], Vec3::new(rx, ry, rz))
-  let n001 = Vec3::dot(
+  let n000 = gradient_dot(grad_p[ix + perm[iy + perm[iz]]], rx, ry, rz)
+  let n001 = gradient_dot(
     grad_p[ix + perm[iy + perm[iz + 1]]],
-    Vec3::new(rx, ry, rz - 1.0),
+    rx,
+    ry,
+    rz - 1.0,
   )
-  let n010 = Vec3::dot(
+  let n010 = gradient_dot(
     grad_p[ix + perm[iy + 1 + perm[iz]]],
-    Vec3::new(rx, ry - 1.0, rz),
+    rx,
+    ry - 1.0,
+    rz,
   )
-  let n011 = Vec3::dot(
+  let n011 = gradient_dot(
     grad_p[ix + perm[iy + 1 + perm[iz + 1]]],
-    Vec3::new(rx, ry - 1.0, rz - 1.0),
+    rx,
+    ry - 1.0,
+    rz - 1.0,
   )
-  let n100 = Vec3::dot(
+  let n100 = gradient_dot(
     grad_p[ix + 1 + perm[iy + perm[iz]]],
-    Vec3::new(rx - 1.0, ry, rz),
+    rx - 1.0,
+    ry,
+    rz,
   )
-  let n101 = Vec3::dot(
+  let n101 = gradient_dot(
     grad_p[ix + 1 + perm[iy + perm[iz + 1]]],
-    Vec3::new(rx - 1.0, ry, rz - 1.0),
+    rx - 1.0,
+    ry,
+    rz - 1.0,
   )
-  let n110 = Vec3::dot(
+  let n110 = gradient_dot(
     grad_p[ix + 1 + perm[iy + 1 + perm[iz]]],
-    Vec3::new(rx - 1.0, ry - 1.0, rz),
+    rx - 1.0,
+    ry - 1.0,
+    rz,
   )
-  let n111 = Vec3::dot(
+  let n111 = gradient_dot(
     grad_p[ix + 1 + perm[iy + 1 + perm[iz + 1]]],
-    Vec3::new(rx - 1.0, ry - 1.0, rz - 1.0),
+    rx - 1.0,
+    ry - 1.0,
+    rz - 1.0,
   )
   let u = Noise::fade2(rx)
   let v = Noise::fade2(ry)

@@ -225,14 +225,11 @@ pub fn place_oak_trees_in_chunk(
 }
 
 ///|
-/// Biome-aware tree placement for Infinite world.
-/// Uses oak tree feature geometry with species-specific log/leaves fillers.
-pub fn place_biome_trees_in_chunk(
+fn place_biome_trees_in_chunk_with_biome(
   world : World,
   chunk : Chunk,
-  is_grass? : (UInt) -> Bool = long_id => {
-    long_id == @block.lookup_by_name("grass").unwrap().id
-  },
+  surface_biome_at : (Int, Int) -> @biome.Biome,
+  is_grass : (UInt) -> Bool,
 ) -> Unit {
   apply_pending_to_chunk(chunk)
   let region = ChunkRegion::new(chunk)
@@ -254,8 +251,7 @@ pub fn place_biome_trees_in_chunk(
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      let column = terrain_column(world, wx, wz)
-      let biome = column.surface_biome
+      let biome = surface_biome_at(wx, wz)
       match
         tree_profile_for_biome(
           world.noise,
@@ -307,4 +303,22 @@ pub fn place_biome_trees_in_chunk(
       }
     }
   }
+}
+
+///|
+/// Biome-aware tree placement for Infinite world.
+/// Uses oak tree feature geometry with species-specific log/leaves fillers.
+pub fn place_biome_trees_in_chunk(
+  world : World,
+  chunk : Chunk,
+  is_grass? : (UInt) -> Bool = long_id => {
+    long_id == @block.lookup_by_name("grass").unwrap().id
+  },
+) -> Unit {
+  place_biome_trees_in_chunk_with_biome(
+    world,
+    chunk,
+    (wx, wz) => terrain_column(world, wx, wz).surface_biome,
+    is_grass,
+  )
 }

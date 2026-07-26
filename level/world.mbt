@@ -310,12 +310,11 @@ fn surface_height_with_params(
   wx : Int,
   wz : Int,
   sample : @biome.BiomeSample,
-  biome : @biome.Biome,
+  surface_biome : @biome.Biome,
 ) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise
-  let surface_biome = surface_biome_from_column(world, sample, biome)
   let terrain_biome = terrain_biome_for_height(sample, surface_biome)
   let surface_params = @biome.params(terrain_biome)
   let surface_plain = plain_height_with_biome(
@@ -465,7 +464,8 @@ fn surface_height_with_params(
 pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
   let sample = @biome.sample(world.noise, wx, wz)
   let biome = @biome.biome_from_sample(sample)
-  surface_height_with_params(world, wx, wz, sample, biome)
+  let surface_biome = surface_biome_from_column(world, sample, biome)
+  surface_height_with_params(world, wx, wz, sample, surface_biome)
 }
 
 ///|

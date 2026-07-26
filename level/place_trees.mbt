@@ -198,9 +198,7 @@ pub fn place_oak_trees_in_chunk(
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      let column = terrain_column(world, wx, wz)
-      let biome = column.surface_biome
-      if biome is @biome.Plains && should_place_oak(world.noise, wx, wz, params) {
+      if should_place_oak(world.noise, wx, wz, params) {
         if rx >= 2 &&
           rx <= CHUNK_X_SIZE - 3 &&
           rz >= 2 &&

@@ -74,3 +74,24 @@ test "chunk runtime streams complete columns" {
     assert_true(@level.get_chunk_data(runtime.chunk_map(), evicted_key) is None)
   }
 }
+
+///|
+test "infinite high-air sections are not meshed" {
+  let world = @level.World::new(seed=37U, world_type=@level.WorldType::Infinite)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(
+    world,
+    initial,
+    render_distance=0,
+    generation_budget=1,
+    mesh_budget=1024,
+  )
+  let registry = BlockRegistry::create([], [])
+  let frame = runtime.tick(registry, 0, 0)
+  let chunk_count = runtime.chunk_max_y - runtime.chunk_min_y + 1
+  let all_sections = chunk_count *
+    runtime.sections_per_axis *
+    runtime.sections_per_axis *
+    runtime.sections_per_axis
+  assert_true(frame.mesh_updates.length() < all_sections)
+}

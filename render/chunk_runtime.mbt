@@ -99,11 +99,19 @@ pub fn ChunkRuntime::new(
   let chunk_max_y = @util.floor_div(world.max_y(), chunk_size)
   let loaded_columns : Map[String, Bool] = Map([])
   let dirty_lights : Map[String, Bool] = Map([])
+  let initial_column : Array[@level.Chunk] = if world.world_type()
+    is @level.WorldType::Infinite {
+    world.generate_chunk_column(spawn_chunk_x, spawn_chunk_z)
+  } else {
+    []
+  }
   // Spawn surface selection needs a complete column before the first frame.
   for cy in chunk_min_y..<=chunk_max_y {
     let key = @level.chunk_key_by_chunk_xyz(spawn_chunk_x, cy, spawn_chunk_z)
     let data = if spawn_chunk_x == 0 && cy == 0 && spawn_chunk_z == 0 {
       initial_chunk
+    } else if world.world_type() is @level.WorldType::Infinite {
+      initial_column[cy - chunk_min_y].tile_map
     } else {
       world.generate_chunk(spawn_chunk_x, cy, spawn_chunk_z).tile_map
     }
@@ -408,6 +416,30 @@ fn ChunkRuntime::mark_section_by_world(
 }
 
 ///|
+/// Return whether a section contains any non-air voxel in its core region.
+/// Padded neighbor data is only needed for sections that can emit geometry.
+fn ChunkRuntime::section_has_non_air(
+  self : ChunkRuntime,
+  section : ChunkSection,
+) -> Bool {
+  guard @level.get_chunk_data(self.chunk_map, section.chunk_key) is Some(data) else {
+    false
+  }
+  let base_x = section.x * self.section_size
+  let base_y = section.y * self.section_size
+  let base_z = section.z * self.section_size
+  for y in base_y..<(base_y + self.section_size) {
+    for z in base_z..<(base_z + self.section_size) {
+      for x in base_x..<(base_x + self.section_size) {
+        let index = (y * self.chunk_size + z) * self.chunk_size + x
+        guard data[index] == @block.AIR_LONG_ID else { return true }
+      }
+    }
+  }
+  false
+}
+
+///|
 fn ChunkRuntime::mark_chunk_sections_dirty(
   self : ChunkRuntime,
   chunk_key : String,
@@ -416,7 +448,12 @@ fn ChunkRuntime::mark_chunk_sections_dirty(
     for sy in 0..<self.sections_per_axis {
       for sz in 0..<self.sections_per_axis {
         let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
-        self.dirty_sections[section_key(chunk_key, sx, sy, sz)] = section
+        let key = section_key(chunk_key, sx, sy, sz)
+        guard self.section_has_non_air(section) ||
+          self.rendered_sections.contains(key) else {
+          continue
+        }
+        self.dirty_sections[key] = section
       }
     }
   }

@@ -30,7 +30,7 @@ fn aquifer_fluid_at(
   }
   guard wy < top_solid_wy - 5 else { Air }
   if wy <= LAVA_AQUIFER_LEVEL {
-    let lava_barrier = world.noise.gen3d(
+    let lava_barrier = world.terrain_noise.aquifer_lava.gen3d(
       (column.wx.to_double() + 701.0) * 0.043,
       wy.to_double() * 0.043,
       (column.wz.to_double() - 307.0) * 0.043,
@@ -39,10 +39,13 @@ fn aquifer_fluid_at(
   }
   let x = column.wx.to_double()
   let z = column.wz.to_double()
-  let level_noise = world.noise.gen2d((x + 887.0) * 0.012, (z - 509.0) * 0.012)
+  let level_noise = world.terrain_noise.aquifer_level.gen2d(
+    (x + 887.0) * 0.012,
+    (z - 509.0) * 0.012,
+  )
   let water_level = AQUIFER_BASE_LEVEL + (level_noise * 11.0).round().to_int()
   guard wy <= water_level else { Air }
-  let barrier = world.noise.gen3d(
+  let barrier = world.terrain_noise.aquifer_barrier.gen3d(
     (x - 127.0) * 0.026,
     wy.to_double() * 0.031,
     (z + 953.0) * 0.026,

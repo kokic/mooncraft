@@ -3,6 +3,7 @@ pub struct World {
   seed : UInt
   kind : WorldType
   noise : @util.PerlinNoise
+  terrain_noise : TerrainNoiseRouter
 }
 
 ///|
@@ -23,8 +24,8 @@ pub(all) struct TerrainColumn {
 // are still coarse, matching the README next-step list.
 
 ///|
-/// Highest world Y for Infinite/Flat worlds.
-pub const WORLD_MAX_Y : Int = 127
+/// Highest world Y for Infinite/Flat worlds (Minecraft 1.18+ overworld).
+pub const WORLD_MAX_Y : Int = 319
 
 ///|
 /// Lowest world Y for Infinite/Flat worlds.
@@ -224,7 +225,11 @@ fn plain_height_with_biome(
 ) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let noise = world.noise
+  let noise = if world.kind is WorldType::Infinite {
+    world.terrain_noise.surface
+  } else {
+    world.noise
+  }
   let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
   let continental_lift = if sample.continental < 0.0 {
     sample.continental * 26.0
@@ -297,7 +302,11 @@ fn surface_height_with_params(
 ) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let noise = world.noise
+  let noise = if world.kind is WorldType::Infinite {
+    world.terrain_noise.surface
+  } else {
+    world.noise
+  }
   let terrain_biome = terrain_biome_for_height(sample, surface_biome)
   let surface_params = @biome.params(terrain_biome)
   let surface_plain = plain_height_with_biome(
@@ -445,7 +454,11 @@ fn surface_height_with_params(
 
 ///|
 pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
-  let sample = @biome.sample(world.noise, wx, wz)
+  let sample = if world.kind is WorldType::Infinite {
+    world.terrain_noise.sample_climate(wx, wz)
+  } else {
+    @biome.sample(world.noise, wx, wz)
+  }
   let biome = @biome.biome_from_sample(sample)
   let surface_biome = surface_biome_from_column(world, sample, biome)
   surface_height_with_params(world, wx, wz, sample, surface_biome)
@@ -456,7 +469,11 @@ fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   guard !(world.kind is WorldType::Finite) else {
     finite_terrain_column(world, wx, wz)
   }
-  let sample = @biome.sample(world.noise, wx, wz)
+  let sample = if world.kind is WorldType::Infinite {
+    world.terrain_noise.sample_climate(wx, wz)
+  } else {
+    @biome.sample(world.noise, wx, wz)
+  }
   let biome = @biome.biome_from_sample(sample)
   let surface_biome = surface_biome_from_column(world, sample, biome)
   let params = @biome.params(surface_biome)
@@ -471,7 +488,12 @@ fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
 fn surface_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let detail = world.noise.gen2d(x / DETAIL_SCALE, z / DETAIL_SCALE).abs()
+  let noise = if world.kind is WorldType::Infinite {
+    world.terrain_noise.detail
+  } else {
+    world.noise
+  }
+  let detail = noise.gen2d(x / DETAIL_SCALE, z / DETAIL_SCALE).abs()
   3 + (detail * 2.5).floor().to_int()
 }
 
@@ -479,7 +501,12 @@ fn surface_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
 fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let t = world.noise.gen2d(x / DESERT_SAND_SCALE, z / DESERT_SAND_SCALE).abs()
+  let noise = if world.kind is WorldType::Infinite {
+    world.terrain_noise.detail
+  } else {
+    world.noise
+  }
+  let t = noise.gen2d(x / DESERT_SAND_SCALE, z / DESERT_SAND_SCALE).abs()
   DESERT_SAND_DEPTH_MIN +
   (t * (DESERT_SAND_DEPTH_MAX - DESERT_SAND_DEPTH_MIN).to_double())
   .floor()
@@ -492,7 +519,8 @@ pub fn World::new(
   world_type? : WorldType = WorldType::PreClassic,
 ) -> World {
   let noise = @util.PerlinNoise::new(seed~)
-  World::{ seed, kind: world_type, noise }
+  let terrain_noise = TerrainNoiseRouter::new(seed)
+  World::{ seed, kind: world_type, noise, terrain_noise }
 }
 
 ///|

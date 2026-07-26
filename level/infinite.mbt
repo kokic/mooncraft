@@ -18,11 +18,10 @@ const DESERT_LAKE_DEPTH_MIN : Int = 4
 const DESERT_LAKE_DEPTH_MAX : Int = 10
 
 ///|
-struct InfiniteColumnSample {
+priv struct InfiniteColumnSample {
   terrain : TerrainColumn
   dirt_depth : Int
   sand_depth : Int
-  bedrock_depth : Int
   top_solid_wy : Int
   inland_min_wy : Int
   densities : Array[Double]
@@ -67,12 +66,15 @@ fn clamp_depth(depth : Int) -> Int {
 }
 
 ///|
-fn bedrock_thickness(world : World, wx : Int, wz : Int) -> Int {
+fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
+  let layer = wy - INFINITE_MIN_Y
+  guard layer >= 0 && layer < 5 else { false }
+  guard layer > 0 else { true }
   let coordinate_seed = wx * 73428767 +
+    wy * 42317861 +
     wz * 912931 +
     world.seed.reinterpret_as_int()
-  let value = noise01(@util.Noise::fast(coordinate_seed))
-  1 + (value * 4.999).floor().to_int()
+  noise01(@util.Noise::fast(coordinate_seed)) < (5 - layer).to_double() / 5.0
 }
 
 ///|
@@ -170,7 +172,6 @@ fn prepare_infinite_column(
     terrain,
     dirt_depth: surface_dirt_depth(world, wx, wz),
     sand_depth: desert_sand_depth(world, wx, wz),
-    bedrock_depth: bedrock_thickness(world, wx, wz),
     top_solid_wy,
     inland_min_wy,
     densities,
@@ -188,6 +189,7 @@ fn fill_infinite_block(
   column : InfiniteColumnSample,
   bedrock : UInt,
   stone : UInt,
+  deepslate : UInt,
   grass : UInt,
   snow : UInt,
   dirt : UInt,
@@ -210,7 +212,7 @@ fn fill_infinite_block(
   let use_inland_water = column.inland_min_wy <= wy && wy <= column.top_solid_wy
   if wy < INFINITE_MIN_Y {
     chunk.update_tile_map(rx, ry, rz, air)
-  } else if wy < INFINITE_MIN_Y + column.bedrock_depth {
+  } else if is_infinite_bedrock(world, wx, wy, wz) {
     chunk.update_tile_map(rx, ry, rz, bedrock)
   } else if use_inland_water {
     chunk.update_tile_map(rx, ry, rz, water)
@@ -256,6 +258,7 @@ fn fill_infinite_block(
   } else if wy >= column.top_solid_wy - column.dirt_depth {
     chunk.update_tile_map(rx, ry, rz, dirt)
   } else {
+    let rock = if wy < 0 { deepslate } else { stone }
     chunk.update_tile_map(
       rx,
       ry,
@@ -266,7 +269,7 @@ fn fill_infinite_block(
         wy,
         wz,
         biome is @biome.Mountains || biome is @biome.WindsweptHills,
-        stone,
+        rock,
         coal_ore,
         iron_ore,
         gold_ore,
@@ -282,9 +285,9 @@ fn fill_infinite_block(
 ///|
 /// Infinite terrain generation (biomes, soil, caves).
 fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
-  let air = @block.AIR_LONG_ID
   let bedrock = @block.lookup_by_name("bedrock").unwrap().id
   let stone = @block.lookup_by_name("stone").unwrap().id
+  let deepslate = @block.lookup_by_name("deepslate").unwrap().id
   let grass = @block.lookup_by_name("grass").unwrap().id
   let snow = @block.lookup_by_name("classic.snow").unwrap().id
   let dirt = @block.lookup_by_name("dirt").unwrap().id
@@ -305,9 +308,9 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
       let column = prepare_infinite_column(world, wx, wz)
       for ry in 0..<CHUNK_Y_SIZE {
         fill_infinite_block(
-          world, chunk, rx, ry, rz, column, bedrock, stone, grass, snow, dirt, sand,
-          sandstone, water, lava, coal_ore, iron_ore, gold_ore, redstone_ore, diamond_ore,
-          lapis_ore, emerald_ore,
+          world, chunk, rx, ry, rz, column, bedrock, stone, deepslate, grass, snow,
+          dirt, sand, sandstone, water, lava, coal_ore, iron_ore, gold_ore, redstone_ore,
+          diamond_ore, lapis_ore, emerald_ore,
         )
       }
     }
@@ -344,6 +347,7 @@ fn generate_infinite_chunk_column(
   }
   let bedrock = @block.lookup_by_name("bedrock").unwrap().id
   let stone = @block.lookup_by_name("stone").unwrap().id
+  let deepslate = @block.lookup_by_name("deepslate").unwrap().id
   let grass = @block.lookup_by_name("grass").unwrap().id
   let snow = @block.lookup_by_name("classic.snow").unwrap().id
   let dirt = @block.lookup_by_name("dirt").unwrap().id
@@ -364,8 +368,8 @@ fn generate_infinite_chunk_column(
         let column = columns[rx * CHUNK_Z_SIZE + rz]
         for ry in 0..<CHUNK_Y_SIZE {
           fill_infinite_block(
-            world, chunk, rx, ry, rz, column, bedrock, stone, grass, snow, dirt,
-            sand, sandstone, water, lava, coal_ore, iron_ore, gold_ore, redstone_ore,
+            world, chunk, rx, ry, rz, column, bedrock, stone, deepslate, grass, snow,
+            dirt, sand, sandstone, water, lava, coal_ore, iron_ore, gold_ore, redstone_ore,
             diamond_ore, lapis_ore, emerald_ore,
           )
         }

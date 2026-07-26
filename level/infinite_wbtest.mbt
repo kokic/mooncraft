@@ -1,8 +1,18 @@
 ///|
+fn test_top_solid_y(world : World, column : TerrainColumn) -> Int {
+  for wy = WORLD_MAX_Y; wy > WORLD_MIN_Y; wy = wy - 1 {
+    if density_at_column(world, column, wy) > 0.0 {
+      return wy
+    }
+  }
+  WORLD_MIN_Y
+}
+
+///|
 test "Infinite surface materials use the global column surface" {
   let world = World::new(seed=7U, world_type=WorldType::Infinite)
   let column = terrain_column(world, 0, 0)
-  let top = top_solid_y(world, column)
+  let top = test_top_solid_y(world, column)
   let grass = @block.lookup_by_name("grass").unwrap().id
   let snow = @block.lookup_by_name("classic.snow").unwrap().id
   let dirt = @block.lookup_by_name("dirt").unwrap().id
@@ -27,36 +37,55 @@ test "Infinite surface materials use the global column surface" {
 }
 
 ///|
-test "Infinite bedrock is a deterministic contiguous variable layer" {
+test "Infinite bedrock has a solid floor and a randomized upper edge" {
   let world = World::new(seed=19U, world_type=WorldType::Infinite)
   let bedrock = @block.lookup_by_name("bedrock").unwrap().id
   let bottom_cy = @util.floor_div(WORLD_MIN_Y, CHUNK_Y_SIZE)
   let chunk = world.generate_chunk(0, bottom_cy, 0)
-  let mut min_depth = 6
-  let mut max_depth = 0
+  let mut upper_bedrock = 0
+  let mut upper_non_bedrock = 0
   for wx in 0..<CHUNK_X_SIZE {
     for wz in 0..<CHUNK_Z_SIZE {
-      let mut depth = 0
-      for wy in WORLD_MIN_Y..<(WORLD_MIN_Y + 5) {
+      for wy in (WORLD_MIN_Y + 1)..<(WORLD_MIN_Y + 5) {
         let ry = wy - bottom_cy * CHUNK_Y_SIZE
         if chunk.get_tile(wx, ry, wz) == bedrock {
-          depth = depth + 1
+          upper_bedrock = upper_bedrock + 1
         } else {
-          break
+          upper_non_bedrock = upper_non_bedrock + 1
         }
       }
       let bottom_ry = WORLD_MIN_Y - bottom_cy * CHUNK_Y_SIZE
       @test.assert_eq(chunk.get_tile(wx, bottom_ry, wz), bedrock)
-      assert_true(depth >= 1 && depth <= 5)
-      if depth < min_depth {
-        min_depth = depth
-      }
-      if depth > max_depth {
-        max_depth = depth
-      }
     }
   }
-  assert_true(min_depth < max_depth)
+  assert_true(upper_bedrock > 0)
+  assert_true(upper_non_bedrock > 0)
+}
+
+///|
+test "Infinite underground switches from stone to deepslate" {
+  let world = World::new(seed=29U, world_type=WorldType::Infinite)
+  let deepslate = @block.lookup_by_name("deepslate").unwrap().id
+  let mut found = false
+  for wx in 0..<CHUNK_X_SIZE {
+    for wz in 0..<CHUNK_Z_SIZE {
+      let column = prepare_infinite_column(world, wx, wz)
+      for wy in -48..<0 {
+        guard column.density_at(wy) > 0.0 else { continue }
+        guard !is_infinite_bedrock(world, wx, wy, wz) else { continue }
+        let cy = @util.floor_div(wy, CHUNK_Y_SIZE)
+        let chunk = world.generate_chunk(0, cy, 0)
+        let ry = wy - cy * CHUNK_Y_SIZE
+        if chunk.get_tile(wx, ry, wz) == deepslate {
+          found = true
+          break
+        }
+      }
+      guard !found else { break }
+    }
+    guard !found else { break }
+  }
+  assert_true(found)
 }
 
 ///|
@@ -103,7 +132,7 @@ test "Infinite aquifers fill some cave cells with water and deep lava" {
   for wx in -16..<16 {
     for wz in -16..<16 {
       let column = terrain_column(world, wx, wz)
-      let top = top_solid_y(world, column)
+      let top = test_top_solid_y(world, column)
       for wy in (WORLD_MIN_Y + 5)..<SEA_LEVEL {
         guard wy < top - 5 else { continue }
         guard density_at_column(world, column, wy) <= 0.0 else { continue }

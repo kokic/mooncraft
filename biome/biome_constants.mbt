@@ -121,22 +121,22 @@ const OCEAN_MOUNTAIN_AMP : Double = 1.4
 const DEEP_OCEAN_MOUNTAIN_AMP : Double = 1.4
 
 ///|
-const PLAINS_MAX_HEIGHT : Int = 126
+const PLAINS_MAX_HEIGHT : Int = 318
 
 ///|
-const FOREST_MAX_HEIGHT : Int = 126
+const FOREST_MAX_HEIGHT : Int = 318
 
 ///|
-const MOUNTAIN_MAX_HEIGHT : Int = 127
+const MOUNTAIN_MAX_HEIGHT : Int = 319
 
 ///|
-const WINDSWEPT_MAX_HEIGHT : Int = 127
+const WINDSWEPT_MAX_HEIGHT : Int = 319
 
 ///|
-const DESERT_MAX_HEIGHT : Int = 122
+const DESERT_MAX_HEIGHT : Int = 314
 
 ///|
-const DESERT_LAKES_MAX_HEIGHT : Int = 118
+const DESERT_LAKES_MAX_HEIGHT : Int = 306
 
 ///|
 const BEACH_MAX_HEIGHT : Int = 72

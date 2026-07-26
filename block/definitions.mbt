@@ -15,6 +15,9 @@ pub let blocks : Array[Block] = [
     category=@item.None,
   ),
   Block::create("stone", ["stone"]),
+  // Modern overworld underground material. The current asset set reuses the
+  // stone texture until a dedicated deepslate texture is added.
+  Block::create("deepslate", ["stone"]),
   Block::create("bedrock", ["bedrock"]),
   Block::create("obsidian", ["obsidian"]),
   Block::create("classic.obsidian", ["classic/obsidian"]),

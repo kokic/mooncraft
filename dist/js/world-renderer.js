@@ -256,9 +256,9 @@ function renderTestChunk({
     in vec2 aUv;
     in float aLayer;
     uniform mat4 uMvp;
-    uniform mat4 uView;
+    uniform vec3 uCameraPosition;
     out vec4 vColor;
-    out vec3 vPos;
+    out float vFogDistance;
     out vec2 vUv;
     out float vLayer;
     out vec2 vWorldXZ;
@@ -268,7 +268,7 @@ function renderTestChunk({
       vColor = aColor;
       vWorldXZ = aPosition.xz;
       vec4 pos = vec4(aPosition, 1.0);
-      vPos = (uView * pos).xyz;
+      vFogDistance = distance(aPosition, uCameraPosition);
       gl_Position = uMvp * pos;
     }
   `;
@@ -278,19 +278,13 @@ function renderTestChunk({
     precision highp sampler2DArray;
     in vec2 vUv;
     in float vLayer;
-    in vec3 vPos;
+    in float vFogDistance;
     in vec4 vColor;
-    in vec2 vWorldXZ;
     uniform sampler2DArray uTex;
-    uniform sampler2D uWaterTintTex;
     uniform float uDebugSolid;
     uniform vec3 uFogColor;
     uniform float uFogNear;
     uniform float uFogFar;
-    uniform float uWaterLayer;
-    uniform vec2 uWaterTintOrigin;
-    uniform vec2 uWaterTintInvSize;
-    uniform float uWaterTintStep;
     out vec4 outColor;
     void main() {
       if (uDebugSolid > 0.5) {
@@ -301,16 +295,8 @@ function renderTestChunk({
       if (color.a * vColor.a <= 0.3) {
         discard;
       }
-      vec3 waterTint = vec3(1.0);
-      if (uWaterLayer >= 0.0 && abs(vLayer - uWaterLayer) < 0.5 && uWaterTintStep > 0.0) {
-        vec2 cell = floor((vWorldXZ - uWaterTintOrigin) / uWaterTintStep + 0.5);
-        vec2 uv = (cell + 0.5) * uWaterTintInvSize;
-        uv = clamp(uv, vec2(0.0), vec2(1.0));
-        waterTint = texture(uWaterTintTex, uv).rgb;
-      }
-      float fogDistance = length(vPos);
-      float fogAmount = smoothstep(uFogNear, uFogFar, fogDistance);
-      vec3 mixed = mix(vColor.rgb * color.rgb * waterTint, uFogColor, fogAmount);
+      float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
+      vec3 mixed = mix(vColor.rgb * color.rgb, uFogColor, fogAmount);
       outColor = vec4(mixed, color.a * vColor.a);
     }
   `;
@@ -320,7 +306,7 @@ function renderTestChunk({
     precision highp sampler2DArray;
     in vec2 vUv;
     in float vLayer;
-    in vec3 vPos;
+    in float vFogDistance;
     in vec4 vColor;
     in vec2 vWorldXZ;
     uniform sampler2DArray uTex;
@@ -345,8 +331,7 @@ function renderTestChunk({
         uv = clamp(uv, vec2(0.0), vec2(1.0));
         waterTint = texture(uWaterTintTex, uv).rgb;
       }
-      float fogDistance = length(vPos);
-      float fogAmount = smoothstep(uFogNear, uFogFar, fogDistance);
+      float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
       vec3 lit = vColor.rgb * color.rgb * waterTint;
       vec3 mixed = mix(lit, uFogColor, fogAmount);
       float alpha = clamp(color.a * vColor.a * mix(1.0, 1.35, uUnderwater), 0.0, 0.82);
@@ -400,7 +385,6 @@ function renderTestChunk({
     if (buffers.vaoWater) gl.deleteVertexArray(buffers.vaoWater);
     if (buffers.positionBuffer) gl.deleteBuffer(buffers.positionBuffer);
     if (buffers.colorBuffer) gl.deleteBuffer(buffers.colorBuffer);
-    if (buffers.normalBuffer) gl.deleteBuffer(buffers.normalBuffer);
     if (buffers.uvBuffer) gl.deleteBuffer(buffers.uvBuffer);
     if (buffers.layerBuffer) gl.deleteBuffer(buffers.layerBuffer);
   };
@@ -435,18 +419,14 @@ function renderTestChunk({
         colors[i + 3] = 1;
       }
     }
-    const normals = new Float32Array(mesh.normals ?? []);
     const positionBuffer = gl.createBuffer();
     const uvBuffer = gl.createBuffer();
     const layerBuffer = gl.createBuffer();
     const colorBuffer = gl.createBuffer();
-    const normalBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, layerBuffer);
@@ -458,7 +438,6 @@ function renderTestChunk({
       vaoWater: null,
       positionBuffer,
       colorBuffer,
-      normalBuffer,
       uvBuffer,
       layerBuffer,
     };
@@ -657,23 +636,18 @@ function renderTestChunk({
   const aUv = gl.getAttribLocation(program, "aUv");
   const aLayer = gl.getAttribLocation(program, "aLayer");
   const uMvp = gl.getUniformLocation(program, "uMvp");
-  const uView = gl.getUniformLocation(program, "uView");
+  const uCameraPosition = gl.getUniformLocation(program, "uCameraPosition");
   const uTex = gl.getUniformLocation(program, "uTex");
   const uDebugSolid = gl.getUniformLocation(program, "uDebugSolid");
   const uFogColor = gl.getUniformLocation(program, "uFogColor");
   const uFogNear = gl.getUniformLocation(program, "uFogNear");
   const uFogFar = gl.getUniformLocation(program, "uFogFar");
-  const uWaterTintTex = gl.getUniformLocation(program, "uWaterTintTex");
-  const uWaterLayer = gl.getUniformLocation(program, "uWaterLayer");
-  const uWaterTintOrigin = gl.getUniformLocation(program, "uWaterTintOrigin");
-  const uWaterTintInvSize = gl.getUniformLocation(program, "uWaterTintInvSize");
-  const uWaterTintStep = gl.getUniformLocation(program, "uWaterTintStep");
   const waterPosition = gl.getAttribLocation(waterProgram, "aPosition");
   const waterColor = gl.getAttribLocation(waterProgram, "aColor");
   const waterUv = gl.getAttribLocation(waterProgram, "aUv");
   const waterLayerAttrib = gl.getAttribLocation(waterProgram, "aLayer");
   const waterMvp = gl.getUniformLocation(waterProgram, "uMvp");
-  const waterView = gl.getUniformLocation(waterProgram, "uView");
+  const waterCameraPosition = gl.getUniformLocation(waterProgram, "uCameraPosition");
   const waterTex = gl.getUniformLocation(waterProgram, "uTex");
   const waterTintTex = gl.getUniformLocation(waterProgram, "uWaterTintTex");
   const waterFogColor = gl.getUniformLocation(waterProgram, "uFogColor");
@@ -688,7 +662,7 @@ function renderTestChunk({
   const leafUv = gl.getAttribLocation(leafProgram, "aUv");
   const leafLayer = gl.getAttribLocation(leafProgram, "aLayer");
   const leafMvp = gl.getUniformLocation(leafProgram, "uMvp");
-  const leafView = gl.getUniformLocation(leafProgram, "uView");
+  const leafCameraPosition = gl.getUniformLocation(leafProgram, "uCameraPosition");
   const leafTex = gl.getUniformLocation(leafProgram, "uTex");
   const leafDebugSolid = gl.getUniformLocation(leafProgram, "uDebugSolid");
   const leafFogColor = gl.getUniformLocation(leafProgram, "uFogColor");
@@ -767,11 +741,6 @@ function renderTestChunk({
 
   gl.useProgram(program);
   gl.uniform1i(uTex, 0);
-  gl.uniform1i(uWaterTintTex, 1);
-  gl.uniform1f(uWaterLayer, waterLayer);
-  gl.uniform2f(uWaterTintOrigin, 0, 0);
-  gl.uniform2f(uWaterTintInvSize, 1, 1);
-  gl.uniform1f(uWaterTintStep, 0);
   gl.uniform1f(uDebugSolid, window.mcDebugSolid ? 1.0 : 0.0);
   gl.useProgram(waterProgram);
   gl.uniform1i(waterTex, 0);
@@ -1313,6 +1282,12 @@ function renderTestChunk({
     }
   };
 
+  const visibleMeshes = [];
+  const normalMeshes = [];
+  const leafMeshes = [];
+  const translucentMeshes = [];
+  const waterMeshes = [];
+
   function draw() {
     const canvasSize = resizeCanvas(gl, canvas);
     gl.clearColor(0.6, 0.8, 1.0, 1.0);
@@ -1367,7 +1342,12 @@ function renderTestChunk({
     gl.useProgram(program);
     assertCurrentProgram("world mvp", program);
     gl.uniformMatrix4fv(uMvp, false, mvpMatrix);
-    gl.uniformMatrix4fv(uView, false, viewMatrix);
+    gl.uniform3f(
+      uCameraPosition,
+      camera.position[0],
+      camera.position[1],
+      camera.position[2],
+    );
     const renderDistance = window.mcRenderDistance ?? 0;
     const skyFogColor = [0.6, 0.8, 1.0];
     const underwaterFogColor = [0.10, 0.25, 0.48];
@@ -1379,25 +1359,15 @@ function renderTestChunk({
     gl.uniform3f(uFogColor, activeFogColor[0], activeFogColor[1], activeFogColor[2]);
     gl.uniform1f(uFogNear, fogNear);
     gl.uniform1f(uFogFar, fogFar);
-    if (waterTintState.valid && waterTintState.width > 0 && waterTintState.height > 0) {
-      gl.uniform2f(uWaterTintOrigin, waterTintState.originX, waterTintState.originZ);
-      gl.uniform2f(
-        uWaterTintInvSize,
-        1 / waterTintState.width,
-        1 / waterTintState.height,
-      );
-      gl.uniform1f(uWaterTintStep, waterTintState.step);
-    } else {
-      gl.uniform2f(uWaterTintOrigin, 0, 0);
-      gl.uniform2f(uWaterTintInvSize, 1, 1);
-      gl.uniform1f(uWaterTintStep, 0);
-    }
-
     const maxVisibleDist = (renderDistance + 1.2) * size;
     const maxVisibleDistSq = maxVisibleDist * maxVisibleDist;
     const chunkRadius = meshSectionSize * 0.9;
     const coneCos = Math.cos(Math.min(fov * 0.65, Math.PI * 0.95));
-    const visibleMeshes = [];
+    visibleMeshes.length = 0;
+    normalMeshes.length = 0;
+    leafMeshes.length = 0;
+    translucentMeshes.length = 0;
+    waterMeshes.length = 0;
     for (const chunkMesh of chunkMeshes.values()) {
       if (!(chunkMesh?.sections instanceof Map)) continue;
       for (const mesh of chunkMesh.sections.values()) {
@@ -1414,14 +1384,21 @@ function renderTestChunk({
           if (dot < -chunkRadius) continue;
           if (dot < coneCos * dist - chunkRadius) continue;
         }
-        visibleMeshes.push({ mesh, distSq });
+        visibleMeshes.push(mesh);
+        if (mesh.normal?.count > 0) normalMeshes.push(mesh.normal);
+        if (mesh.leaf?.count > 0) leafMeshes.push(mesh.leaf);
+        if (mesh.translucent?.count > 0) {
+          mesh.translucent.renderDistanceSq = distSq;
+          translucentMeshes.push(mesh.translucent);
+        }
+        if (mesh.water?.count > 0) {
+          mesh.water.renderDistanceSq = distSq;
+          waterMeshes.push(mesh.water);
+        }
       }
     }
 
-    for (const entry of visibleMeshes) {
-      const mesh = entry.mesh;
-      const normal = mesh.normal;
-      if (normal.count <= 0) continue;
+    for (const normal of normalMeshes) {
       const vao = ensureWorldVao(normal);
       if (!vao) continue;
       gl.bindVertexArray(vao);
@@ -1436,16 +1413,18 @@ function renderTestChunk({
     gl.useProgram(leafProgram);
     assertCurrentProgram("leaf mvp", leafProgram);
     gl.uniformMatrix4fv(leafMvp, false, mvpMatrix);
-    gl.uniformMatrix4fv(leafView, false, viewMatrix);
+    gl.uniform3f(
+      leafCameraPosition,
+      camera.position[0],
+      camera.position[1],
+      camera.position[2],
+    );
     gl.uniform3f(leafFogColor, activeFogColor[0], activeFogColor[1], activeFogColor[2]);
     gl.uniform1f(leafFogNear, fogNear);
     gl.uniform1f(leafFogFar, fogFar);
     gl.uniform3f(leafTint, leafTintValue[0], leafTintValue[1], leafTintValue[2]);
 
-    for (const entry of visibleMeshes) {
-      const mesh = entry.mesh;
-      const leaf = mesh.leaf;
-      if (leaf.count <= 0) continue;
+    for (const leaf of leafMeshes) {
       const vao = ensureLeafVao(leaf);
       if (!vao) continue;
       gl.bindVertexArray(vao);
@@ -1456,20 +1435,12 @@ function renderTestChunk({
     gl.useProgram(program);
     assertCurrentProgram("translucent mvp", program);
 
-    const translucentMeshes = [];
-    for (const entry of visibleMeshes) {
-      const mesh = entry.mesh;
-      const translucent = mesh.translucent;
-      if (!translucent || translucent.count <= 0) continue;
-      translucentMeshes.push({ mesh, dist: entry.distSq });
-    }
     if (translucentMeshes.length > 0) {
-      translucentMeshes.sort((a, b) => b.dist - a.dist);
+      translucentMeshes.sort((a, b) => b.renderDistanceSq - a.renderDistanceSq);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.depthMask(false);
-      for (const entry of translucentMeshes) {
-        const translucent = entry.mesh.translucent;
+      for (const translucent of translucentMeshes) {
         const vao = ensureWorldVao(translucent);
         if (!vao) continue;
         gl.bindVertexArray(vao);
@@ -1483,7 +1454,12 @@ function renderTestChunk({
     gl.useProgram(waterProgram);
     assertCurrentProgram("water mvp", waterProgram);
     gl.uniformMatrix4fv(waterMvp, false, mvpMatrix);
-    gl.uniformMatrix4fv(waterView, false, viewMatrix);
+    gl.uniform3f(
+      waterCameraPosition,
+      camera.position[0],
+      camera.position[1],
+      camera.position[2],
+    );
     gl.uniform3f(waterFogColor, activeFogColor[0], activeFogColor[1], activeFogColor[2]);
     gl.uniform1f(waterFogNear, fogNear);
     gl.uniform1f(waterFogFar, fogFar);
@@ -1501,19 +1477,12 @@ function renderTestChunk({
       gl.uniform2f(waterTintInvSize, 1, 1);
       gl.uniform1f(waterTintStep, 0);
     }
-    const waterMeshes = [];
-    for (const entry of visibleMeshes) {
-      const water = entry.mesh.water;
-      if (!water || water.count <= 0) continue;
-      waterMeshes.push({ mesh: entry.mesh, dist: entry.distSq });
-    }
     if (waterMeshes.length > 0) {
-      waterMeshes.sort((a, b) => b.dist - a.dist);
+      waterMeshes.sort((a, b) => b.renderDistanceSq - a.renderDistanceSq);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.depthMask(false);
-      for (const entry of waterMeshes) {
-        const water = entry.mesh.water;
+      for (const water of waterMeshes) {
         const vao = ensureWaterVao(water);
         if (!vao) continue;
         gl.bindVertexArray(vao);

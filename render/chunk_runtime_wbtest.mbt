@@ -11,6 +11,13 @@ test "chunk runtime owns section invalidation" {
   let registry = BlockRegistry::create([], [])
   let initial_frame = runtime.tick(registry, 0, 0)
   assert_true(initial_frame.mesh_updates.length() > 0)
+  assert_eq(initial_frame.recolors.length(), 0)
+  for command in initial_frame.mesh_updates {
+    assert_eq(command.mesh.normal.normals.length(), 0)
+    assert_eq(command.mesh.leaf.normals.length(), 0)
+    assert_eq(command.mesh.water.normals.length(), 0)
+    assert_eq(command.mesh.translucent.normals.length(), 0)
+  }
   let stone = @block.lookup_by_name("stone").unwrap().id
   ignore(
     @level.set_block_id(
@@ -26,6 +33,7 @@ test "chunk runtime owns section invalidation" {
   let mut rebuild_seen = false
   for _ in 0..<16 {
     let frame = runtime.tick(registry, 0, 0)
+    assert_eq(frame.recolors.length(), 0)
     let section = frame.mesh_updates.any(command => command.chunk_key == "0,0,0")
     if section {
       rebuild_seen = true

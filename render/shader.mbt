@@ -9,9 +9,9 @@ pub let leaf_vertex_shader : String =
   #| in vec2 aUv;
   #| in float aLayer;
   #| uniform mat4 uMvp;
-  #| uniform mat4 uView;
+  #| uniform vec3 uCameraPosition;
   #| out vec4 vColor;
-  #| out vec3 vPos;
+  #| out float vFogDistance;
   #| out vec2 vUv;
   #| out float vLayer;
   #| void main() {
@@ -19,7 +19,7 @@ pub let leaf_vertex_shader : String =
   #|   vLayer = aLayer;
   #|   vColor = aColor;
   #|   vec4 pos = vec4(aPosition, 1.0);
-  #|   vPos = (uView * pos).xyz;
+  #|   vFogDistance = distance(aPosition, uCameraPosition);
   #|   gl_Position = uMvp * pos;
   #| }
 
@@ -32,7 +32,7 @@ pub let leaf_fragment_shader : String =
   #| precision highp sampler2DArray;
   #| in vec2 vUv;
   #| in float vLayer;
-  #| in vec3 vPos;
+  #| in float vFogDistance;
   #| in vec4 vColor;
   #| uniform sampler2DArray uTex;
   #| uniform vec3 uLeafTint;
@@ -50,8 +50,7 @@ pub let leaf_fragment_shader : String =
   #|   if (color.a * vColor.a <= 0.3) {
   #|     discard;
   #|   }
-  #|   float fogDistance = length(vPos);
-  #|   float fogAmount = smoothstep(uFogNear, uFogFar, fogDistance);
+  #|   float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
   #|   vec3 tinted = vColor.rgb * color.rgb * uLeafTint;
   #|   vec3 mixed = mix(tinted, uFogColor, fogAmount);
   #|   outColor = vec4(mixed, color.a * vColor.a);

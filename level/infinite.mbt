@@ -18,24 +18,13 @@ const DESERT_LAKE_DEPTH_MIN : Int = 4
 const DESERT_LAKE_DEPTH_MAX : Int = 10
 
 ///|
-fn clamp01_infinite(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
-  }
-}
-
-///|
 fn noise01(value : Double) -> Double {
-  clamp01_infinite((value + 1.0) * 0.5)
+  @util.clamp01((value + 1.0) * 0.5)
 }
 
 ///|
 fn lerp_int(min : Int, max : Int, t : Double) -> Int {
-  min + ((max - min).to_double() * clamp01_infinite(t)).round().to_int()
+  min + ((max - min).to_double() * @util.clamp01(t)).round().to_int()
 }
 
 ///|

@@ -33,20 +33,9 @@ const CROP_TEXT_Z_STEP : Int = 72
 const CROP_TEXT_Z_JITTER : Int = 2
 
 ///|
-fn clamp01(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
-  }
-}
-
-///|
 fn hash01(seed : Int, salt : Int) -> Double {
   let n = seed * 110351 + salt * 92317 + 7919
-  clamp01((@util.Noise::fast(n) + 1.0) * 0.5)
+  @util.clamp01((@util.Noise::fast(n) + 1.0) * 0.5)
 }
 
 ///|

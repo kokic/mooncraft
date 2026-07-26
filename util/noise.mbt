@@ -6,7 +6,7 @@ pub fn Noise::lerp(a : Double, b : Double, t : Double) -> Double {
 ///|
 /// 3t^2 - 2t^3
 pub fn Noise::fade(t : Double) -> Double {
-  t * t * (2 * t - 3)
+  t * t * (3 - 2 * t)
 }
 
 ///|

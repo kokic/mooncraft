@@ -134,25 +134,6 @@ const FALLBACK_DESERT_LAKES_CONTINENTAL_MAX : Double = 0.26
 const FALLBACK_FOREST_HUMID_MIN : Double = 0.12
 
 ///|
-fn clamp01(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
-  }
-}
-
-///|
-fn max0(value : Double) -> Double {
-  if value > 0.0 {
-    value
-  } else {
-    0.0
-  }
-}
-
 ///|
 fn smoothstep(edge0 : Double, edge1 : Double, value : Double) -> Double {
   if edge0 >= edge1 {
@@ -162,7 +143,7 @@ fn smoothstep(edge0 : Double, edge1 : Double, value : Double) -> Double {
       1.0
     }
   } else {
-    let t = clamp01((value - edge0) / (edge1 - edge0))
+    let t = @util.clamp01((value - edge0) / (edge1 - edge0))
     t * t * (3.0 - 2.0 * t)
   }
 }
@@ -210,7 +191,7 @@ fn terrain_biome_for_height(
 
 ///|
 fn water_height_hint(sample : @biome.BiomeSample) -> Double {
-  let erosion_t = clamp01((sample.erosion + 1.0) * 0.5)
+  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
   let continental_lift = if sample.continental < 0.0 {
     sample.continental * 20.0
   } else {
@@ -227,11 +208,11 @@ fn water_height_hint(sample : @biome.BiomeSample) -> Double {
 ///|
 fn water_context_factor(sample : @biome.BiomeSample) -> Double {
   let hint = water_height_hint(sample)
-  let near_sea = clamp01((WATER_CONTEXT_MAX_HINT - hint) / WATER_CONTEXT_FADE)
-  let rugged = clamp01(
-    sample.ridge * 1.25 + max0(sample.continental) * 0.95 - 0.70,
+  let near_sea = @util.clamp01((WATER_CONTEXT_MAX_HINT - hint) / WATER_CONTEXT_FADE)
+  let rugged = @util.clamp01(
+    sample.ridge * 1.25 + @util.max0(sample.continental) * 0.95 - 0.70,
   )
-  clamp01(near_sea * (1.0 - rugged))
+  @util.clamp01(near_sea * (1.0 - rugged))
 }
 
 ///|
@@ -261,7 +242,7 @@ fn plain_height_with_biome(
   let x = wx.to_double()
   let z = wz.to_double()
   let noise = world.noise
-  let erosion_t = clamp01((sample.erosion + 1.0) * 0.5)
+  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
   let continental_lift = if sample.continental < 0.0 {
     sample.continental * 26.0
   } else {
@@ -388,16 +369,16 @@ fn surface_height_with_params(
         2.0,
         0.5,
       ).abs()
-    let ridge = clamp01(ridge_a * 0.68 + ridge_b * 0.32)
+    let ridge = @util.clamp01(ridge_a * 0.68 + ridge_b * 0.32)
     let peaks = @biome.fbm2d(noise, x * PV_FREQ, z * PV_FREQ, 3, 2.0, 0.5).abs()
     let mountain_signal = sample.ridge * 1.34 +
       peaks * 0.26 +
-      max0(sample.continental) * 0.18 -
+      @util.max0(sample.continental) * 0.18 -
       0.86
     let foothill_mask = smoothstep(0.08, 0.42, mountain_signal)
     let mountain_mask = smoothstep(0.30, 0.92, mountain_signal)
-    let erosion_t = clamp01((sample.erosion + 1.0) * 0.5)
-    let ridged_shape = clamp01(ridge * 0.72 + sample.ridge * 0.28)
+    let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
+    let ridged_shape = @util.clamp01(ridge * 0.72 + sample.ridge * 0.28)
     let biome_uplift = if terrain_biome is @biome.Mountains ||
       terrain_biome is @biome.WindsweptHills {
       1.0
@@ -429,7 +410,7 @@ fn surface_height_with_params(
     let jagged = noise.gen2d((x - warp_x) * 0.024, (z + warp_z) * 0.024) *
       (foothill_mask * 0.45 + mountain_mask * 0.55) *
       1.45
-    let river_t = clamp01(
+    let river_t = @util.clamp01(
       (RIVER_CARVE_WIDTH - sample.river) / RIVER_CARVE_WIDTH,
     )
     let river_strength = if surface_biome is @biome.Beach {

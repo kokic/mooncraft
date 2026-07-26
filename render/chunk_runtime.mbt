@@ -40,6 +40,9 @@ pub struct ChunkRuntime {
   mesh_budget : Int
   loaded : Map[String, Bool]
   mut desired : Map[String, Bool]
+  mut desired_center_x : Int
+  mut desired_center_z : Int
+  mut has_desired_center : Bool
   queued : Map[String, Bool]
   mut queue : Array[String]
   mut queue_head : Int
@@ -47,6 +50,7 @@ pub struct ChunkRuntime {
   rendered_sections : Map[String, ChunkSection]
   mut dirty_lights : Map[String, Bool]
   lights : Map[String, Bytes]
+  fixed_section_light : Bytes
   block_deltas : Map[String, BlockDelta]
 }
 
@@ -124,6 +128,9 @@ pub fn ChunkRuntime::new(
     },
     loaded,
     desired: {},
+    desired_center_x: 0,
+    desired_center_z: 0,
+    has_desired_center: false,
     queued: {},
     queue: [],
     queue_head: 0,
@@ -131,6 +138,12 @@ pub fn ChunkRuntime::new(
     rendered_sections: {},
     dirty_lights,
     lights: {},
+    fixed_section_light: Bytes::make(
+      normalized_section_size *
+      normalized_section_size *
+      normalized_section_size,
+      15,
+    ),
     block_deltas: {},
   }
   for key in loaded.keys() {
@@ -162,6 +175,16 @@ fn ChunkRuntime::refresh_desired(
   center_x : Int,
   center_z : Int,
 ) -> Unit {
+  // Desired chunk keys only change when the player enters another column.
+  // Avoid rebuilding the render-distance map and re-enqueuing keys every frame.
+  if self.has_desired_center &&
+    self.desired_center_x == center_x &&
+    self.desired_center_z == center_z {
+    return
+  }
+  self.has_desired_center = true
+  self.desired_center_x = center_x
+  self.desired_center_z = center_z
   self.desired = {}
   for
     key in collect_render_chunk_keys(
@@ -328,6 +351,10 @@ fn ChunkRuntime::remove_chunk_sections(
 ///|
 fn ChunkRuntime::refresh_lights(self : ChunkRuntime) -> Array[String] {
   guard self.dirty_lights.length() > 0 else { return [] }
+  if @level.USE_FIXED_LIGHT {
+    self.dirty_lights = {}
+    return []
+  }
   let keys = self.desired.keys().to_array()
   guard keys.length() > 0 else { return [] }
   let updated : Array[String] = []
@@ -424,7 +451,7 @@ fn ChunkRuntime::section_light(
   section : ChunkSection,
 ) -> Bytes {
   let cell_count = self.section_size * self.section_size * self.section_size
-  guard !@level.USE_FIXED_LIGHT else { return Bytes::make(cell_count, 15) }
+  guard !@level.USE_FIXED_LIGHT else { return self.fixed_section_light }
   guard self.lights.get(section.chunk_key) is Some(chunk_light) else {
     return Bytes::make(cell_count, 15)
   }

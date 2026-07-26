@@ -100,17 +100,6 @@ const FINITE_CAVE_REGION_FREQ : Double = 0.018
 const FINITE_CAVE_REGION_THRESHOLD : Double = 0.45
 
 ///|
-fn finite_clamp01(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
-  }
-}
-
-///|
 fn finite_scaled_coord(coord : Int) -> Int {
   (coord.to_double() * FINITE_BIOME_COORD_SCALE).round().to_int()
 }
@@ -136,7 +125,7 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   let surface_biome = finite_surface_biome(sample, biome)
   let x = wx.to_double()
   let z = wz.to_double()
-  let erosion_t = finite_clamp01((sample.erosion + 1.0) * 0.5)
+  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
   let rolling = @biome.fbm2d(
       world.noise,
       x * FINITE_ROLLING_FREQ,
@@ -153,7 +142,7 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
     rolling +
     detail +
     climate +
-    max0(sample.continental) * 4.2
+    @util.max0(sample.continental) * 4.2
   match surface_biome {
     @biome.Mountains =>
       surface = surface +

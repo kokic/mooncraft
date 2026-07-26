@@ -75,10 +75,12 @@ fn MeshDataBuffer::append_with_offset(
     self.colors.push(mesh.colors[cidx + 1])
     self.colors.push(mesh.colors[cidx + 2])
     self.colors.push(mesh.colors[cidx + 3])
-    let nidx = i * 3
-    self.normals.push(mesh.normals[nidx])
-    self.normals.push(mesh.normals[nidx + 1])
-    self.normals.push(mesh.normals[nidx + 2])
+    if mesh.normals.length() == mesh.count * 3 {
+      let nidx = i * 3
+      self.normals.push(mesh.normals[nidx])
+      self.normals.push(mesh.normals[nidx + 1])
+      self.normals.push(mesh.normals[nidx + 2])
+    }
   }
 }
 

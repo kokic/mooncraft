@@ -1,6 +1,17 @@
 const SAVE_REGISTRY_KEY = "mooncraft.saves.v1";
 const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v2";
 
+function getWorldTypes() {
+  const types = globalThis.mcWorldTypes;
+  return Array.isArray(types) && types.length > 0
+    ? types.filter((t) => typeof t === "string")
+    : ["Infinite"];
+}
+
+function isValidWorldType(wt) {
+  return getWorldTypes().includes(wt);
+}
+
 function readJson(key) {
   try {
     const raw = globalThis.localStorage?.getItem(key);
@@ -40,6 +51,9 @@ function normalizeRecord(input) {
     createdAt: Number.isFinite(Number(input.createdAt))
       ? Number(input.createdAt)
       : 0,
+    worldType: isValidWorldType(input.worldType)
+      ? input.worldType
+      : getWorldTypes()[0],
   };
 }
 
@@ -114,7 +128,7 @@ function discoverSaveSlots() {
     });
 }
 
-function createSaveSlot(name) {
+function createSaveSlot(name, worldType) {
   const now = Date.now();
   const id = makeSaveId();
   const record = {
@@ -122,6 +136,7 @@ function createSaveSlot(name) {
     key: `${DEFAULT_SAVE_STORAGE_KEY}.${id}`,
     name: name || "New World",
     createdAt: now,
+    worldType: isValidWorldType(worldType) ? worldType : getWorldTypes()[0],
   };
   saveRegistry([record, ...loadRegistry()]);
   return record;
@@ -141,11 +156,11 @@ function formatDate(timestamp) {
   }).format(new Date(timestamp));
 }
 
-function describeWorld(info) {
-  if (!info.exists) return "New world";
-  const worldType = info.worldType ?? "Unknown";
+function describeWorld(info, worldType) {
+  if (!info.exists) return `${worldType ?? "Unknown"}, new world`;
+  const wt = info.worldType ?? worldType ?? "Unknown";
   const seed = info.seed == null ? "unknown seed" : `seed ${info.seed}`;
-  return `${worldType}, ${seed}`;
+  return `${wt}, ${seed}`;
 }
 
 function createButton(label, className, onClick) {
@@ -169,7 +184,7 @@ function createSaveRow(slot, onOpen, onDelete) {
 
   const meta = document.createElement("p");
   meta.className = "mc-save-meta";
-  meta.textContent = describeWorld(slot.info);
+  meta.textContent = describeWorld(slot.info, slot.worldType);
 
   const details = document.createElement("p");
   details.className = "mc-save-details";
@@ -278,6 +293,28 @@ function installStyles() {
       border-color: #49a36f;
     }
 
+    .mc-save-world-type {
+      min-height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      padding: 0 12px;
+      color: #f6fbfa;
+      background: rgba(255, 255, 255, 0.08);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .mc-save-world-type:focus {
+      border-color: #49a36f;
+    }
+
+    .mc-save-world-type option {
+      background: #1a2129;
+      color: #f6fbfa;
+    }
+
     .mc-save-delete {
       color: #ffd8d8;
       background: rgba(142, 39, 39, 0.44);
@@ -382,12 +419,30 @@ function createSaveMenu({ onOpen }) {
     const count = document.createElement("div");
     count.className = "mc-save-count";
     count.textContent = `${slots.length} save${slots.length === 1 ? "" : "s"}`;
+    const toolbarRight = document.createElement("div");
+    toolbarRight.style.display = "flex";
+    toolbarRight.style.gap = "10px";
+    toolbarRight.style.alignItems = "center";
+    const worldTypeSelect = document.createElement("select");
+    worldTypeSelect.className = "mc-save-world-type";
+    const savedType = globalThis.mcNewWorldType;
+    const worldTypes = getWorldTypes();
+    for (const wt of worldTypes) {
+      const option = document.createElement("option");
+      option.value = wt;
+      option.textContent = wt;
+      if (wt === (savedType ?? worldTypes[0])) option.selected = true;
+      worldTypeSelect.append(option);
+    }
     const create = createButton("New Save", "mc-save-new", () => {
-      const record = createSaveSlot(`World ${slots.length + 1}`);
+      const worldType = worldTypeSelect.value;
+      globalThis.mcNewWorldType = worldType;
+      const record = createSaveSlot(`World ${slots.length + 1}`, worldType);
       setActiveSave(record);
       onOpen(record);
     });
-    toolbar.append(count, create);
+    toolbarRight.append(worldTypeSelect, create);
+    toolbar.append(count, toolbarRight);
     content.append(toolbar);
 
     const list = document.createElement("div");
@@ -402,6 +457,7 @@ function createSaveMenu({ onOpen }) {
         list.append(createSaveRow(
           slot,
           (selected) => {
+            globalThis.mcNewWorldType = null;
             setActiveSave(selected);
             onOpen(selected);
           },

@@ -11,7 +11,7 @@ function assert_webgl2() {
 }
 
 function loadMooncraftRuntime() {
-  if (typeof window.mcTickGame === "function") {
+  if (typeof window.mcRuntimeReady === "boolean" && window.mcRuntimeReady) {
     return Promise.resolve();
   }
   return new Promise((resolve, reject) => {
@@ -27,6 +27,7 @@ function loadMooncraftRuntime() {
 async function bootstrap() {
   assert_webgl2();
   await loadMooncraftRuntime();
+  window.mcLaunchGame();
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
   
@@ -54,4 +55,8 @@ function showSaveMenu() {
   document.body.appendChild(menu);
 }
 
-showSaveMenu();
+async function start() {
+  await loadMooncraftRuntime();
+  showSaveMenu();
+}
+start();

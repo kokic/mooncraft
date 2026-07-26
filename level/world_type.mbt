@@ -33,3 +33,8 @@ pub fn world_type_from_name(
     fallback
   }
 }
+
+///|
+pub fn world_type_names() -> Array[String] {
+  ["Flat", "Infinite", "PreClassic", "Finite"]
+}

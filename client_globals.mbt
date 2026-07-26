@@ -6,6 +6,29 @@ fn[V] set_global(name : String, value : V) -> Unit {
 }
 
 ///|
+/// Register world type list before world creation (lightweight).
+pub fn register_world_types() -> Unit {
+  set_global("mcWorldTypes", @level.world_type_names())
+  set_global("mcRuntimeReady", true)
+}
+
+///|
+/// Deferred world creation — JS calls mcLaunchGame after user selects save.
+pub fn register_launcher() -> Unit {
+  set_global("mcLaunchGame", fn() {
+    let seed = @ffi.load_saved_world_seed(@env.now().to_uint())
+    let world_type_name = @ffi.load_saved_world_type(
+      @ffi.new_world_type("Infinite"),
+    )
+    let world_type = @level.world_type_from_name(world_type_name)
+    let world = @level.World::new(seed~, world_type~)
+    let chunk = world.generate_chunk(0, 0, 0)
+    register_globals(world, chunk.tile_map)
+    @mob.install_default_demo(world)
+  })
+}
+
+///|
 /// Register scalar config and initial world state for JS bootstrap.
 fn register_config(world : @level.World) -> Unit {
   // STATUS: COMPLETE - current JS bootstrap contract is centralized here.

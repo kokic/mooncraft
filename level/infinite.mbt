@@ -39,6 +39,15 @@ fn clamp_depth(depth : Int) -> Int {
 }
 
 ///|
+fn bedrock_thickness(world : World, wx : Int, wz : Int) -> Int {
+  let coordinate_seed = wx * 73428767 +
+    wz * 912931 +
+    world.seed.reinterpret_as_int()
+  let value = noise01(@util.Noise::fast(coordinate_seed))
+  1 + (value * 4.999).floor().to_int()
+}
+
+///|
 fn desert_lake_fill_depth(
   world : World,
   wx : Int,
@@ -112,6 +121,7 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
   let sand = @block.lookup_by_name("sand").unwrap().id
   let sandstone = @block.lookup_by_name("sandstone").unwrap().id
   let water = @block.lookup_by_name("water").unwrap().id
+  let lava = @block.lookup_by_name("lava").unwrap().id
   let coal_ore = @block.lookup_by_name("classic.coal_ore").unwrap().id
   let iron_ore = @block.lookup_by_name("classic.iron_ore").unwrap().id
   let gold_ore = @block.lookup_by_name("classic.gold_ore").unwrap().id
@@ -126,29 +136,19 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
       let biome = column.surface_biome
       let dirt_depth = surface_dirt_depth(world, wx, wz)
       let sand_depth = desert_sand_depth(world, wx, wz)
-      let surface = column.surface
+      let top_solid_wy = top_solid_y(world, column)
+      let bedrock_depth = bedrock_thickness(world, wx, wz)
       let density_by_ry : Array[Double] = Array::make(CHUNK_Y_SIZE, -1.0)
-      let mut top_solid_ry = -1
       for ry in 0..<CHUNK_Y_SIZE {
         let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
-        let density = density_at_column(world, column, wy)
-        density_by_ry[ry] = density
-        if wy >= INFINITE_MIN_Y && density > 0.0 {
-          top_solid_ry = ry
-        }
-      }
-      let top_solid_wy = if top_solid_ry >= 0 {
-        let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, top_solid_ry, rz)
-        wy
-      } else {
-        surface
+        density_by_ry[ry] = density_at_column(world, column, wy)
       }
       let inland_depth = match biome {
         @biome.DesertLakes =>
           desert_lake_fill_depth(world, wx, wz, top_solid_wy)
         _ => 0
       }
-      let inland_top_wy = surface
+      let inland_top_wy = top_solid_wy
       let inland_min_wy = inland_top_wy - inland_depth + 1
       for ry in 0..<CHUNK_Y_SIZE {
         let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
@@ -158,23 +158,17 @@ fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
           wy >= inland_min_wy
         if wy < INFINITE_MIN_Y {
           chunk.update_tile_map(rx, ry, rz, air)
-        } else if wy == INFINITE_MIN_Y {
+        } else if wy < INFINITE_MIN_Y + bedrock_depth {
           chunk.update_tile_map(rx, ry, rz, bedrock)
         } else if use_inland_water {
           chunk.update_tile_map(rx, ry, rz, water)
         } else if density <= 0.0 {
-          if (
-              biome is @biome.Ocean ||
-              biome is @biome.DeepOcean ||
-              biome is @biome.Beach
-            ) &&
-            wy <= SEA_LEVEL &&
-            wy > surface {
-            chunk.update_tile_map(rx, ry, rz, water)
-          } else {
-            chunk.update_tile_map(rx, ry, rz, air)
+          match aquifer_fluid_at(world, column, wy, top_solid_wy) {
+            Air => chunk.update_tile_map(rx, ry, rz, air)
+            Water => chunk.update_tile_map(rx, ry, rz, water)
+            Lava => chunk.update_tile_map(rx, ry, rz, lava)
           }
-        } else if top_solid_ry >= 0 && ry == top_solid_ry {
+        } else if wy == top_solid_wy {
           match biome {
             @biome.Ocean => chunk.update_tile_map(rx, ry, rz, sand)
             @biome.DeepOcean => chunk.update_tile_map(rx, ry, rz, sand)

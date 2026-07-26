@@ -10,3 +10,7 @@ import {
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/block/genus",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

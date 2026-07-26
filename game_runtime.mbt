@@ -149,6 +149,7 @@ fn GameRuntime::mark_block_changed(
 
 ///|
 /// Restore one persisted voxel override during save load (no autosave signal).
+#warnings("-unused_value")
 fn GameRuntime::load_block_delta(
   self : GameRuntime,
   x : Int,

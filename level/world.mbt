@@ -80,24 +80,6 @@ const MOUNTAIN_RIDGE_FREQ_A : Double = 0.0078
 const MOUNTAIN_RIDGE_FREQ_B : Double = 0.016
 
 ///|
-const TERRAIN_3D_FREQ : Double = 0.018
-
-///|
-const TERRAIN_3D_AMP : Double = 2.2
-
-///|
-const CAVE_FREQ : Double = 0.030
-
-///|
-const CAVE_THRESHOLD : Double = 0.09
-
-///|
-const CAVE_REGION_FREQ : Double = 0.010
-
-///|
-const CAVE_REGION_THRESHOLD : Double = 0.62
-
-///|
 const DESERT_SAND_DEPTH_MIN : Int = 4
 
 ///|
@@ -133,7 +115,6 @@ const FALLBACK_DESERT_LAKES_CONTINENTAL_MAX : Double = 0.26
 ///|
 const FALLBACK_FOREST_HUMID_MIN : Double = 0.12
 
-///|
 ///|
 fn smoothstep(edge0 : Double, edge1 : Double, value : Double) -> Double {
   if edge0 >= edge1 {
@@ -208,7 +189,9 @@ fn water_height_hint(sample : @biome.BiomeSample) -> Double {
 ///|
 fn water_context_factor(sample : @biome.BiomeSample) -> Double {
   let hint = water_height_hint(sample)
-  let near_sea = @util.clamp01((WATER_CONTEXT_MAX_HINT - hint) / WATER_CONTEXT_FADE)
+  let near_sea = @util.clamp01(
+    (WATER_CONTEXT_MAX_HINT - hint) / WATER_CONTEXT_FADE,
+  )
   let rugged = @util.clamp01(
     sample.ridge * 1.25 + @util.max0(sample.continental) * 0.95 - 0.70,
   )
@@ -501,84 +484,6 @@ fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
   (t * (DESERT_SAND_DEPTH_MAX - DESERT_SAND_DEPTH_MIN).to_double())
   .floor()
   .to_int()
-}
-
-///|
-fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double {
-  let x = column.wx.to_double()
-  let y = wy.to_double()
-  let z = column.wz.to_double()
-  let sample = column.sample
-  let biome = column.surface_biome
-  let surface = column.surface.to_double()
-  let plain = column.plain.to_double()
-  if y > surface {
-    -1.0
-  } else if y <= WORLD_MIN_Y.to_double() + 1.0 {
-    1.0
-  } else {
-    let vertical = surface - y
-    let cave_cheese = world.noise
-      .gen3d(x * CAVE_FREQ, y * CAVE_FREQ, z * CAVE_FREQ)
-      .abs()
-    let cave_spaghetti = world.noise
-      .gen3d((x + 313.0) * 0.062, y * 0.073, (z - 719.0) * 0.062)
-      .abs()
-    let cave_noodle = world.noise
-      .gen3d((x - 991.0) * 0.087, y * 0.091, (z + 557.0) * 0.087)
-      .abs()
-    let cave_mix = cave_cheese * 0.55 +
-      cave_spaghetti * 0.32 +
-      cave_noodle * 0.23
-    let cave_threshold = CAVE_THRESHOLD + sample.erosion * 0.02
-    let cave_region = world.noise.gen3d(
-      (x + 557.0) * CAVE_REGION_FREQ,
-      y * CAVE_REGION_FREQ,
-      (z - 881.0) * CAVE_REGION_FREQ,
-    )
-    let cave_limit = if biome is @biome.Ocean ||
-      biome is @biome.DeepOcean ||
-      biome is @biome.River ||
-      biome is @biome.FrozenRiver {
-      surface - 22.0
-    } else {
-      surface - 16.0
-    }
-    let sea_guard = SEA_LEVEL.to_double() - 8.0
-    let final_cave_limit = if cave_limit < sea_guard {
-      cave_limit
-    } else {
-      sea_guard
-    }
-    if y < final_cave_limit &&
-      cave_mix < cave_threshold &&
-      cave_region > CAVE_REGION_THRESHOLD {
-      -1.0
-    } else {
-      let overhang = world.noise.gen3d(
-        (x + 113.0) * TERRAIN_3D_FREQ,
-        y * TERRAIN_3D_FREQ,
-        (z - 83.0) * TERRAIN_3D_FREQ,
-      )
-      let carve = overhang.abs() * (TERRAIN_3D_AMP + sample.weirdness * 1.3)
-      let mut density = vertical
-      if y > plain + 2.0 {
-        density = density - carve
-      }
-      if biome is @biome.Mountains || biome is @biome.WindsweptHills {
-        let cliff = world.noise.gen3d(x * 0.040, y * 0.022, z * 0.040)
-        let weather = world.noise
-          .gen3d((x + 211.0) * 0.018, y * 0.012, (z - 377.0) * 0.018)
-          .abs()
-        density = density + cliff * 1.45 - weather * 0.95
-      }
-      if density <= 0.0 {
-        -1.0
-      } else {
-        density
-      }
-    }
-  }
 }
 
 ///|

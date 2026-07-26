@@ -232,7 +232,10 @@ fn GameRuntime::set_inventory_open(
 
 ///|
 /// Restore full runtime state from a validated save payload.
-fn GameRuntime::load_save(self : GameRuntime, payload : @save.SavePayload) -> Unit {
+fn GameRuntime::load_save(
+  self : GameRuntime,
+  payload : @save.SavePayload,
+) -> Unit {
   let saved_player = payload.player()
   ignore(
     self.player_runtime.restore(

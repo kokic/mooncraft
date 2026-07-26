@@ -573,6 +573,9 @@ pub fn World::generate_chunk_column(
   chunk_x : Int,
   chunk_z : Int,
 ) -> Array[Chunk] {
+  if world.kind is WorldType::Infinite {
+    return generate_infinite_chunk_column(world, chunk_x, chunk_z)
+  }
   let chunks : Array[Chunk] = []
   let chunk_min_y = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
   let chunk_max_y = @util.floor_div(world.max_y(), CHUNK_Y_SIZE)

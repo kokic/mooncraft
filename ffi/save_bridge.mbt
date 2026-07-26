@@ -57,9 +57,7 @@ pub extern "js" fn load_saved_world_type(
   #| }
 
 ///|
-pub extern "js" fn new_world_type(
-  fallback : String,
-) -> String =
+pub extern "js" fn new_world_type(fallback : String) -> String =
   #| (fallback) => {
   #|   const wt = globalThis.mcNewWorldType;
   #|   return typeof wt === "string" && wt.length > 0 ? wt : fallback;

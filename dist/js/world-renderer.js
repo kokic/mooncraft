@@ -882,7 +882,7 @@ function renderTestChunk({
     };
   };
 
-  const normalizeHotbarItems = (items) =>
+  const normalizeUiHotbarItems = (items) =>
     padItems(Array.isArray(items) ? items.map(cloneUiItem) : [], HOTBAR_SLOT_COUNT);
 
   const reportMissingTextures = (items, scope) => {
@@ -914,10 +914,11 @@ function renderTestChunk({
     ? initialInventorySnapshot.hotbar_slots
     : [];
   const hasRestoredHotbar = restoredHotbarSlots.some((slot) => slot != null);
-  let hotbarViewItems = normalizeHotbarItems(
+  let hotbarViewItems = padItems(
     hasRestoredHotbar
       ? restoredHotbarSlots
       : (window.mcCollectHotbarItems?.() ?? []),
+    HOTBAR_SLOT_COUNT,
   );
   const isInventoryOpen = () => getInventorySnapshot()?.inventory_open === true;
   window.mcInventoryOpen = isInventoryOpen();
@@ -997,7 +998,7 @@ function renderTestChunk({
     clampHotbarIndex(getInventorySnapshot()?.selected_hotbar_index ?? 0);
 
   const setHotbarItems = (items, writeRuntime = true) => {
-    hotbarViewItems = normalizeHotbarItems(
+    hotbarViewItems = normalizeUiHotbarItems(
       Array.isArray(items)
         ? items.map((entry) => resolveSavedHotbarItem(entry))
         : [],
@@ -1046,8 +1047,6 @@ function renderTestChunk({
     }
   };
 
-  setHotbarItems(hotbarViewItems);
-
   const inventoryColumns = window.mcInventoryGridX ?? 9;
   const inventoryRows = window.mcInventoryGridY ?? 6;
   const inventoryItems = padItems(
@@ -1055,6 +1054,7 @@ function renderTestChunk({
     inventoryColumns * inventoryRows,
   );
   indexUiItems(inventoryItems);
+  setHotbarItems(hotbarViewItems);
   let setInventoryOpen = (open) => {
     window.mcInventoryOpen = open === true;
   };
@@ -1110,7 +1110,7 @@ function renderTestChunk({
   const initialInventory = getInventorySnapshot();
   syncInventorySnapshot = (snapshot) => {
     const next = snapshot ?? initialInventory;
-    const items = normalizeHotbarItems(next?.hotbar_slots ?? []);
+    const items = padItems(next?.hotbar_slots ?? [], HOTBAR_SLOT_COUNT);
     const changed = items.some((item, index) => {
       const current = hotbarViewItems[index];
       return item?.name !== current?.name || item?.category !== current?.category;

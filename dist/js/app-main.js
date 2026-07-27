@@ -1,6 +1,6 @@
 import { loadBlockTextures } from "./block-textures.js";
 import { createBlockRegistry } from "./block-registry.js";
-import { renderTestChunk } from "./world-renderer.js?v=indexeddb-v1";
+import { renderTestChunk } from "./world-renderer.js?v=indexeddb-v2";
 import { createSaveMenu } from "./save-manager.js?v=indexeddb-v1";
 import { createSaveWriter, parseSavePayload } from "./save-store.js?v=indexeddb-v1";
 

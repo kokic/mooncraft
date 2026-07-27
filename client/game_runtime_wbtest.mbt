@@ -24,3 +24,42 @@ test "game runtime throttles and consumes dirty autosaves" {
   runtime.mark_save_dirty()
   @test.assert_eq(runtime.take_autosave(3000.0) is Some(_), true)
 }
+
+///|
+test "game runtime executes teleport command" {
+  let runtime = game_runtime_fixture()
+  ignore(runtime.take_autosave(1500.0))
+  let result = runtime.execute_command("/tp 12.5 80 -4")
+  @test.assert_eq(result.success, true)
+  @test.assert_eq(runtime.player_runtime.position(), [12.5, 80.0, -4.0])
+  @test.assert_eq(runtime.save_dirty, true)
+}
+
+///|
+test "game runtime executes render distance command" {
+  let runtime = game_runtime_fixture()
+  let result = runtime.execute_command("/rd 6")
+  @test.assert_eq(result.success, true)
+  @test.assert_eq(runtime.chunk_runtime.render_distance(), 6)
+}
+
+///|
+test "game runtime rejects invalid commands without changing state" {
+  let runtime = game_runtime_fixture()
+  let initial_position = runtime.player_runtime.position()
+  let initial_distance = runtime.chunk_runtime.render_distance()
+  let invalid_distance = @render.MAX_RENDER_DISTANCE + 1
+  for
+    command in [
+      "/tp 1 2",
+      "/tp NaN 2 3",
+      "/rd -1",
+      "/rd \{invalid_distance}",
+      "/unknown",
+    ] {
+    let result = runtime.execute_command(command)
+    @test.assert_eq(result.success, false)
+  }
+  @test.assert_eq(runtime.player_runtime.position(), initial_position)
+  @test.assert_eq(runtime.chunk_runtime.render_distance(), initial_distance)
+}

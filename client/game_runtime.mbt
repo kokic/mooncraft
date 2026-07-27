@@ -11,6 +11,7 @@ pub struct GameFrame {
   player : @player.PlayerSnapshot
   inventory : @player.PlayerInventorySnapshot
   save : String?
+  render_distance : Int
 }
 
 ///|
@@ -139,6 +140,7 @@ fn GameRuntime::tick(
     player,
     inventory: self.player_runtime.inventory_snapshot(),
     save: self.take_autosave(now),
+    render_distance: self.chunk_runtime.render_distance(),
   }
 }
 

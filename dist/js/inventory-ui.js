@@ -11,6 +11,7 @@ function createInventoryUI({
   canvasSize = ICON_DEFAULT_CANVAS_SIZE,
   onSelect = null,
   onClose = null,
+  onEscape = null,
   onToggle = null,
   canToggle = null,
 } = {}) {
@@ -222,6 +223,7 @@ function createInventoryUI({
       if (!state.open) return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (typeof onEscape === "function") onEscape();
       return;
     }
     if (event.repeat) return;

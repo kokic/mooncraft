@@ -48,22 +48,22 @@ function createPlayerController({
   syncSnapshot(readSnapshot());
 
   const onKey = (event, isDown) => {
-    if (document.pointerLockElement !== canvas) return;
     const key = event.code;
-    if (isDown) {
-      keys.add(key);
-      if (key === "KeyW" && !wDown) {
-        const now = performance.now();
-        if (now - lastWUpTime < 300) isRun = true;
-        wDown = true;
+    if (!isDown) {
+      keys.delete(key);
+      if (key === "KeyW") {
+        isRun = false;
+        wDown = false;
+        lastWUpTime = performance.now();
       }
       return;
     }
-    keys.delete(key);
-    if (key === "KeyW") {
-      isRun = false;
-      wDown = false;
-      lastWUpTime = performance.now();
+    if (document.pointerLockElement !== canvas) return;
+    keys.add(key);
+    if (key === "KeyW" && !wDown) {
+      const now = performance.now();
+      if (now - lastWUpTime < 300) isRun = true;
+      wDown = true;
     }
   };
 

@@ -125,6 +125,21 @@ pub fn PlayerRuntime::restore(
 }
 
 ///|
+/// Move the player immediately and clear pending movement/look input.
+pub fn PlayerRuntime::teleport(
+  self : PlayerRuntime,
+  x : Double,
+  y : Double,
+  z : Double,
+) -> PlayerSnapshot {
+  self.position = [x, y, z]
+  self.move_intent = idle_move_input()
+  self.yaw_intent = 0.0
+  self.pitch_intent = 0.0
+  self.snapshot()
+}
+
+///|
 pub fn PlayerRuntime::tick(
   self : PlayerRuntime,
   delta : Double,

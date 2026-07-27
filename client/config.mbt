@@ -9,7 +9,7 @@ fn publish_client_config(world : @level.World) -> Unit {
   publish_global("mcChunkSize", @level.CHUNK_X_SIZE)
   publish_global("mcWorldMinY", world.min_y())
   publish_global("mcWorldMaxY", world.max_y())
-  publish_global("mcRenderDistance", @render.CHUNK_RENDER_DISTANCE)
+  publish_global("mcRenderDistance", @render.DEFAULT_CHUNK_RENDER_DISTANCE)
   publish_global("mcChunkGenPerFrame", @render.CHUNK_GENERATION_BUDGET)
   publish_global("mcMeshBuildPerFrame", @render.CHUNK_MESH_BUDGET)
   publish_global("mcChunkSectionSize", @render.CHUNK_SECTION_SIZE)

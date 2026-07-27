@@ -3,8 +3,10 @@ import {
 } from "./player-controller.js";
 import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
+import { createChatUI } from "./chat-ui.js";
 import { unpackLongId } from "./block-registry.js";
 const UPDATE_LABEL = window.mcUpdateLabel;
+const CLIENT_BUILD_TIME = "2026-07-27T08:53:26+08:00";
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
 const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v2";
@@ -765,6 +767,12 @@ function renderTestChunk({
   let syncInventorySnapshot = () => { };
   let lastFrameTime = performance.now();
   const getInventorySnapshot = () => currentGameFrame?.inventory ?? null;
+  const getRenderDistance = () => {
+    const value = Number(currentGameFrame?.render_distance);
+    return Number.isInteger(value) && value >= 0
+      ? value
+      : (window.mcRenderDistance ?? 2);
+  };
   const getGameMode = () => normalizeGameMode(getInventorySnapshot()?.game_mode);
   const setGameMode = (mode) => {
     const next = normalizeGameMode(mode);
@@ -786,6 +794,7 @@ function renderTestChunk({
   debugHud.style.font = "12px monospace";
   debugHud.style.background = "rgba(0, 0, 0, 0.4)";
   debugHud.style.padding = "4px 6px";
+  debugHud.style.whiteSpace = "pre-line";
   debugHud.style.pointerEvents = "none";
   document.body.appendChild(debugHud);
 
@@ -824,7 +833,7 @@ function renderTestChunk({
     player.sync(frame.player);
     const cx = Math.floor(player.state.position[0] / size);
     const cz = Math.floor(player.state.position[2] / size);
-    const renderDistance = window.mcRenderDistance ?? 2;
+    const renderDistance = getRenderDistance();
     if (hasWaterTintLookup &&
       (waterTintState.centerCx !== cx ||
         waterTintState.centerCz !== cz ||
@@ -926,6 +935,34 @@ function renderTestChunk({
   );
   const isInventoryOpen = () => getInventorySnapshot()?.inventory_open === true;
   window.mcInventoryOpen = isInventoryOpen();
+  const chat = createChatUI({
+    parent: document.body,
+    canOpen: () => !isInventoryOpen(),
+    onOpen: () => {
+      if (document.pointerLockElement) document.exitPointerLock();
+      crosshair.style.display = "none";
+    },
+    onClose: () => {
+      if (isInventoryOpen()) return;
+      crosshair.style.display = "block";
+      canvas.focus();
+      canvas.requestPointerLock();
+    },
+    onSubmit: (text) => {
+      if (!text.trimStart().startsWith("/")) return null;
+      const executeCommand = window.mcExecuteCommand;
+      if (typeof executeCommand !== "function") {
+        return { success: false, message: "Command runtime is unavailable" };
+      }
+      const result = executeCommand(text);
+      return {
+        success: result?.success === true,
+        message: typeof result?.message === "string"
+          ? result.message
+          : "Command did not return a result",
+      };
+    },
+  });
   const uiItemsByName = new Map();
   const uiItemKey = (name, category) => `${category ?? "none"}:${name ?? ""}`;
   const indexUiItems = (items) => {
@@ -1054,10 +1091,14 @@ function renderTestChunk({
     onClose: () => {
       setInventoryOpen(false);
     },
+    onEscape: () => {
+      canvas.focus();
+      setInventoryOpen(false);
+    },
     onToggle: () => {
       setInventoryOpen(!isInventoryOpen());
     },
-    canToggle: () => getGameMode() === "creative",
+    canToggle: () => getGameMode() === "creative" && !chat.isOpen(),
   });
   setInventoryOpen = (open, forceRender = false) => {
     const next = open === true;
@@ -1073,7 +1114,7 @@ function renderTestChunk({
     if (openState) {
       if (document.pointerLockElement) document.exitPointerLock();
       crosshair.style.display = "none";
-    } else {
+    } else if (!chat.isOpen()) {
       crosshair.style.display = "block";
       canvas.focus();
       canvas.requestPointerLock();
@@ -1098,7 +1139,7 @@ function renderTestChunk({
     const open = next?.inventory_open === true;
     window.mcInventoryOpen = open;
     inventory.setOpen(open);
-    crosshair.style.display = open ? "none" : "block";
+    crosshair.style.display = open || chat.isOpen() ? "none" : "block";
   };
   syncInventorySnapshot(initialInventory);
   setInventoryOpen(initialInventory?.inventory_open === true, true);
@@ -1308,7 +1349,7 @@ function renderTestChunk({
     const now = performance.now();
     const delta = Math.min(0.05, (now - lastFrameTime) / 1000);
     lastFrameTime = now;
-    tickGame(delta, now, !isInventoryOpen());
+    tickGame(delta, now, !isInventoryOpen() && !chat.isOpen());
     window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
     if (typeof window.mcTickEntityRuntime === "function") {
       window.mcTickEntityRuntime(gltfEntityRenderer, delta);
@@ -1348,7 +1389,7 @@ function renderTestChunk({
       camera.position[1],
       camera.position[2],
     );
-    const renderDistance = window.mcRenderDistance ?? 0;
+    const renderDistance = getRenderDistance();
     const skyFogColor = [0.6, 0.8, 1.0];
     const underwaterFogColor = [0.10, 0.25, 0.48];
     const activeFogColor = cameraUnderwater ? underwaterFogColor : skyFogColor;
@@ -1560,9 +1601,11 @@ function renderTestChunk({
       `Z: ${player.state.position[2].toFixed(0)} ` +
       `| C: ${cx},${cz} ` +
       `| Biome: ${biomeHudCached} ` +
+      `| RD: ${renderDistance} ` +
       `| Loaded: ${chunkDatas.size} ` +
       `| Chunks: ${chunkMeshes.size} ` +
-      `| Visible: ${visibleMeshes.length} ` + UPDATE_LABEL;
+      `| Visible: ${visibleMeshes.length} ` + UPDATE_LABEL +
+      `\nClient build: ${CLIENT_BUILD_TIME}`;
     requestAnimationFrame(draw);
   }
 

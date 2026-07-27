@@ -1,5 +1,11 @@
 ///|
-pub const CHUNK_RENDER_DISTANCE : Int = 2
+pub const DEFAULT_CHUNK_RENDER_DISTANCE : Int = 4
+
+///|
+pub const MIN_RENDER_DISTANCE : Int = 0
+
+///|
+pub const MAX_RENDER_DISTANCE : Int = 32
 
 ///|
 pub const CHUNK_SECTION_SIZE : Int = 8
@@ -22,7 +28,7 @@ pub struct ChunkRuntime {
   chunk_size : Int
   chunk_min_y : Int
   chunk_max_y : Int
-  render_distance : Int
+  mut render_distance : Int
   section_size : Int
   sections_per_axis : Int
   generation_budget : Int
@@ -71,7 +77,7 @@ fn chunk_column_key_by_world(size : Int, wx : Int, wz : Int) -> String {
 pub fn ChunkRuntime::new(
   world : @level.World,
   initial_chunk : Array[UInt],
-  render_distance? : Int = CHUNK_RENDER_DISTANCE,
+  render_distance? : Int = DEFAULT_CHUNK_RENDER_DISTANCE,
   section_size? : Int = CHUNK_SECTION_SIZE,
   generation_budget? : Int = CHUNK_GENERATION_BUDGET,
   generation_work_budget? : Int = CHUNK_GENERATION_WORK_BUDGET,
@@ -119,11 +125,10 @@ pub fn ChunkRuntime::new(
     chunk_size,
     chunk_min_y,
     chunk_max_y,
-    render_distance: if render_distance < 0 {
-      0
-    } else {
-      render_distance
-    },
+    render_distance: render_distance.clamp(
+      min=MIN_RENDER_DISTANCE,
+      max=MAX_RENDER_DISTANCE,
+    ),
     section_size: normalized_section_size,
     sections_per_axis: chunk_size / normalized_section_size,
     generation_budget: if generation_budget < 1 {
@@ -164,6 +169,26 @@ pub fn ChunkRuntime::new(
   }
   runtime.mark_column_chunks_dirty(spawn_chunk_x, spawn_chunk_z)
   runtime
+}
+
+///|
+pub fn ChunkRuntime::render_distance(self : ChunkRuntime) -> Int {
+  self.render_distance
+}
+
+///|
+/// Change the desired column radius and force scheduling to refresh next tick.
+pub fn ChunkRuntime::set_render_distance(
+  self : ChunkRuntime,
+  render_distance : Int,
+) -> Unit {
+  let normalized = render_distance.clamp(
+    min=MIN_RENDER_DISTANCE,
+    max=MAX_RENDER_DISTANCE,
+  )
+  guard normalized != self.render_distance else { () }
+  self.render_distance = normalized
+  self.has_desired_center = false
 }
 
 ///|

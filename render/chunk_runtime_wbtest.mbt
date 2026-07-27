@@ -163,3 +163,21 @@ test "infinite streaming keeps generation and eviction off the crossing frame" {
   assert_true(@level.get_chunk_data(runtime.chunk_map(), target_key) is Some(_))
   assert_true(@level.get_chunk_data(runtime.chunk_map(), retained_key) is None)
 }
+
+///|
+test "chunk runtime normalizes render distance and refreshes scheduling" {
+  let world = @level.World::new(seed=47U, world_type=@level.WorldType::Flat)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(
+    world,
+    initial,
+    render_distance=MAX_RENDER_DISTANCE + 1,
+  )
+  @test.assert_eq(runtime.render_distance(), MAX_RENDER_DISTANCE)
+  runtime.has_desired_center = true
+  runtime.set_render_distance(5)
+  @test.assert_eq(runtime.render_distance(), 5)
+  @test.assert_eq(runtime.has_desired_center, false)
+  runtime.set_render_distance(MIN_RENDER_DISTANCE - 1)
+  @test.assert_eq(runtime.render_distance(), MIN_RENDER_DISTANCE)
+}

@@ -89,6 +89,9 @@ fn register_runtime_api(world : @level.World, chunk_data : Array[UInt]) -> Unit 
     }
   })
   publish_global("mcFlushGameSave", fn(now : Double) { game.flush_save(now) })
+  publish_global("mcExecuteCommand", fn(input : String) {
+    game.execute_command(input)
+  })
   publish_global("mcRequestZombieNavigation", @mob.request_zombie_0_navigation)
   publish_global("mcTickEntityRuntime", @mob.tick_entity_runtime)
 }

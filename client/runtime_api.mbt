@@ -1,6 +1,23 @@
 ///|
+/// Restore the runtime only when the serialized state belongs to this world.
+fn load_initial_save(
+  game : GameRuntime,
+  world : @level.World,
+  save_text : String,
+) -> Unit {
+  guard !save_text.is_empty() else { () }
+  guard @save.migrate_save_payload(save_text) is Some(payload) else { () }
+  guard payload.matches_world(world.seed(), world.world_type_name()) else { () }
+  game.load_save(payload)
+}
+
+///|
 /// Create the authoritative CPU-side runtime and publish its stateful API.
-fn register_runtime_api(world : @level.World, chunk_data : Array[UInt]) -> Unit {
+fn register_runtime_api(
+  world : @level.World,
+  chunk_data : Array[UInt],
+  save_text : String,
+) -> Unit {
   publish_global("mcCollectHotbarItems", collect_hotbar_items)
   publish_global("mcCollectInventoryItems", collect_inventory_items)
   let chunk_runtime = @render.ChunkRuntime::new(
@@ -36,6 +53,7 @@ fn register_runtime_api(world : @level.World, chunk_data : Array[UInt]) -> Unit 
     player_runtime,
     @level.CHUNK_X_SIZE,
   )
+  load_initial_save(game, world, save_text)
   publish_global("mcChunkRuntimeChunkMap", game.chunk_map())
   publish_global("mcTickGame", fn(
     registry : @render.BlockRegistry,
@@ -75,18 +93,6 @@ fn register_runtime_api(world : @level.World, chunk_data : Array[UInt]) -> Unit 
   })
   publish_global("mcSetPlayerInventoryOpen", fn(open : Bool) {
     game.set_inventory_open(open)
-  })
-  publish_global("mcLoadLevelSave", fn(text : String) {
-    match @save.migrate_save_payload(text) {
-      Some(payload) if payload.matches_world(
-          world.seed(),
-          world.world_type_name(),
-        ) => {
-        game.load_save(payload)
-        true
-      }
-      _ => false
-    }
   })
   publish_global("mcFlushGameSave", fn(now : Double) { game.flush_save(now) })
   publish_global("mcExecuteCommand", fn(input : String) {

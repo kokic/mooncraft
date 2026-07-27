@@ -5,7 +5,7 @@ const SAVE_THROTTLE_MS : Double = 1500.0
 ///|
 /// One world-runtime tick's complete output. The browser turns this into WebGL
 /// resource mutations, DOM/HUD updates, and (when `save` is present) a single
-/// `localStorage` write. It never derives world state on its own.
+/// persistence callback. It never derives world state on its own.
 pub struct GameFrame {
   chunk : @render.ChunkRenderFrame
   player : @player.PlayerSnapshot

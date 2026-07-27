@@ -9,19 +9,9 @@ const UPDATE_LABEL = window.mcUpdateLabel;
 const CLIENT_BUILD_TIME = "2026-07-27T08:53:26+08:00";
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
-const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v2";
 
 function normalizeGameMode(mode) {
   return mode === "survival" || mode === "spectator" ? mode : "creative";
-}
-
-function readLevelSaveText(key) {
-  try {
-    return globalThis.localStorage?.getItem(key) ?? "";
-  } catch (err) {
-    console.warn("[save] failed to read local storage payload", err);
-    return "";
-  }
 }
 
 function getBlockShapeDesc(longId) {
@@ -222,6 +212,7 @@ function renderTestChunk({
   blockRegistry,
   textures,
   chunkSize,
+  persistSave,
 }) {
   const {
     mcUpVector: UP_VECTOR,
@@ -360,15 +351,10 @@ function renderTestChunk({
     outlineCache.set(key, buffer);
     return buffer;
   };
-  const size = chunkSize ?? 16;
-  const saveStorageKey = window.mcSaveStorageKey ?? DEFAULT_SAVE_STORAGE_KEY;
-  const levelSaveText = readLevelSaveText(saveStorageKey);
-  const loadedLevel = levelSaveText.length > 0 && typeof window.mcLoadLevelSave === "function"
-    ? window.mcLoadLevelSave(levelSaveText)
-    : false;
-  if (levelSaveText && !loadedLevel) {
-    console.warn("[level] ignored invalid or mismatched save payload");
+  if (typeof persistSave !== "function") {
+    throw new Error("IndexedDB save callback is unavailable");
   }
+  const size = chunkSize ?? 16;
   const chunkDatas = window.mcChunkRuntimeChunkMap;
   if (!(chunkDatas instanceof Map)) {
     throw new Error("MoonBit chunk runtime did not provide its chunk map");
@@ -854,7 +840,7 @@ function renderTestChunk({
       }
     }
     if (typeof frame.save === "string") {
-      globalThis.localStorage?.setItem(saveStorageKey, frame.save);
+      persistSave(frame.save);
     }
   };
 
@@ -1143,15 +1129,21 @@ function renderTestChunk({
   };
   syncInventorySnapshot(initialInventory);
   setInventoryOpen(initialInventory?.inventory_open === true, true);
-  globalThis.addEventListener("beforeunload", () => {
+  const persistLatestSave = () => {
     try {
       const flush = window.mcFlushGameSave;
       if (typeof flush !== "function") {
         throw new Error("MoonBit game save encoder is unavailable");
       }
-      globalThis.localStorage?.setItem(saveStorageKey, flush(Date.now()));
+      persistSave(flush(Date.now()));
     } catch (err) {
-      console.warn("[save] failed to flush local storage payload", err);
+      console.warn("[save] failed to queue IndexedDB payload", err);
+    }
+  };
+  globalThis.addEventListener("pagehide", persistLatestSave);
+  globalThis.document.addEventListener("visibilitychange", () => {
+    if (globalThis.document.visibilityState === "hidden") {
+      persistLatestSave();
     }
   });
   const markEditedVoxelSections = (wx, wy, wz, keys) => {

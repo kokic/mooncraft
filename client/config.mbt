@@ -3,7 +3,6 @@
 fn publish_client_config(world : @level.World) -> Unit {
   publish_global("mcUpdateLabel", "1:10")
   publish_global("mcSaveSchemaVersion", @save.SAVE_SCHEMA_VERSION)
-  publish_global("mcSaveStorageKey", @ffi.active_save_storage_key())
   publish_global("mcWorldSeed", world.seed())
   publish_global("mcWorldType", world.world_type_name())
   publish_global("mcChunkSize", @level.CHUNK_X_SIZE)

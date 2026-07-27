@@ -1,5 +1,9 @@
-const SAVE_REGISTRY_KEY = "mooncraft.saves.v1";
-const DEFAULT_SAVE_STORAGE_KEY = "mooncraft.save.v2";
+import {
+  createSaveSlot,
+  deleteSaveSlot,
+  listSaveSlots,
+  parseSavePayload,
+} from "./save-store.js?v=indexeddb-v1";
 
 function getWorldTypes() {
   const types = globalThis.mcWorldTypes;
@@ -17,73 +21,8 @@ function isValidWorldType(wt) {
   return getWorldTypes().includes(wt);
 }
 
-function readJson(key) {
-  try {
-    const raw = globalThis.localStorage?.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch (err) {
-    console.warn("[save-menu] failed to read storage", key, err);
-    return null;
-  }
-}
-
-function writeJson(key, value) {
-  globalThis.localStorage?.setItem(key, JSON.stringify(value));
-}
-
-function saveRegistry(records) {
-  writeJson(SAVE_REGISTRY_KEY, {
-    version: 1,
-    saves: records,
-  });
-}
-
-function normalizeRecord(input) {
-  if (!input || typeof input !== "object") return null;
-  const key = typeof input.key === "string" ? input.key : "";
-  if (key.length === 0) return null;
-  const id = typeof input.id === "string" && input.id.length > 0
-    ? input.id
-    : key;
-  const wt = typeof input.worldType === "string" ? input.worldType : "";
-  return {
-    id,
-    key,
-    name: typeof input.name === "string" && input.name.length > 0
-      ? input.name
-      : "Untitled World",
-    createdAt: Number.isFinite(Number(input.createdAt))
-      ? Number(input.createdAt)
-      : 0,
-    worldType: isValidWorldType(wt) ? wt : defaultWorldType(),
-  };
-}
-
-function loadRegistry() {
-  const payload = readJson(SAVE_REGISTRY_KEY);
-  const rawRecords = Array.isArray(payload?.saves) ? payload.saves : [];
-  const records = [];
-  const seen = new Set();
-  for (const raw of rawRecords) {
-    const record = normalizeRecord(raw);
-    if (!record || seen.has(record.key)) continue;
-    seen.add(record.key);
-    records.push(record);
-  }
-  return records;
-}
-
-function makeSaveId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function parseSaveInfo(key) {
-  const payload = readJson(key);
+function parseSaveInfo(text) {
+  const payload = parseSavePayload(text);
   if (!payload) {
     return {
       exists: false,
@@ -93,64 +32,13 @@ function parseSaveInfo(key) {
       savedAt: null,
     };
   }
-  const seed = Number(payload.world?.seed);
-  const blockDeltas = Array.isArray(payload.block_deltas)
-    ? payload.block_deltas
-    : (Array.isArray(payload.blockDeltas) ? payload.blockDeltas : []);
-  const savedAt = Number(payload.saved_at ?? payload.savedAt);
   return {
     exists: true,
-    seed: Number.isFinite(seed) ? Math.floor(seed) : null,
-    worldType: typeof (payload.world?.world_type ?? payload.world?.worldType) === "string"
-      ? (payload.world.world_type ?? payload.world.worldType)
-      : null,
-    blockDeltaCount: blockDeltas.length,
-    savedAt: Number.isFinite(savedAt) ? savedAt : null,
+    seed: payload.seed,
+    worldType: payload.worldType,
+    blockDeltaCount: payload.blockDeltaCount,
+    savedAt: payload.savedAt,
   };
-}
-
-function discoverSaveSlots() {
-  const records = loadRegistry();
-  const byKey = new Map(records.map((record) => [record.key, record]));
-  if (readJson(DEFAULT_SAVE_STORAGE_KEY) && !byKey.has(DEFAULT_SAVE_STORAGE_KEY)) {
-    byKey.set(DEFAULT_SAVE_STORAGE_KEY, {
-      id: "default",
-      key: DEFAULT_SAVE_STORAGE_KEY,
-      name: "Default World",
-      createdAt: 0,
-      worldType: getWorldTypes()[0],
-    });
-  }
-  return Array.from(byKey.values())
-    .map((record) => ({
-      ...record,
-      info: parseSaveInfo(record.key),
-    }))
-    .sort((a, b) => {
-      const at = a.info.savedAt ?? a.createdAt;
-      const bt = b.info.savedAt ?? b.createdAt;
-      return bt - at;
-    });
-}
-
-function createSaveSlot(name, worldType) {
-  const now = Date.now();
-  const id = makeSaveId();
-  const record = {
-    id,
-    key: `${DEFAULT_SAVE_STORAGE_KEY}.${id}`,
-    name: name || "New World",
-    createdAt: now,
-    worldType: isValidWorldType(worldType) ? worldType : defaultWorldType(),
-  };
-  saveRegistry([record, ...loadRegistry()]);
-  return record;
-}
-
-function deleteSaveSlot(slot) {
-  if (!slot) return;
-  globalThis.localStorage?.removeItem(slot.key);
-  saveRegistry(loadRegistry().filter((record) => record.key !== slot.key));
 }
 
 function formatDate(timestamp) {
@@ -391,12 +279,7 @@ function installStyles() {
   document.head.appendChild(style);
 }
 
-function setActiveSave(slot) {
-  globalThis.mcSelectedSaveStorageKey = slot.key;
-  globalThis.mcActiveSaveSlotId = slot.id;
-}
-
-function createSaveMenu({ onOpen }) {
+async function createSaveMenu({ onOpen }) {
   installStyles();
   const root = document.createElement("main");
   root.className = "mc-save-menu";
@@ -415,9 +298,12 @@ function createSaveMenu({ onOpen }) {
   content.className = "mc-save-content";
   root.append(header, content);
 
-  const render = () => {
+  const render = async () => {
     content.replaceChildren();
-    const slots = discoverSaveSlots();
+    const slots = (await listSaveSlots()).map((slot) => ({
+      ...slot,
+      info: parseSaveInfo(slot.payload),
+    }));
 
     const toolbar = document.createElement("div");
     toolbar.className = "mc-save-toolbar";
@@ -432,13 +318,11 @@ function createSaveMenu({ onOpen }) {
 
     const worldTypeSelect = document.createElement("select");
     worldTypeSelect.className = "mc-save-world-type";
-    const savedType = globalThis.mcNewWorldType;
     const worldTypes = getWorldTypes();
     for (const wt of worldTypes) {
       const option = document.createElement("option");
       option.value = wt;
       option.textContent = wt;
-      if (wt === savedType) option.selected = true;
       worldTypeSelect.append(option);
     }
     if (worldTypes.length === 0) {
@@ -450,11 +334,12 @@ function createSaveMenu({ onOpen }) {
     }
 
     const create = createButton("New Save", "mc-save-new", () => {
-      const worldType = worldTypeSelect.value;
-      globalThis.mcNewWorldType = worldType;
-      const record = createSaveSlot(`World ${slots.length + 1}`, worldType);
-      setActiveSave(record);
-      onOpen(record);
+      void createSaveSlot(
+        `World ${slots.length + 1}`,
+        isValidWorldType(worldTypeSelect.value) ? worldTypeSelect.value : defaultWorldType(),
+      ).then(onOpen).catch((error) => {
+        console.error("[save-menu] failed to create IndexedDB save", error);
+      });
     });
     toolbarRight.append(worldTypeSelect, create);
     toolbar.append(count, toolbarRight);
@@ -472,15 +357,14 @@ function createSaveMenu({ onOpen }) {
         list.append(createSaveRow(
           slot,
           (selected) => {
-            globalThis.mcNewWorldType = null;
-            setActiveSave(selected);
             onOpen(selected);
           },
           (selected) => {
             const ok = globalThis.confirm?.(`Delete "${selected.name}"?`) ?? true;
             if (!ok) return;
-            deleteSaveSlot(selected);
-            render();
+            void deleteSaveSlot(selected.id).then(render).catch((error) => {
+              console.error("[save-menu] failed to delete IndexedDB save", error);
+            });
           },
         ));
       }
@@ -488,11 +372,10 @@ function createSaveMenu({ onOpen }) {
     content.append(list);
   };
 
-  render();
+  await render();
   return root;
 }
 
 export {
-  DEFAULT_SAVE_STORAGE_KEY,
   createSaveMenu,
 };

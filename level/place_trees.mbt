@@ -214,7 +214,13 @@ pub fn place_oak_trees_in_chunk(
                 let setter = fn(x : Int, y : Int, z : Int, id : UInt) -> Unit {
                   region.set_block(x, y, z, id)
                 }
-                @feature.place_oak_tree_genus(setter, wx, surface, wz)
+                @feature.place_oak_tree_genus(
+                  setter,
+                  wx,
+                  surface,
+                  wz,
+                  seed=world.seed(),
+                )
               }
             }
           }
@@ -294,6 +300,7 @@ fn place_biome_trees_in_chunk_with_biome(
                       wz,
                       filler_log=log_block,
                       filler_leaves=leaves_id,
+                      seed=world.seed(),
                     )
                   }
                 }

@@ -26,6 +26,26 @@ test "game runtime throttles and consumes dirty autosaves" {
 }
 
 ///|
+test "initial save restores only its matching world" {
+  let source = game_runtime_fixture()
+  ignore(source.execute_command("/tp 12.5 80 -4"))
+  let save_text = source.flush_save(1500.0)
+
+  let restored = game_runtime_fixture()
+  load_initial_save(restored, restored.world, save_text)
+  @test.assert_eq(restored.player_runtime.position(), [12.5, 80.0, -4.0])
+
+  let mismatched = game_runtime_fixture()
+  let other_world = @level.World::new(seed=8U, world_type=Flat)
+  load_initial_save(mismatched, other_world, save_text)
+  @test.assert_eq(mismatched.player_runtime.position(), [0.0, 65.0, 0.0])
+
+  let new_world = game_runtime_fixture()
+  load_initial_save(new_world, new_world.world, "")
+  @test.assert_eq(new_world.player_runtime.position(), [0.0, 65.0, 0.0])
+}
+
+///|
 test "game runtime executes teleport command" {
   let runtime = game_runtime_fixture()
   ignore(runtime.take_autosave(1500.0))

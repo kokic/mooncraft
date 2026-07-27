@@ -1,5 +1,5 @@
 ///|
-pub const DEFAULT_CHUNK_RENDER_DISTANCE : Int = 4
+pub const DEFAULT_CHUNK_RENDER_DISTANCE : Int = 3
 
 ///|
 pub const MIN_RENDER_DISTANCE : Int = 0

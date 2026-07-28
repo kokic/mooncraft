@@ -20,7 +20,6 @@ pub let blocks : Array[Block] = [
   Block::create("deepslate", ["stone"]),
   Block::create("bedrock", ["bedrock"]),
   Block::create("obsidian", ["obsidian"]),
-  Block::create("oak_planks", ["classic/oak_planks"]),
   Block::create("classic.obsidian", ["classic/obsidian"]),
   Block::create("crying_obsidian", ["crying_obsidian"]),
   Block::create("glowing_obsidian", ["pre-classic/glowing_obsidian"]),
@@ -145,6 +144,13 @@ pub let blocks : Array[Block] = [
     opacity=0,
     alpha_mode=AlphaMode::Opaque,
   ),
+  Block::create("oak_planks", ["classic/oak_planks"]),
+
+  // Wool
+  ..[
+    "black", "blue", "brown", "cyan", "gray", "green", "light_blue", "light_gray",
+    "lime", "magenta", "orange", "pink", "purple", "red", "white", "yellow",
+  ].map(v => Block::create("\{v}_wool", ["\{v}_wool"])),
 
   // Nether
   Block::create("netherrack", ["netherrack"]),

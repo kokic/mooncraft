@@ -1,6 +1,4 @@
 ///|
-
-///|
 let pending_render_configs : Array[@render.GltfEntityConfig] = []
 
 ///|

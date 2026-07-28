@@ -19,17 +19,7 @@ test "chunk runtime owns section invalidation" {
     @test.assert_eq(command.mesh.translucent.normals.length(), 0)
   }
   let stone = @block.lookup_by_name("stone").unwrap().id
-  ignore(
-    @level.set_block_id(
-      runtime.chunk_map(),
-      @level.CHUNK_X_SIZE,
-      1,
-      1,
-      1,
-      stone,
-    ),
-  )
-  runtime.mark_block_changed(1, 1, 1)
+  assert_true(runtime.set_block(1, 1, 1, stone))
   let mut rebuild_seen = false
   for _ in 0..<16 {
     let frame = runtime.tick(registry, 0, 0)
@@ -42,6 +32,40 @@ test "chunk runtime owns section invalidation" {
   }
   assert_true(rebuild_seen)
   @test.assert_eq(runtime.block_deltas().length(), 1)
+}
+
+///|
+test "chunk runtime applies structures atomically to loaded chunks" {
+  let world = @level.World::new(seed=2U, world_type=@level.WorldType::Flat)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(world, initial, render_distance=0)
+  let stone = @block.lookup_by_name("stone").unwrap().id
+  let partial = [
+    @level.BlockDelta::new(1, 5, 1, stone),
+    @level.BlockDelta::new(16, 5, 1, stone),
+  ]
+
+  assert_false(runtime.apply_block_deltas(partial))
+  @test.assert_eq(
+    @level.get_block_id(runtime.chunk_map(), @level.CHUNK_X_SIZE, 1, 5, 1),
+    Some(@block.AIR_LONG_ID),
+  )
+  @test.assert_eq(runtime.block_deltas().length(), 0)
+
+  let structure = [
+    @level.BlockDelta::new(1, 5, 1, stone),
+    @level.BlockDelta::new(2, 5, 1, stone),
+  ]
+  assert_true(runtime.apply_block_deltas(structure))
+  @test.assert_eq(
+    @level.get_block_id(runtime.chunk_map(), @level.CHUNK_X_SIZE, 1, 5, 1),
+    Some(stone),
+  )
+  @test.assert_eq(
+    @level.get_block_id(runtime.chunk_map(), @level.CHUNK_X_SIZE, 2, 5, 1),
+    Some(stone),
+  )
+  @test.assert_eq(runtime.block_deltas().length(), 2)
 }
 
 ///|

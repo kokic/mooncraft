@@ -197,6 +197,52 @@ pub fn ChunkRuntime::chunk_map(self : ChunkRuntime) -> @ffi.JsValue {
 }
 
 ///|
+/// Set one loaded world block and synchronize every runtime concern that
+/// depends on its contents. Returns `false` when the target chunk is absent.
+pub fn ChunkRuntime::set_block(
+  self : ChunkRuntime,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+  id : UInt,
+) -> Bool {
+  guard @level.get_block_id(self.chunk_map, self.chunk_size, wx, wy, wz)
+    is Some(current_id) else {
+    false
+  }
+  guard current_id != id else { true }
+  ignore(@level.set_block_id(self.chunk_map, self.chunk_size, wx, wy, wz, id))
+  self.mark_block_changed(wx, wy, wz)
+  true
+}
+
+///|
+/// Apply a structure's block changes only when every target chunk is loaded.
+/// This keeps multi-block placement from producing a partial structure at a
+/// streaming boundary.
+pub fn ChunkRuntime::apply_block_deltas(
+  self : ChunkRuntime,
+  deltas : Array[@level.BlockDelta],
+) -> Bool {
+  for delta in deltas {
+    guard @level.get_block_id(
+        self.chunk_map,
+        self.chunk_size,
+        delta.x,
+        delta.y,
+        delta.z,
+      )
+      is Some(_) else {
+      return false
+    }
+  }
+  for delta in deltas {
+    ignore(self.set_block(delta.x, delta.y, delta.z, delta.id))
+  }
+  true
+}
+
+///|
 pub fn ChunkRuntime::chunk_light(self : ChunkRuntime, key : String) -> Bytes? {
   self.lights.get(key)
 }
@@ -267,7 +313,7 @@ fn ChunkRuntime::publish_generated_column(
   for chunk in chunks {
     let chunk_key = chunk.chunk_key()
     let data = chunk.tile_map
-    self.apply_block_deltas(chunk_key, data)
+    self.apply_saved_block_deltas(chunk_key, data)
     @ffi.map_set_value(self.chunk_map, chunk_key, data)
     self.mark_chunk_sections_dirty(chunk_key)
     self.dirty_lights[chunk_key] = true
@@ -349,7 +395,7 @@ fn ChunkRuntime::mark_loaded_neighbor_boundaries_dirty(
 }
 
 ///|
-fn ChunkRuntime::apply_block_deltas(
+fn ChunkRuntime::apply_saved_block_deltas(
   self : ChunkRuntime,
   chunk_key : String,
   data : Array[UInt],
@@ -396,7 +442,7 @@ pub fn ChunkRuntime::load_block_delta(
   self.record_block_delta(x, y, z, id)
   let key = chunk_key_by_world(self.chunk_size, x, y, z)
   guard @level.get_chunk_data(self.chunk_map, key) is Some(data) else { return }
-  self.apply_block_deltas(key, data)
+  self.apply_saved_block_deltas(key, data)
   self.mark_block_changed(x, y, z)
 }
 

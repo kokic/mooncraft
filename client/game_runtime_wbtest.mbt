@@ -52,6 +52,30 @@ test "game runtime executes render distance command" {
 }
 
 ///|
+test "summon command accepts supported entities and defaults animation" {
+  match parse_command("/summon zombie") {
+    Summon(Zombie, "none") => ()
+    _ => fail("zombie summon did not use the default animation")
+  }
+  match parse_command("/summon rabbit hop") {
+    Summon(Rabbit, "hop") => ()
+    _ => fail("rabbit summon did not preserve its animation")
+  }
+  match parse_command("/summon snowman") {
+    Summon(Snowman, "none") => ()
+    _ => fail("snowman summon was not accepted")
+  }
+}
+
+///|
+test "game runtime summons a zombie at the crosshair target" {
+  let runtime = game_runtime_fixture()
+  ignore(runtime.player_runtime.restore([0.5, 4.0, 0.5], 0.0, -1.0))
+  let result = runtime.execute_command("/summon zombie")
+  @test.assert_eq(result.success, true)
+}
+
+///|
 test "game runtime rejects invalid commands without changing state" {
   let runtime = game_runtime_fixture()
   let initial_position = runtime.player_runtime.position()
@@ -63,6 +87,8 @@ test "game runtime rejects invalid commands without changing state" {
       "/tp NaN 2 3",
       "/rd -1",
       "/rd \{invalid_distance}",
+      "/summon skeleton",
+      "/summon zombie idle extra",
       "/unknown",
     ] {
     let result = runtime.execute_command(command)

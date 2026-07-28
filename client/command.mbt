@@ -2,6 +2,7 @@
 priv enum ClientCommand {
   Teleport(Double, Double, Double)
   SetRenderDistance(Int)
+  Summon(@entity.MobKind, String)
   Invalid(String)
 }
 
@@ -10,6 +11,15 @@ pub struct CommandResult {
   success : Bool
   message : String
 }
+
+///|
+const PLAYER_EYE_HEIGHT : Double = 1.65
+
+///|
+const SUMMON_RAYCAST_MAX_DISTANCE : Double = 10.0
+
+///|
+const SUMMON_RAYCAST_STEP : Double = 0.05
 
 ///|
 fn command_success(message : String) -> CommandResult {
@@ -25,11 +35,8 @@ fn command_error(message : String) -> CommandResult {
 fn parse_finite_double(token : StringView) -> Double? {
   try {
     let value : Double = @strconv.from_str(token)
-    if value.is_nan() || value.is_inf() {
-      None
-    } else {
-      Some(value)
-    }
+    guard !(value.is_nan() || value.is_inf()) else { None }
+    Some(value)
   } catch {
     _ => None
   }
@@ -37,11 +44,19 @@ fn parse_finite_double(token : StringView) -> Double? {
 
 ///|
 fn parse_int(token : StringView) -> Int? {
-  try {
-    let value : Int = @strconv.from_str(token)
-    Some(value)
-  } catch {
+  Some(@strconv.from_str(token)) catch {
     _ => None
+  }
+}
+
+///|
+fn parse_summon_command(
+  entity_type : StringView,
+  animation : String,
+) -> ClientCommand {
+  match @entity.MobKind::from_name(entity_type) {
+    Some(entity_type) => Summon(entity_type, animation)
+    None => Invalid("Entity type must be a supported mob")
   }
 }
 
@@ -70,9 +85,39 @@ fn parse_command(input : String) -> ClientCommand {
           )
       }
     ["/rd", ..] => Invalid("Usage: /rd <number>")
+    ["/summon", entity_type] => parse_summon_command(entity_type, "none")
+    ["/summon", entity_type, animation] =>
+      parse_summon_command(entity_type, animation.to_owned())
+    ["/summon", ..] => Invalid("Usage: /summon <entity_type> [animation]")
     [command, ..] => Invalid("Unknown command: \{command}")
     [] => Invalid("Command cannot be empty")
   }
+}
+
+///|
+fn GameRuntime::summon_target(self : GameRuntime) -> (Double, Double, Double)? {
+  let position = self.player_runtime.position()
+  let camera = @render.camera_from_yaw_pitch(
+    [position[0], position[1] + PLAYER_EYE_HEIGHT, position[2]],
+    self.player_runtime.yaw(),
+    self.player_runtime.pitch(),
+  )
+  @level.raycast_blocks(
+    self.chunk_map(),
+    self.chunk_size,
+    camera.position,
+    camera.direction,
+    SUMMON_RAYCAST_MAX_DISTANCE,
+    SUMMON_RAYCAST_STEP,
+    @block.AIR_LONG_ID,
+    false,
+  ).map(hit => {
+    (
+      hit.block[0].to_double() + 0.5,
+      hit.block[1].to_double() + 1.0,
+      hit.block[2].to_double() + 0.5,
+    )
+  })
 }
 
 ///|
@@ -89,6 +134,27 @@ fn GameRuntime::execute_command(
       self.chunk_runtime.set_render_distance(distance)
       command_success("Render distance set to \{distance}")
     }
+    Summon(kind, animation) =>
+      match self.summon_target() {
+        Some((x, y, z)) => {
+          let spawned = @mob.spawn(
+            @mob.MobSpawnRequest::new(
+              @env.now().to_string(),
+              kind,
+              x,
+              y,
+              z,
+              animation~,
+            ),
+          )
+          if spawned {
+            command_success("Summoned mob")
+          } else {
+            command_error("An entity with that id already exists")
+          }
+        }
+        None => command_error("No block in sight")
+      }
     Invalid(message) => command_error(message)
   }
 }

@@ -4,3 +4,7 @@ import {
   "kokic/mooncraft/block/genus",
   "kokic/mooncraft/block/shape",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "test"

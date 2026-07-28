@@ -9,7 +9,6 @@ import {
   "kokic/mooncraft/generation/structure",
   "kokic/mooncraft/generation/feature",
   "kokic/mooncraft/ffi",
-  "kokic/mooncraft/block/genus",
 }
 
 import {

@@ -174,15 +174,6 @@ pub let blocks : Array[Block] = [
 ]
 
 ///|
-/// True if the block should be selectable (outlined box) in UI.
-pub fn Block::is_selectable(block : Block) -> Bool {
-  match block.shape {
-    Air | Liquid => false
-    _ => true
-  }
-}
-
-///|
 fn create_torch(
   base : String,
   id : UInt,

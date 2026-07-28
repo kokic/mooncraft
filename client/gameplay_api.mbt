@@ -21,6 +21,7 @@ fn register_gameplay_api(world : @level.World) -> Unit {
   publish_global("mcApplyUseOnAction", @level.apply_use_on_action_with_player)
   publish_global("mcApplyUseAction", @level.apply_use_action)
   publish_global("mcGetBlockShapeDesc", @block.get_shape_desc)
+  publish_global("mcGetBlockOutlineDesc", @block.get_outline_desc)
   publish_global("mcComputePlacementState", fn(
     long_id : UInt,
     block : Array[Int],

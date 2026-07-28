@@ -14,16 +14,8 @@ function normalizeGameMode(mode) {
   return mode === "survival" || mode === "spectator" ? mode : "creative";
 }
 
-function getBlockShapeDesc(longId) {
-  return window.mcGetBlockShapeDesc(longId);
-}
-
-function getTorchShapeBoxByState(state) {
-  const value = window.mcTorchShapeBoxByState?.(state);
-  if (!value || !Array.isArray(value.min) || !Array.isArray(value.max)) {
-    return null;
-  }
-  return value;
+function getBlockOutlineDesc(longId) {
+  return window.mcGetBlockOutlineDesc(longId);
 }
 
 function createShader(gl, type, source) {
@@ -1540,14 +1532,7 @@ function renderTestChunk({
       gl.useProgram(outlineProgram);
       assertCurrentProgram("outline mvp", outlineProgram);
       gl.uniformMatrix4fv(outlineMvp, false, mvpMatrix);
-      const desc = getBlockShapeDesc(outlineBlock.longId);
-      let boxes = desc?.boxes;
-      if (desc && Number.isFinite(desc.facing) && desc.facing >= 0) {
-        const torchBox = getTorchShapeBoxByState(desc.facing);
-        if (torchBox) {
-          boxes = [torchBox];
-        }
-      }
+      const boxes = getBlockOutlineDesc(outlineBlock.longId)?.boxes;
       const outlineBias = 0.006;
       gl.uniform3f(
         outlineViewOffset,
@@ -1559,10 +1544,7 @@ function renderTestChunk({
       gl.depthFunc(gl.LEQUAL);
       gl.depthMask(false);
       gl.lineWidth(4);
-      const toDraw = Array.isArray(boxes) && boxes.length > 0
-        ? boxes
-        : [{ min: [0, 0, 0], max: [1, 1, 1] }];
-      for (const box of toDraw) {
+      for (const box of Array.isArray(boxes) ? boxes : []) {
         const outline = getOutlineBuffer(box);
         gl.uniform3f(outlineOffset, outlineBlock.pos[0], outlineBlock.pos[1], outlineBlock.pos[2]);
         gl.bindBuffer(gl.ARRAY_BUFFER, outline.buffer);

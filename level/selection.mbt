@@ -12,55 +12,6 @@ pub struct RaycastResult {
 }
 
 ///|
-fn ray_intersects_aabb(
-  origin : Array[Double],
-  dir : Array[Double],
-  min : Array[Double],
-  max : Array[Double],
-) -> Bool {
-  let mut has_range = false
-  let mut tmin = 0.0
-  let mut tmax = 0.0
-  for i in 0..<3 {
-    let o = origin[i]
-    let d = dir[i]
-    let min_v = min[i]
-    let max_v = max[i]
-    if d.abs() < 0.00000001 {
-      if o < min_v || o > max_v {
-        return false
-      }
-    } else {
-      let inv = 1.0 / d
-      let t1 = (min_v - o) * inv
-      let t2 = (max_v - o) * inv
-      let t_near = if t1 < t2 { t1 } else { t2 }
-      let t_far = if t1 > t2 { t1 } else { t2 }
-      if !has_range {
-        tmin = t_near
-        tmax = t_far
-        has_range = true
-      } else {
-        if t_near > tmin {
-          tmin = t_near
-        }
-        if t_far < tmax {
-          tmax = t_far
-        }
-        if tmin > tmax {
-          return false
-        }
-      }
-    }
-  }
-  if !has_range {
-    true
-  } else {
-    tmax >= 0.0
-  }
-}
-
-///|
 
 ///|
 fn get_block_at(
@@ -173,34 +124,9 @@ pub fn raycast_blocks(
       let hit = get_block_at(chunk_map, size, bx, by, bz)
       match hit {
         Some(id) if id != air_id => {
-          let mut allow_hit = true
-          match @block.lookup_by_long_id(id) {
-            Some(block) =>
-              match block.shape {
-                @block.Shape::Liquid =>
-                  // Keep liquids transparent for general selection, but allow
-                  // tools/items (e.g. bucket) to opt in.
-                  allow_hit = include_liquid_hit
-                shape if shape.is_torch_genus() => {
-                  let box = @genus.Torch::shape_box_by_state(block.state)
-                  let bmin_f = box.min
-                  let bmax_f = box.max
-                  let min = [
-                    bx.to_double() + bmin_f[0].to_double(),
-                    by.to_double() + bmin_f[1].to_double(),
-                    bz.to_double() + bmin_f[2].to_double(),
-                  ]
-                  let max = [
-                    bx.to_double() + bmax_f[0].to_double(),
-                    by.to_double() + bmax_f[1].to_double(),
-                    bz.to_double() + bmax_f[2].to_double(),
-                  ]
-                  allow_hit = ray_intersects_aabb(origin, dir, min, max)
-                }
-                _ => ()
-              }
-            None => ()
-          }
+          let allow_hit = @block.raycast_intersects(
+            id, origin, dir, bx, by, bz, include_liquid_hit,
+          )
           if allow_hit {
             let prev = match last_pos {
               Some((lx, ly, lz)) => @ffi.JsValue::cast_from([lx, ly, lz])

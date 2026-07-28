@@ -90,14 +90,31 @@ pub struct ChunkRenderFrame {
 fn ChunkRuntime::take_dirty_sections(
   self : ChunkRuntime,
 ) -> Array[ChunkSection] {
+  guard self.dirty_sections.length() > 0 else { return [] }
   let sections : Array[ChunkSection] = []
   let mut remaining = self.mesh_budget
-  for key in self.dirty_sections.keys().to_array() {
-    guard remaining > 0 else { break }
-    guard self.dirty_sections.get(key) is Some(section) else { continue }
-    self.dirty_sections.remove(key)
-    sections.push(section)
-    remaining = remaining - 1
+  for
+    chunk_key in collect_render_chunk_keys(
+      self.desired_center_x,
+      self.desired_center_z,
+      self.render_distance,
+      self.chunk_min_y,
+      self.chunk_max_y,
+    ) {
+    for sx in 0..<self.sections_per_axis {
+      for sy in 0..<self.sections_per_axis {
+        for sz in 0..<self.sections_per_axis {
+          if remaining == 0 {
+            return sections
+          }
+          let key = section_key(chunk_key, sx, sy, sz)
+          guard self.dirty_sections.get(key) is Some(section) else { continue }
+          self.dirty_sections.remove(key)
+          sections.push(section)
+          remaining = remaining - 1
+        }
+      }
+    }
   }
   sections
 }

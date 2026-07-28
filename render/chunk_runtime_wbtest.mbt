@@ -45,6 +45,33 @@ test "chunk runtime owns section invalidation" {
 }
 
 ///|
+test "chunk runtime meshes dirty sections from the center outward" {
+  let world = @level.World::new(seed=3U, world_type=@level.WorldType::Flat)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(
+    world,
+    initial,
+    render_distance=1,
+    mesh_budget=1,
+  )
+  for key in runtime.dirty_sections.keys().to_array() {
+    runtime.dirty_sections.remove(key)
+  }
+  runtime.refresh_desired(0, 0)
+  let center_chunk_key = @level.chunk_key_by_chunk_xyz(0, 0, 0)
+  let outer_chunk_key = @level.chunk_key_by_chunk_xyz(1, 0, 0)
+  let center = ChunkSection::{ chunk_key: center_chunk_key, x: 0, y: 0, z: 0 }
+  let outer = ChunkSection::{ chunk_key: outer_chunk_key, x: 0, y: 0, z: 0 }
+  runtime.dirty_sections[section_key(outer_chunk_key, 0, 0, 0)] = outer
+  runtime.dirty_sections[section_key(center_chunk_key, 0, 0, 0)] = center
+
+  let sections = runtime.take_dirty_sections()
+
+  @test.assert_eq(sections.length(), 1)
+  @test.assert_eq(sections[0].chunk_key, center_chunk_key)
+}
+
+///|
 test "chunk runtime streams complete columns" {
   let world = @level.World::new(seed=2U, world_type=@level.WorldType::Flat)
   let initial = world.generate_chunk(0, 0, 0).tile_map

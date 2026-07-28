@@ -1,8 +1,10 @@
 import {
+  "moonbitlang/core/math",
   "kokic/mooncraft/render",
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/block",
   "kokic/mooncraft/entity",
+  "kokic/mooncraft/math3d",
 }

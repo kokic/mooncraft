@@ -2,7 +2,7 @@
 priv enum ClientCommand {
   Teleport(Double, Double, Double)
   SetRenderDistance(Int)
-  Summon(@entity.MobKind, String)
+  Summon(@entity.MobKind, String, Bool)
   Build(BuildType)
   Invalid(String)
 }
@@ -75,6 +75,8 @@ fn parse_command(input : String) -> ClientCommand {
 
     // summon an entity at the block position pointed by the crosshair
     ["/summon", entity_type] => parse_summon_command(entity_type, "none")
+    ["/summon", entity_type, "jeb_"] =>
+      parse_summon_command(entity_type, "none", upside_down=true)
     ["/summon", entity_type, animation] =>
       parse_summon_command(entity_type, animation.to_owned())
     ["/summon", ..] => Invalid("Usage: /summon <entity_type> [animation]")
@@ -121,7 +123,7 @@ fn GameRuntime::execute_command(
       self.chunk_runtime.set_render_distance(distance)
       command_success("Render distance set to \{distance}")
     }
-    Summon(kind, animation) =>
+    Summon(kind, animation, upside_down) =>
       match self.summon_target() {
         Some((x, y, z)) => {
           let spawned = @mob.spawn(
@@ -132,6 +134,7 @@ fn GameRuntime::execute_command(
               y,
               z,
               animation~,
+              upside_down~,
             ),
           )
           if spawned {

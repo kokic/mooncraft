@@ -7,7 +7,6 @@ import { createChatUI } from "./chat-ui.js";
 import { createPauseMenu } from "./pause-menu.js";
 import { unpackLongId } from "./block-registry.js";
 const UPDATE_LABEL = window.mcUpdateLabel;
-const CLIENT_BUILD_TIME = "2026-07-27T08:53:26+08:00";
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
 
@@ -229,8 +228,8 @@ function renderTestChunk({
   };
   const canvas = createCanvas();
   const gl = canvas.getContext("webgl2", {
-    alpha: false, 
-    powerPreference: "high-performance", 
+    alpha: false,
+    powerPreference: "high-performance",
   });
   if (!gl) throw new Error("webgl2 not supported");
 
@@ -1303,11 +1302,11 @@ function renderTestChunk({
         ? "world"
         : current === waterProgram
           ? "water"
-        : current === leafProgram
-          ? "leaf"
-          : current === outlineProgram
-            ? "outline"
-            : "unknown";
+          : current === leafProgram
+            ? "leaf"
+            : current === outlineProgram
+              ? "outline"
+              : "unknown";
       throw new Error(`[gl] ${label}: current program mismatch (${name})`);
     }
   };
@@ -1588,8 +1587,7 @@ function renderTestChunk({
       `| RD: ${renderDistance} ` +
       `| Loaded: ${chunkDatas.size} ` +
       `| Chunks: ${chunkMeshes.size} ` +
-      `| Visible: ${visibleMeshes.length} ` + UPDATE_LABEL +
-      `\nClient build: ${CLIENT_BUILD_TIME}`;
+      `| Visible: ${visibleMeshes.length} ${UPDATE_LABEL}\nBuild with MoonBit`;
     animationFrame = requestAnimationFrame(draw);
   }
 

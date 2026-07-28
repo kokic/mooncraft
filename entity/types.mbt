@@ -54,6 +54,7 @@ pub struct EntitySpawn {
   render_y_offset : Double
   move_speed : Double
   turn_speed : Double
+  upside_down : Bool
 } derive(Debug)
 
 ///|
@@ -66,6 +67,7 @@ pub fn EntitySpawn::new(
   render_y_offset : Double,
   move_speed : Double,
   turn_speed : Double,
+  upside_down? : Bool = false,
 ) -> EntitySpawn {
   {
     id,
@@ -74,6 +76,7 @@ pub fn EntitySpawn::new(
     render_y_offset,
     move_speed,
     turn_speed,
+    upside_down,
   }
 }
 
@@ -84,6 +87,7 @@ pub struct EntitySnapshot {
   position : EntityPosition
   yaw : Double
   render_y_offset : Double
+  upside_down : Bool
 } derive(Debug)
 
 ///|
@@ -104,6 +108,7 @@ pub struct EntitySave {
   render_y_offset : Double
   move_speed : Double
   turn_speed : Double
+  upside_down : Bool
   movement : EntityMovementSave?
 } derive(Debug, ToJson, FromJson)
 

@@ -74,15 +74,19 @@ test "game runtime executes render distance command" {
 ///|
 test "summon command accepts supported entities and defaults animation" {
   match parse_command("/summon zombie") {
-    Summon(Zombie, "none") => ()
+    Summon(Zombie, "none", false) => ()
     _ => fail("zombie summon did not use the default animation")
   }
   match parse_command("/summon rabbit hop") {
-    Summon(Rabbit, "hop") => ()
+    Summon(Rabbit, "hop", false) => ()
     _ => fail("rabbit summon did not preserve its animation")
   }
+  match parse_command("/summon zombie jeb_") {
+    Summon(Zombie, "none", true) => ()
+    _ => fail("jeb_ summon did not mark the mob as upside down")
+  }
   match parse_command("/summon snowman") {
-    Summon(Snowman, "none") => ()
+    Summon(Snowman, "none", false) => ()
     _ => fail("snowman summon was not accepted")
   }
 }
@@ -117,11 +121,15 @@ test "game runtime builds an oak at the crosshair target" {
 }
 
 ///|
-test "game runtime summons a zombie at the crosshair target" {
+test "game runtime summons an upside-down zombie at the crosshair target" {
   let runtime = game_runtime_fixture()
   ignore(runtime.player_runtime.restore([0.5, 4.0, 0.5], 0.0, -1.0))
-  let result = runtime.execute_command("/summon zombie")
+  let result = runtime.execute_command("/summon zombie jeb_")
   @test.assert_eq(result.success, true)
+  guard @mob.save_entities() is [entity] else {
+    fail("expected one summoned entity")
+  }
+  @test.assert_eq(entity.upside_down, true)
 }
 
 ///|

@@ -21,8 +21,30 @@ fn sync_entity_snapshots(renderer : @render.GltfRenderer) -> Unit {
         snapshot.position.z,
       ),
     )
-    ignore(@render.gltf_set_yaw(renderer, snapshot.id, snapshot.yaw))
+    if snapshot.upside_down {
+      let rotation = mob_rotation(snapshot.yaw, true)
+      ignore(
+        @render.gltf_set_rotation(
+          renderer,
+          snapshot.id,
+          rotation[0],
+          rotation[1],
+          rotation[2],
+          rotation[3],
+        ),
+      )
+    } else {
+      ignore(@render.gltf_set_yaw(renderer, snapshot.id, snapshot.yaw))
+    }
   }
+}
+
+///|
+fn mob_rotation(yaw : Double, upside_down : Bool) -> Array[Double] {
+  let rotation = [0.0, 0.0, 0.0, 1.0]
+  let pitch = if upside_down { @math.PI } else { 0.0 }
+  ignore(@math3d.quat_from_yaw_pitch(rotation, yaw, pitch))
+  rotation
 }
 
 ///|

@@ -17,6 +17,7 @@ priv struct EntityState {
   render_y_offset : Double
   move_speed : Double
   turn_speed : Double
+  upside_down : Bool
   mut movement : MovementPlan?
 }
 
@@ -30,6 +31,7 @@ fn EntityState::new(spawn : EntitySpawn) -> EntityState {
     render_y_offset: spawn.render_y_offset,
     move_speed: spawn.move_speed,
     turn_speed: spawn.turn_speed,
+    upside_down: spawn.upside_down,
     movement: None,
   }
 }
@@ -149,6 +151,7 @@ fn EntityState::snapshot(self : EntityState) -> EntitySnapshot {
     position: self.position,
     yaw: self.yaw,
     render_y_offset: self.render_y_offset,
+    upside_down: self.upside_down,
   }
 }
 
@@ -167,6 +170,7 @@ fn EntityState::save(self : EntityState) -> EntitySave {
     render_y_offset: self.render_y_offset,
     move_speed: self.move_speed,
     turn_speed: self.turn_speed,
+    upside_down: self.upside_down,
     movement,
   }
 }
@@ -188,6 +192,7 @@ fn EntityState::from_save(save : EntitySave) -> EntityState {
     render_y_offset: save.render_y_offset,
     move_speed: save.move_speed,
     turn_speed: save.turn_speed,
+    upside_down: save.upside_down,
     movement,
   }
 }

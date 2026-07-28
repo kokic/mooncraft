@@ -16,20 +16,10 @@ fn game_runtime_fixture() -> GameRuntime {
 }
 
 ///|
-test "game runtime throttles and consumes dirty autosaves" {
-  let runtime = game_runtime_fixture()
-  @test.assert_eq(runtime.take_autosave(1499.0) is None, true)
-  @test.assert_eq(runtime.take_autosave(1500.0) is Some(_), true)
-  @test.assert_eq(runtime.take_autosave(3000.0) is None, true)
-  runtime.mark_save_dirty()
-  @test.assert_eq(runtime.take_autosave(3000.0) is Some(_), true)
-}
-
-///|
-test "initial save restores only its matching world" {
+test "explicit game save restores only its matching world" {
   let source = game_runtime_fixture()
   ignore(source.execute_command("/tp 12.5 80 -4"))
-  let save_text = source.flush_save(1500.0)
+  let save_text = source.save_snapshot(1500.0)
 
   let restored = game_runtime_fixture()
   load_initial_save(restored, restored.world, save_text)
@@ -48,11 +38,9 @@ test "initial save restores only its matching world" {
 ///|
 test "game runtime executes teleport command" {
   let runtime = game_runtime_fixture()
-  ignore(runtime.take_autosave(1500.0))
   let result = runtime.execute_command("/tp 12.5 80 -4")
   @test.assert_eq(result.success, true)
   @test.assert_eq(runtime.player_runtime.position(), [12.5, 80.0, -4.0])
-  @test.assert_eq(runtime.save_dirty, true)
 }
 
 ///|

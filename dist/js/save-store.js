@@ -172,9 +172,6 @@ function createSaveWriter(slotId) {
       pending = write.catch(() => undefined);
       return write;
     },
-    finished() {
-      return pending;
-    },
   };
 }
 

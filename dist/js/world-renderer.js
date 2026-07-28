@@ -2,8 +2,9 @@ import {
   createPlayerController,
 } from "./player-controller.js";
 import { createHotbarUI } from "./hotbar-ui.js";
-import { createInventoryUI } from "./inventory-ui.js";
+import { createInventoryUI } from "./inventory-ui.js?v=pause-menu-v1";
 import { createChatUI } from "./chat-ui.js";
+import { createPauseMenu } from "./pause-menu.js";
 import { unpackLongId } from "./block-registry.js";
 const UPDATE_LABEL = window.mcUpdateLabel;
 const CLIENT_BUILD_TIME = "2026-07-27T08:53:26+08:00";
@@ -204,7 +205,7 @@ function renderTestChunk({
   blockRegistry,
   textures,
   chunkSize,
-  persistSave,
+  onSaveAndQuit,
 }) {
   const {
     mcUpVector: UP_VECTOR,
@@ -343,8 +344,8 @@ function renderTestChunk({
     outlineCache.set(key, buffer);
     return buffer;
   };
-  if (typeof persistSave !== "function") {
-    throw new Error("IndexedDB save callback is unavailable");
+  if (typeof onSaveAndQuit !== "function") {
+    throw new Error("Save and quit callback is unavailable");
   }
   const size = chunkSize ?? 16;
   const chunkDatas = window.mcChunkRuntimeChunkMap;
@@ -831,18 +832,15 @@ function renderTestChunk({
         console.error("[lighting] failed to apply recolor command", command);
       }
     }
-    if (typeof frame.save === "string") {
-      persistSave(frame.save);
-    }
   };
 
-  const tickGame = (delta, now, active) => {
+  const tickGame = (delta, active) => {
     const tick = window.mcTickGame;
     if (typeof tick !== "function") {
       throw new Error("MoonBit game runtime tick is unavailable");
     }
     player.applyIntent(active);
-    applyGameFrame(tick(blockRegistry, delta, now));
+    applyGameFrame(tick(blockRegistry, delta));
   };
 
   const padItems = (items, limit) => {
@@ -1121,22 +1119,27 @@ function renderTestChunk({
   };
   syncInventorySnapshot(initialInventory);
   setInventoryOpen(initialInventory?.inventory_open === true, true);
-  const persistLatestSave = () => {
-    try {
-      const flush = window.mcFlushGameSave;
-      if (typeof flush !== "function") {
+  const pauseMenu = createPauseMenu({
+    parent: document.body,
+    onOpen: () => {
+      player.applyIntent(false);
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+      crosshair.style.display = "none";
+    },
+    onResume: () => {
+      if (isInventoryOpen() || chat.isOpen()) return;
+      crosshair.style.display = "block";
+      canvas.focus();
+      canvas.requestPointerLock();
+    },
+    onSaveAndQuit: () => {
+      const encodeSave = window.mcEncodeGameSave;
+      if (typeof encodeSave !== "function") {
         throw new Error("MoonBit game save encoder is unavailable");
       }
-      persistSave(flush(Date.now()));
-    } catch (err) {
-      console.warn("[save] failed to queue IndexedDB payload", err);
-    }
-  };
-  globalThis.addEventListener("pagehide", persistLatestSave);
-  globalThis.document.addEventListener("visibilitychange", () => {
-    if (globalThis.document.visibilityState === "hidden") {
-      persistLatestSave();
-    }
+      player.applyIntent(false);
+      return onSaveAndQuit(encodeSave(Date.now()));
+    },
   });
   const markEditedVoxelSections = (wx, wy, wz, keys) => {
     if (!Array.isArray(keys) || keys.length === 0) return;
@@ -1282,12 +1285,14 @@ function renderTestChunk({
     }
   };
 
-  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+  const onContextMenu = (event) => event.preventDefault();
+  const onHotbarSelect = (event) => {
+    selectHotbarIndex(event.detail?.index ?? 0);
+  };
+  canvas.addEventListener("contextmenu", onContextMenu);
   canvas.addEventListener("mousedown", onMouseDown);
   if (hotbar?.host) {
-    hotbar.host.addEventListener("hotbarselect", (event) => {
-      selectHotbarIndex(event.detail?.index ?? 0);
-    });
+    hotbar.host.addEventListener("hotbarselect", onHotbarSelect);
   }
 
   const assertCurrentProgram = (label, expected) => {
@@ -1312,8 +1317,11 @@ function renderTestChunk({
   const leafMeshes = [];
   const translucentMeshes = [];
   const waterMeshes = [];
+  let animationFrame = null;
+  let disposed = false;
 
   function draw() {
+    if (disposed) return;
     const canvasSize = resizeCanvas(gl, canvas);
     gl.clearColor(0.6, 0.8, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1333,10 +1341,12 @@ function renderTestChunk({
     const now = performance.now();
     const delta = Math.min(0.05, (now - lastFrameTime) / 1000);
     lastFrameTime = now;
-    tickGame(delta, now, !isInventoryOpen() && !chat.isOpen());
-    window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
-    if (typeof window.mcTickEntityRuntime === "function") {
-      window.mcTickEntityRuntime(gltfEntityRenderer, delta);
+    if (!pauseMenu.isOpen()) {
+      tickGame(delta, !isInventoryOpen() && !chat.isOpen());
+      window.mcUpdateGltfRenderer(gltfEntityRenderer, delta);
+      if (typeof window.mcTickEntityRuntime === "function") {
+        window.mcTickEntityRuntime(gltfEntityRenderer, delta);
+      }
     }
 
 
@@ -1580,10 +1590,46 @@ function renderTestChunk({
       `| Chunks: ${chunkMeshes.size} ` +
       `| Visible: ${visibleMeshes.length} ` + UPDATE_LABEL +
       `\nClient build: ${CLIENT_BUILD_TIME}`;
-    requestAnimationFrame(draw);
+    animationFrame = requestAnimationFrame(draw);
   }
 
   draw();
+  return {
+    dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+      canvas.removeEventListener("contextmenu", onContextMenu);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      if (hotbar?.host) hotbar.host.removeEventListener("hotbarselect", onHotbarSelect);
+      player.dispose();
+      hotbar.dispose();
+      inventory.dispose();
+      chat.dispose();
+      pauseMenu.dispose();
+      for (const mesh of chunkMeshes.values()) {
+        deleteChunkMesh(mesh);
+      }
+      chunkMeshes.clear();
+      for (const outline of outlineCache.values()) {
+        gl.deleteBuffer(outline.buffer);
+      }
+      outlineCache.clear();
+      gl.deleteBuffer(outlineCube.buffer);
+      gl.deleteTexture(textureArray);
+      if (waterTintTexture) gl.deleteTexture(waterTintTexture);
+      gl.deleteProgram(program);
+      gl.deleteProgram(waterProgram);
+      gl.deleteProgram(leafProgram);
+      gl.deleteProgram(outlineProgram);
+      delete window.mcGltfEntityApi;
+      window.mcInventoryOpen = false;
+      debugHud.remove();
+      crosshair.remove();
+      canvas.remove();
+    },
+  };
 }
 
 export {

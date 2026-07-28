@@ -262,6 +262,14 @@ function createInventoryUI({
     setOpen,
     setItems,
     isOpen: () => state.open,
+    dispose: () => {
+      if (nameFadeTimer) clearTimeout(nameFadeTimer);
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("keyup", onKeyUp, { capture: true });
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+      document.removeEventListener("keyup", onKeyUp, { capture: true });
+      host.remove();
+    },
   };
 }
 

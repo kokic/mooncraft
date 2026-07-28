@@ -58,9 +58,8 @@ fn register_runtime_api(
   publish_global("mcTickGame", fn(
     registry : @render.BlockRegistry,
     delta : Double,
-    now : Double,
   ) {
-    game.tick(registry, delta, now)
+    game.tick(registry, delta)
   })
   publish_global("mcMarkChunkBlockChanged", fn(wx : Int, wy : Int, wz : Int) {
     game.mark_block_changed(wx, wy, wz)
@@ -94,7 +93,9 @@ fn register_runtime_api(
   publish_global("mcSetPlayerInventoryOpen", fn(open : Bool) {
     game.set_inventory_open(open)
   })
-  publish_global("mcFlushGameSave", fn(now : Double) { game.flush_save(now) })
+  publish_global("mcEncodeGameSave", fn(now : Double) {
+    game.save_snapshot(now)
+  })
   publish_global("mcExecuteCommand", fn(input : String) {
     game.execute_command(input)
   })

@@ -1,8 +1,8 @@
 import { loadBlockTextures } from "./block-textures.js";
 import { createBlockRegistry } from "./block-registry.js";
-import { renderTestChunk } from "./world-renderer.js?v=indexeddb-v2";
+import { renderTestChunk } from "./world-renderer.js?v=pause-menu-v1";
 import { createSaveMenu } from "./save-manager.js?v=indexeddb-v1";
-import { createSaveWriter, parseSavePayload } from "./save-store.js?v=indexeddb-v1";
+import { createSaveWriter, parseSavePayload } from "./save-store.js?v=save-on-quit-v1";
 
 function assert_webgl2() {
   const ctx = document.createElement("canvas").getContext("webgl2");
@@ -14,7 +14,7 @@ function assert_webgl2() {
 function loadMooncraftRuntime() {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "./js/release/build/mooncraft.js?v=indexeddb-v1";
+    script.src = "./js/release/build/mooncraft.js?v=save-on-quit-v1";
     script.async = true;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error("failed to load Mooncraft runtime"));
@@ -65,20 +65,21 @@ async function bootstrap(slot) {
   window.mcTextures = textures;
   const chunkSize = window.mcChunkSize;
   const saveWriter = createSaveWriter(slot.id);
-  renderTestChunk({
+  let session = null;
+  session = renderTestChunk({
     blockRegistry,
     textures,
     chunkSize,
-    persistSave: (payload) => {
-      void saveWriter.enqueue(payload).catch((error) => {
-        console.error("[save] failed to write IndexedDB payload", error);
-      });
+    onSaveAndQuit: async (payload) => {
+      await saveWriter.enqueue(payload);
+      const menu = await createSaveMenuNode();
+      session.dispose();
+      document.body.appendChild(menu);
     },
   });
 }
 
-async function start() {
-  await loadMooncraftRuntime();
+async function createSaveMenuNode() {
   let menu = null;
   menu = await createSaveMenu({
     onOpen: (slot) => {
@@ -86,7 +87,16 @@ async function start() {
       bootstrap(slot).catch((err) => { console.error(err); });
     },
   });
-  document.body.appendChild(menu);
+  return menu;
+}
+
+async function showSaveMenu() {
+  document.body.appendChild(await createSaveMenuNode());
+}
+
+async function start() {
+  await loadMooncraftRuntime();
+  await showSaveMenu();
 }
 
 start();

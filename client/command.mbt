@@ -83,8 +83,6 @@ fn GameRuntime::execute_command(
   match parse_command(input) {
     Teleport(x, y, z) => {
       ignore(self.player_runtime.teleport(x, y, z))
-      self.motion_key = player_save_motion_key(self.player_runtime)
-      self.mark_save_dirty()
       command_success("Teleported to \{x}, \{y}, \{z}")
     }
     SetRenderDistance(distance) => {

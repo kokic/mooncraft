@@ -8,17 +8,14 @@
 ### Build
 
 ```sh
-npm install
+# npm install # once
 npm run build
 ```
-
-`npm run build` invokes `moon build --release`, then Rollup writes the Web
-frontend to `.dist`.
 
 ### Run
 
 ```sh
-miniserve .dist --index index.html --port 8089 --media-type image --upload-files assets
+npm run serve
 ```
 
 ### World Type

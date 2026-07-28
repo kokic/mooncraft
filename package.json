@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "rollup --config rollup.config.mjs"
+    "build": "rollup --config rollup.config.mjs",
+    "serve": "miniserve .dist --index index.html --port 8089 --media-type image --upload-files assets"
   },
   "devDependencies": {
     "rollup": "^4.0.0"

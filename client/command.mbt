@@ -52,6 +52,7 @@ fn parse_command(input : String) -> ClientCommand {
     .filter(token => !token.is_empty())
     .to_array()
   match tokens {
+    // teleport player
     ["/tp", x, y, z] =>
       match
         (parse_finite_double(x), parse_finite_double(y), parse_finite_double(z)) {
@@ -59,6 +60,8 @@ fn parse_command(input : String) -> ClientCommand {
         _ => Invalid("Usage: /tp <x> <y> <z>")
       }
     ["/tp", ..] => Invalid("Usage: /tp <x> <y> <z>")
+
+    // set the world render distance
     ["/rd", value] =>
       match parse_int(value) {
         Some(value) if value >= @render.MIN_RENDER_DISTANCE &&
@@ -69,10 +72,14 @@ fn parse_command(input : String) -> ClientCommand {
           )
       }
     ["/rd", ..] => Invalid("Usage: /rd <number>")
+
+    // summon an entity at the block position pointed by the crosshair
     ["/summon", entity_type] => parse_summon_command(entity_type, "none")
     ["/summon", entity_type, animation] =>
       parse_summon_command(entity_type, animation.to_owned())
     ["/summon", ..] => Invalid("Usage: /summon <entity_type> [animation]")
+
+    // generate a multi-block structure at the block position pointed by the crosshair
     ["/build", build_type] => parse_build_command(build_type)
     ["/build", ..] => Invalid("Usage: /build <type>")
     [command, ..] => Invalid("Unknown command: \{command}")

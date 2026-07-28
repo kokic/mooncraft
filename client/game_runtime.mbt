@@ -42,6 +42,7 @@ fn GameRuntime::save_snapshot(self : GameRuntime, saved_at : Double) -> String {
     saved_at,
     self.world.seed(),
     self.world.world_type_name(),
+    self.world.height(),
     self.player_runtime.position(),
     self.player_runtime.yaw(),
     self.player_runtime.pitch(),

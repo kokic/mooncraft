@@ -1,8 +1,8 @@
 import { loadBlockTextures } from "./block-textures.js";
 import { createBlockRegistry } from "./block-registry.js";
 import { renderTestChunk } from "./world-renderer.js?v=pause-menu-v1";
-import { createSaveMenu } from "./save-manager.js?v=indexeddb-v1";
-import { createSaveWriter, parseSavePayload } from "./save-store.js?v=save-on-quit-v1";
+import { createSaveMenu } from "./save-manager.js?v=world-height-v1";
+import { createSaveWriter, parseSavePayload } from "./save-store.js?v=indexeddb-v2";
 
 function assert_webgl2() {
   const ctx = document.createElement("canvas").getContext("webgl2");
@@ -14,7 +14,7 @@ function assert_webgl2() {
 function loadMooncraftRuntime() {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "./js/release/build/mooncraft.js?v=save-on-quit-v1";
+    script.src = "./js/release/build/mooncraft.js?v=world-height-v1";
     script.async = true;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error("failed to load Mooncraft runtime"));
@@ -36,6 +36,14 @@ function randomWorldSeed() {
   return Date.now() >>> 0;
 }
 
+function defaultInfiniteWorldHeight() {
+  const height = Number(globalThis.mcInfiniteWorldDefaultHeight);
+  if (!Number.isSafeInteger(height)) {
+    throw new Error("Infinite world height configuration is unavailable");
+  }
+  return height;
+}
+
 function launchRequest(slot) {
   const saved = parseSavePayload(slot.payload);
   if (slot.payload !== null && !saved) {
@@ -45,12 +53,16 @@ function launchRequest(slot) {
     return {
       seed: saved.seed,
       worldType: saved.worldType,
+      height: saved.height,
       saveText: slot.payload,
     };
   }
   return {
     seed: randomWorldSeed(),
     worldType: slot.newWorldType ?? defaultWorldType(),
+    height: Number.isSafeInteger(slot.newWorldHeight)
+      ? slot.newWorldHeight
+      : defaultInfiniteWorldHeight(),
     saveText: "",
   };
 }
@@ -58,7 +70,7 @@ function launchRequest(slot) {
 async function bootstrap(slot) {
   assert_webgl2();
   const launch = launchRequest(slot);
-  window.mcLaunchGame(launch.seed, launch.worldType, launch.saveText);
+  window.mcLaunchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
   window.mcBlocks = blockRegistry;

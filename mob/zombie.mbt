@@ -39,14 +39,14 @@ fn zombie_1_wxz() -> (Int, Int) {
 }
 
 ///|
-priv struct ZombieSpawn {
+pub struct ZombieSpawn {
   id : String
   position : @entity.EntityPosition
   animation : String
 }
 
 ///|
-fn zombie_spawn(
+pub fn zombie_spawn(
   world : @level.World,
   id : String,
   wx : Int,

@@ -3,7 +3,7 @@ import {
   deleteSaveSlot,
   listSaveSlots,
   parseSavePayload,
-} from "./save-store.js?v=indexeddb-v1";
+} from "./save-store.js?v=indexeddb-v2";
 
 function getWorldTypes() {
   const types = globalThis.mcWorldTypes;
@@ -21,6 +21,25 @@ function isValidWorldType(wt) {
   return getWorldTypes().includes(wt);
 }
 
+function infiniteWorldHeightConfig() {
+  const min = Number(globalThis.mcInfiniteWorldMinHeight);
+  const max = Number(globalThis.mcInfiniteWorldMaxHeight);
+  const defaultHeight = Number(globalThis.mcInfiniteWorldDefaultHeight);
+  if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) ||
+    !Number.isSafeInteger(defaultHeight) || min > max ||
+    defaultHeight < min || defaultHeight > max) {
+    throw new Error("Infinite world height configuration is unavailable");
+  }
+  return { min, max, defaultHeight };
+}
+
+function selectedInfiniteWorldHeight(input, config) {
+  const height = Number(input.value);
+  return Number.isSafeInteger(height) && height >= config.min && height <= config.max
+    ? height
+    : config.min;
+}
+
 function parseSaveInfo(text) {
   const payload = parseSavePayload(text);
   if (!payload) {
@@ -28,6 +47,7 @@ function parseSaveInfo(text) {
       exists: false,
       seed: null,
       worldType: null,
+      height: null,
       blockDeltaCount: 0,
       savedAt: null,
     };
@@ -36,6 +56,7 @@ function parseSaveInfo(text) {
     exists: true,
     seed: payload.seed,
     worldType: payload.worldType,
+    height: payload.height,
     blockDeltaCount: payload.blockDeltaCount,
     savedAt: payload.savedAt,
   };
@@ -49,11 +70,19 @@ function formatDate(timestamp) {
   }).format(new Date(timestamp));
 }
 
-function describeWorld(info, worldType) {
-  if (!info.exists) return `${worldType ?? "Unknown"}, new world`;
+function describeWorld(info, worldType, worldHeight) {
+  if (!info.exists) {
+    const height = worldType === "Infinite" && Number.isSafeInteger(worldHeight)
+      ? `, height ${worldHeight}`
+      : "";
+    return `${worldType ?? "Unknown"}, new world${height}`;
+  }
   const wt = info.worldType ?? worldType ?? "Unknown";
   const seed = info.seed == null ? "unknown seed" : `seed ${info.seed}`;
-  return `${wt}, ${seed}`;
+  const height = wt === "Infinite" && Number.isSafeInteger(info.height)
+    ? `, height ${info.height}`
+    : "";
+  return `${wt}, ${seed}${height}`;
 }
 
 function createButton(label, className, onClick) {
@@ -77,7 +106,7 @@ function createSaveRow(slot, onOpen, onDelete) {
 
   const meta = document.createElement("p");
   meta.className = "mc-save-meta";
-  meta.textContent = describeWorld(slot.info, slot.worldType);
+  meta.textContent = describeWorld(slot.info, slot.newWorldType, slot.newWorldHeight);
 
   const details = document.createElement("p");
   details.className = "mc-save-details";
@@ -199,6 +228,24 @@ function installStyles() {
       outline: none;
     }
 
+    .mc-save-world-height {
+      width: 88px;
+      min-height: 38px;
+      box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      padding: 0 10px;
+      color: #f6fbfa;
+      background: rgba(255, 255, 255, 0.08);
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .mc-save-world-height:focus {
+      border-color: #49a36f;
+    }
+
     .mc-save-world-type:focus {
       border-color: #49a36f;
     }
@@ -315,6 +362,7 @@ async function createSaveMenu({ onOpen }) {
     toolbarRight.style.display = "flex";
     toolbarRight.style.gap = "10px";
     toolbarRight.style.alignItems = "center";
+    const heightConfig = infiniteWorldHeightConfig();
 
     const worldTypeSelect = document.createElement("select");
     worldTypeSelect.className = "mc-save-world-type";
@@ -333,15 +381,35 @@ async function createSaveMenu({ onOpen }) {
       worldTypeSelect.append(option);
     }
 
+    const worldHeightInput = document.createElement("input");
+    worldHeightInput.className = "mc-save-world-height";
+    worldHeightInput.type = "number";
+    worldHeightInput.inputMode = "numeric";
+    worldHeightInput.min = String(heightConfig.min);
+    worldHeightInput.max = String(heightConfig.max);
+    worldHeightInput.value = String(heightConfig.defaultHeight);
+    worldHeightInput.setAttribute("aria-label", "Infinite world height");
+    const syncWorldHeightInput = () => {
+      worldHeightInput.hidden = worldTypeSelect.value !== "Infinite";
+    };
+    worldTypeSelect.addEventListener("change", syncWorldHeightInput);
+    syncWorldHeightInput();
+
     const create = createButton("New Save", "mc-save-new", () => {
+      const worldType = isValidWorldType(worldTypeSelect.value)
+        ? worldTypeSelect.value
+        : defaultWorldType();
       void createSaveSlot(
         `World ${slots.length + 1}`,
-        isValidWorldType(worldTypeSelect.value) ? worldTypeSelect.value : defaultWorldType(),
+        worldType,
+        worldType === "Infinite"
+          ? selectedInfiniteWorldHeight(worldHeightInput, heightConfig)
+          : null,
       ).then(onOpen).catch((error) => {
         console.error("[save-menu] failed to create IndexedDB save", error);
       });
     });
-    toolbarRight.append(worldTypeSelect, create);
+    toolbarRight.append(worldTypeSelect, worldHeightInput, create);
     toolbar.append(count, toolbarRight);
     content.append(toolbar);
 

@@ -2,6 +2,7 @@
 pub struct World {
   seed : UInt
   kind : WorldType
+  infinite_height : Int
   noise : @util.PerlinNoise
   terrain_noise : TerrainNoiseRouter
 }
@@ -24,7 +25,7 @@ pub(all) struct TerrainColumn {
 // are still coarse, matching the README next-step list.
 
 ///|
-/// Highest world Y for Infinite/Flat worlds (Minecraft 1.18+ overworld).
+/// Highest world Y for Flat worlds and default Infinite worlds.
 pub const WORLD_MAX_Y : Int = 319
 
 ///|
@@ -32,10 +33,19 @@ pub const WORLD_MAX_Y : Int = 319
 pub const WORLD_MIN_Y : Int = -64
 
 ///|
-const MIN_TERRAIN_HEIGHT : Int = WORLD_MIN_Y + 1
+/// Minimum selectable Infinite-world height. This preserves terrain below and
+/// above sea level while reducing vertical chunk work.
+pub const INFINITE_WORLD_MIN_HEIGHT : Int = 192
 
 ///|
-const MAX_TERRAIN_HEIGHT : Int = WORLD_MAX_Y - 1
+/// Default selectable Infinite-world height, matching the original -64..319
+/// vertical range.
+pub const INFINITE_WORLD_DEFAULT_HEIGHT : Int = 384
+
+///|
+/// Maximum selectable Infinite-world height. Taller worlds increase the amount
+/// of chunk generation and meshing work for every XZ column.
+pub const INFINITE_WORLD_MAX_HEIGHT : Int = INFINITE_WORLD_DEFAULT_HEIGHT
 
 ///|
 /// Minecraft-like sea level baseline.
@@ -277,11 +287,15 @@ fn plain_height_with_biome(
     plains_wave +
     climate_shift
   let h = height.round().to_int()
-  let min_h = MIN_TERRAIN_HEIGHT + 2
-  let max_h = if params.max_height - 6 < min_h {
+  let min_h = world.min_y() + 3
+  let configured_max_h = params.max_height - 6
+  let world_max_h = world.max_y() - 6
+  let max_h = if configured_max_h < min_h {
     min_h
+  } else if configured_max_h > world_max_h {
+    world_max_h
   } else {
-    params.max_height - 6
+    configured_max_h
   }
   if h < min_h {
     min_h
@@ -438,13 +452,13 @@ fn surface_height_with_params(
     }
   }
   let h = height.round().to_int()
-  let max_h = if surface_params.max_height > MAX_TERRAIN_HEIGHT {
-    MAX_TERRAIN_HEIGHT
+  let max_h = if surface_params.max_height > world.max_y() - 1 {
+    world.max_y() - 1
   } else {
     surface_params.max_height
   }
-  if h < MIN_TERRAIN_HEIGHT {
-    MIN_TERRAIN_HEIGHT
+  if h < world.min_y() + 1 {
+    world.min_y() + 1
   } else if h > max_h {
     max_h
   } else {
@@ -514,13 +528,24 @@ fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
 }
 
 ///|
+pub fn normalize_infinite_world_height(height : Int) -> Int {
+  if height >= INFINITE_WORLD_MIN_HEIGHT && height <= INFINITE_WORLD_MAX_HEIGHT {
+    height
+  } else {
+    INFINITE_WORLD_MIN_HEIGHT
+  }
+}
+
+///|
 pub fn World::new(
   seed? : UInt = @env.now().to_uint(),
   world_type? : WorldType = WorldType::PreClassic,
+  height? : Int = INFINITE_WORLD_DEFAULT_HEIGHT,
 ) -> World {
   let noise = @util.PerlinNoise::new(seed~)
   let terrain_noise = TerrainNoiseRouter::new(seed)
-  World::{ seed, kind: world_type, noise, terrain_noise }
+  let infinite_height = normalize_infinite_world_height(height)
+  World::{ seed, kind: world_type, infinite_height, noise, terrain_noise }
 }
 
 ///|
@@ -539,6 +564,15 @@ pub fn World::world_type_name(self : World) -> String {
 }
 
 ///|
+/// Total vertical block span for this world.
+pub fn World::height(self : World) -> Int {
+  match self.kind {
+    WorldType::Infinite => self.infinite_height
+    _ => self.max_y() - self.min_y() + 1
+  }
+}
+
+///|
 pub fn World::min_y(self : World) -> Int {
   match self.kind {
     WorldType::Finite => FINITE_MIN_Y
@@ -550,6 +584,7 @@ pub fn World::min_y(self : World) -> Int {
 ///|
 pub fn World::max_y(self : World) -> Int {
   match self.kind {
+    WorldType::Infinite => WORLD_MIN_Y + self.infinite_height - 1
     WorldType::Finite => FINITE_MAX_Y
     WorldType::PreClassic => PRECLASSIC_MAX_Y
     _ => WORLD_MAX_Y

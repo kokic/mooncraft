@@ -1,5 +1,5 @@
 const DATABASE_NAME = "mooncraft";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const SAVE_STORE_NAME = "saves";
 
 let databasePromise = null;
@@ -28,9 +28,10 @@ function openDatabase() {
     const request = globalThis.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
-      if (!database.objectStoreNames.contains(SAVE_STORE_NAME)) {
-        database.createObjectStore(SAVE_STORE_NAME, { keyPath: "id" });
+      if (database.objectStoreNames.contains(SAVE_STORE_NAME)) {
+        database.deleteObjectStore(SAVE_STORE_NAME);
       }
+      database.createObjectStore(SAVE_STORE_NAME, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Failed to open IndexedDB"));
@@ -56,6 +57,9 @@ function normalizeSlot(record) {
     newWorldType: typeof record.newWorldType === "string" && record.newWorldType.length > 0
       ? record.newWorldType
       : null,
+    newWorldHeight: Number.isSafeInteger(Number(record.newWorldHeight))
+      ? Number(record.newWorldHeight)
+      : null,
     payload: typeof record.payload === "string" ? record.payload : null,
   };
 }
@@ -78,17 +82,20 @@ function parseSavePayload(text) {
     const payload = JSON.parse(text);
     const seed = Number(payload?.world?.seed);
     const worldType = payload?.world?.world_type;
+    const height = Number(payload?.world?.height);
     const savedAt = Number(payload?.saved_at);
     const blockDeltas = payload?.block_deltas;
-    if (payload?.version !== 2 ||
+    if (payload?.version !== globalThis.mcSaveSchemaVersion ||
       !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff ||
       typeof worldType !== "string" || worldType.length === 0 ||
+      !Number.isSafeInteger(height) || height <= 0 ||
       !Array.isArray(blockDeltas)) {
       return null;
     }
     return {
       seed,
       worldType,
+      height,
       savedAt: Number.isFinite(savedAt) ? savedAt : null,
       blockDeltaCount: blockDeltas.length,
     };
@@ -109,12 +116,13 @@ async function listSaveSlots() {
     .sort((left, right) => slotActivityTime(right) - slotActivityTime(left));
 }
 
-async function createSaveSlot(name, worldType) {
+async function createSaveSlot(name, worldType, worldHeight) {
   const slot = {
     id: makeSaveId(),
     name: typeof name === "string" && name.trim().length > 0 ? name.trim() : "New World",
     createdAt: Date.now(),
     newWorldType: typeof worldType === "string" && worldType.length > 0 ? worldType : null,
+    newWorldHeight: Number.isSafeInteger(worldHeight) ? worldHeight : null,
     payload: null,
   };
   const database = await openDatabase();
@@ -153,6 +161,7 @@ async function writeSavePayload(slotId, payload) {
     updatedSlot = {
       ...slot,
       newWorldType: null,
+      newWorldHeight: null,
       payload,
     };
     store.put(updatedSlot);

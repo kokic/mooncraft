@@ -61,7 +61,7 @@ fn should_carve_cave(world : World, column : TerrainColumn, wy : Int) -> Bool {
     8.0
   }
   guard y < surface - surface_clearance else { false }
-  guard y > WORLD_MIN_Y.to_double() + 4.0 else { false }
+  guard y > world.min_y().to_double() + 4.0 else { false }
   let cave_region = world.terrain_noise.cave_region.gen3d(
     (x + 557.0) * CAVE_REGION_FREQ,
     y * CAVE_REGION_FREQ,
@@ -96,7 +96,7 @@ fn should_carve_cave(world : World, column : TerrainColumn, wy : Int) -> Bool {
 /// solid; non-positive values are air candidates that aquifers may fill.
 fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double {
   guard wy <= column.surface + TERRAIN_SHAPE_RISE else { -1.0 }
-  guard wy > WORLD_MIN_Y + 1 else { 1.0 }
+  guard wy > world.min_y() + 1 else { 1.0 }
   let density = terrain_shape_density(world, column, wy)
   guard density > 0.0 else { -1.0 }
   if should_carve_cave(world, column, wy) {

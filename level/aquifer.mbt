@@ -6,9 +6,6 @@ priv enum TerrainFluid {
 }
 
 ///|
-const LAVA_AQUIFER_LEVEL : Int = WORLD_MIN_Y + 10
-
-///|
 const AQUIFER_BASE_LEVEL : Int = SEA_LEVEL - 24
 
 ///|
@@ -29,7 +26,7 @@ fn aquifer_fluid_at(
     return Water
   }
   guard wy < top_solid_wy - 5 else { Air }
-  if wy <= LAVA_AQUIFER_LEVEL {
+  if wy <= world.min_y() + 10 {
     let lava_barrier = world.terrain_noise.aquifer_lava.gen3d(
       (column.wx.to_double() + 701.0) * 0.043,
       wy.to_double() * 0.043,

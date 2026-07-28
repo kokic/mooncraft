@@ -1,10 +1,11 @@
 ///|
-pub const SAVE_SCHEMA_VERSION : Int = 2
+pub const SAVE_SCHEMA_VERSION : Int = 3
 
 ///|
 pub struct SaveWorld {
   seed : UInt
   world_type : String
+  height : Int
 } derive(Debug, ToJson, FromJson)
 
 ///|
@@ -29,6 +30,7 @@ pub fn SavePayload::new(
   saved_at : Double,
   seed : UInt,
   world_type : String,
+  height : Int,
   position : Array[Double],
   yaw : Double,
   pitch : Double,
@@ -43,7 +45,7 @@ pub fn SavePayload::new(
   {
     version: SAVE_SCHEMA_VERSION,
     saved_at,
-    world: { seed, world_type },
+    world: { seed, world_type, height },
     player: { position, yaw, pitch },
     inventory,
     block_deltas,
@@ -55,8 +57,11 @@ pub fn SavePayload::matches_world(
   self : SavePayload,
   seed : UInt,
   world_type : String,
+  height : Int,
 ) -> Bool {
-  self.world.seed == seed && self.world.world_type == world_type
+  self.world.seed == seed &&
+  self.world.world_type == world_type &&
+  self.world.height == height
 }
 
 ///|

@@ -3,3 +3,7 @@ import {
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

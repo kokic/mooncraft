@@ -80,28 +80,26 @@ fn sample_column_densities(
   world : World,
   terrain : TerrainColumn,
 ) -> Array[Double] {
-  let height = WORLD_MAX_Y - WORLD_MIN_Y + 1
+  let min_y = world.min_y()
+  let max_y = world.max_y()
+  let height = max_y - min_y + 1
   let densities = Array::make(height, -1.0)
-  let mut lower_y = WORLD_MIN_Y
+  let mut lower_y = min_y
   let mut lower_density = density_at_column(world, terrain, lower_y)
-  while lower_y < WORLD_MAX_Y {
+  while lower_y < max_y {
     let candidate_y = lower_y + DENSITY_SAMPLE_STEP
-    let upper_y = if candidate_y < WORLD_MAX_Y {
-      candidate_y
-    } else {
-      WORLD_MAX_Y
-    }
+    let upper_y = if candidate_y < max_y { candidate_y } else { max_y }
     let upper_density = density_at_column(world, terrain, upper_y)
     let span = (upper_y - lower_y).to_double()
     for wy in lower_y..<upper_y {
       let t = (wy - lower_y).to_double() / span
-      densities[wy - WORLD_MIN_Y] = lower_density +
+      densities[wy - min_y] = lower_density +
         (upper_density - lower_density) * t
     }
     lower_y = upper_y
     lower_density = upper_density
   }
-  densities[WORLD_MAX_Y - WORLD_MIN_Y] = lower_density
+  densities[max_y - min_y] = lower_density
   densities
 }
 
@@ -110,7 +108,7 @@ fn InfiniteColumnSample::density_at(
   self : InfiniteColumnSample,
   wy : Int,
 ) -> Double {
-  self.densities[wy - WORLD_MIN_Y]
+  self.densities[wy - INFINITE_MIN_Y]
 }
 
 ///|
@@ -118,7 +116,7 @@ fn InfiniteColumnSample::fluid_at(
   self : InfiniteColumnSample,
   wy : Int,
 ) -> TerrainFluid {
-  self.fluids[wy - WORLD_MIN_Y]
+  self.fluids[wy - INFINITE_MIN_Y]
 }
 
 ///|
@@ -144,7 +142,7 @@ fn clamp_depth(depth : Int) -> Int {
 
 ///|
 fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
-  let layer = wy - INFINITE_MIN_Y
+  let layer = wy - world.min_y()
   guard layer >= 0 && layer < 5 else { false }
   guard layer > 0 else { true }
   let coordinate_seed = wx * 73428767 +
@@ -226,9 +224,11 @@ fn prepare_infinite_column(
 ) -> InfiniteColumnSample {
   let terrain = terrain_column(world, wx, wz)
   let densities = sample_column_densities(world, terrain)
-  let mut top_solid_wy = WORLD_MIN_Y
-  for wy = WORLD_MAX_Y; wy > WORLD_MIN_Y; wy = wy - 1 {
-    if densities[wy - WORLD_MIN_Y] > 0.0 {
+  let min_y = world.min_y()
+  let max_y = world.max_y()
+  let mut top_solid_wy = min_y
+  for wy = max_y; wy > min_y; wy = wy - 1 {
+    if densities[wy - min_y] > 0.0 {
       top_solid_wy = wy
       break
     }
@@ -239,8 +239,8 @@ fn prepare_infinite_column(
   }
   let inland_min_wy = top_solid_wy - inland_depth + 1
   let fluids : Array[TerrainFluid] = []
-  for wy in WORLD_MIN_Y..<=WORLD_MAX_Y {
-    let density = densities[wy - WORLD_MIN_Y]
+  for wy in min_y..<=max_y {
+    let density = densities[wy - min_y]
     fluids.push(
       if density <= 0.0 {
         aquifer_fluid_at(world, terrain, wy, top_solid_wy)
@@ -272,12 +272,14 @@ fn fill_infinite_block(
 ) -> Unit {
   let air = @block.AIR_LONG_ID
   let (wx, wy, wz) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
+  if wy < world.min_y() || wy > world.max_y() {
+    chunk.update_tile_map(rx, ry, rz, air)
+    return
+  }
   let biome = column.terrain.surface_biome
   let density = column.density_at(wy)
   let use_inland_water = column.inland_min_wy <= wy && wy <= column.top_solid_wy
-  if wy < INFINITE_MIN_Y {
-    chunk.update_tile_map(rx, ry, rz, air)
-  } else if is_infinite_bedrock(world, wx, wy, wz) {
+  if is_infinite_bedrock(world, wx, wy, wz) {
     chunk.update_tile_map(rx, ry, rz, palette.bedrock)
   } else if use_inland_water {
     chunk.update_tile_map(rx, ry, rz, palette.water)

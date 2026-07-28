@@ -1,10 +1,4 @@
 ///|
-const ZOMBIE_MOVE_SPEED : Double = 2.25
-
-///|
-const ZOMBIE_TURN_SPEED : Double = 12.0
-
-///|
 const PATH_SEARCH_EXPANSIONS_PER_TICK : Int = 96
 
 ///|

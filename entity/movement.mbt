@@ -11,6 +11,7 @@ priv struct MovementPlan {
 ///|
 priv struct EntityState {
   id : String
+  kind : EntityKind
   mut position : EntityPosition
   mut yaw : Double
   render_y_offset : Double
@@ -20,9 +21,10 @@ priv struct EntityState {
 }
 
 ///|
-fn EntityState::new(id : String, spawn : EntitySpawn) -> EntityState {
+fn EntityState::new(spawn : EntitySpawn) -> EntityState {
   {
-    id,
+    id: spawn.id,
+    kind: spawn.kind,
     position: spawn.position,
     yaw: 0.0,
     render_y_offset: spawn.render_y_offset,
@@ -143,6 +145,7 @@ fn EntityState::set_path(
 fn EntityState::snapshot(self : EntityState) -> EntitySnapshot {
   {
     id: self.id,
+    kind: self.kind,
     position: self.position,
     yaw: self.yaw,
     render_y_offset: self.render_y_offset,

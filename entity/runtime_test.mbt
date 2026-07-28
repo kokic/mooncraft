@@ -3,9 +3,12 @@ test "entity movement interpolates and completes" {
   let runtime = EntityRuntime::new()
   assert_true(
     runtime.spawn(
-      "zombie",
       EntitySpawn::new(
-        EntityPosition::new(0.0, 1.0, 0.0),
+        "zombie",
+        Mob(Zombie),
+        0.0,
+        1.0,
+        0.0,
         1.35,
         2.0,
         @math.PI * 4.0,
@@ -30,9 +33,12 @@ test "entity tick emits one start event and turns toward movement" {
   let runtime = EntityRuntime::new()
   assert_true(
     runtime.spawn(
-      "zombie",
       EntitySpawn::new(
-        EntityPosition::new(0.0, 1.0, 0.0),
+        "zombie",
+        Mob(Zombie),
+        0.0,
+        1.0,
+        0.0,
         1.35,
         1.0,
         @math.PI * 4.0,

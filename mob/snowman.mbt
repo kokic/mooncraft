@@ -1,25 +1,19 @@
 ///|
-pub const SNOWMAN_MODEL_URL : String = "./assets/models/snowman_on.gltf"
+const SNOWMAN_MODEL_URL : String = "./assets/models/snowman_on.gltf"
 
 ///|
-pub const SNOWMAN_TEXTURE_URL : String = "./assets/images/entity/snowman_face.png"
+const SNOWMAN_TEXTURE_URL : String = "./assets/images/entity/snowman_face.png"
 
 ///|
-pub fn snowman_demo_entities(
-  world : @level.World,
-) -> Array[@render.GltfEntityConfig] {
-  // STATUS: INCOMPLETE - display-only demo entity; no snowman behavior is wired.
-  let (world_x, world_z) = zombie_0_wxz()
-  let pos = surface_position(world, world_x, world_z, y_offset=RABBIT_Y_OFFSET)
-  [
-    @render.entity_config(
-      "snowman_0",
-      SNOWMAN_MODEL_URL,
-      texture=SNOWMAN_TEXTURE_URL,
-      position=[pos[0] + 5, pos[1], pos[2] + 5],
-      // scale=[1.0, 1.0, 1.0],
-      animation="none",
-      looped=false,
-    ),
-  ]
+fn snowman_spec() -> MobSpec {
+  {
+    model_url: SNOWMAN_MODEL_URL,
+    texture_url: SNOWMAN_TEXTURE_URL,
+    render_y_offset: -1.05,
+    scale: [1.0, 1.0, 1.0],
+    move_speed: 0.0,
+    turn_speed: 0.0,
+    idle_animation: "none",
+    walk_animation: "none",
+  }
 }

@@ -12,6 +12,7 @@ import {
   "kokic/mooncraft/item",
   "kokic/mooncraft/math3d",
   "kokic/mooncraft/mob",
+  "kokic/mooncraft/entity",
   "kokic/mooncraft/render",
   "kokic/mooncraft/level/save",
 }

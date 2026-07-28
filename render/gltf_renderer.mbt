@@ -141,6 +141,14 @@ pub fn create_gltf_renderer(
 }
 
 ///|
+pub fn GltfRenderer::add_entity(
+  self : GltfRenderer,
+  config : GltfEntityConfig,
+) -> Unit {
+  self.load_asset(config.url, asset => self.create_instance(config, asset))
+}
+
+///|
 pub fn update_gltf_renderer(
   renderer : GltfRenderer,
   delta_seconds : Double,

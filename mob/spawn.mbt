@@ -1,0 +1,39 @@
+///|
+priv struct MobSpawn {
+  entity_spawn : @entity.EntitySpawn
+  render_config : @render.GltfEntityConfig
+}
+
+///|
+fn resolve_spawn(request : MobSpawnRequest) -> MobSpawn {
+  let spec = mob_spec(request.kind)
+  {
+    entity_spawn: @entity.EntitySpawn::new(
+      request.id,
+      Mob(request.kind),
+      request.x,
+      request.y,
+      request.z,
+      spec.render_y_offset,
+      spec.move_speed,
+      spec.turn_speed,
+    ),
+    render_config: @render.entity_config(
+      request.id,
+      spec.model_url,
+      texture=spec.texture_url,
+      position=[request.x, request.y + spec.render_y_offset, request.z],
+      scale=spec.scale,
+      animation=request.animation,
+      looped=true,
+    ),
+  }
+}
+
+///|
+pub fn spawn(request : MobSpawnRequest) -> Bool {
+  let resolved = resolve_spawn(request)
+  guard entity_runtime.spawn(resolved.entity_spawn) else { false }
+  pending_render_configs.push(resolved.render_config)
+  true
+}

@@ -9,14 +9,15 @@ pub fn EntityRuntime::new() -> EntityRuntime {
 }
 
 ///|
-pub fn EntityRuntime::spawn(
-  self : EntityRuntime,
-  id : String,
-  spawn : EntitySpawn,
-) -> Bool {
-  guard !self.entities.contains(id) else { false }
-  self.entities[id] = EntityState::new(id, spawn)
+pub fn EntityRuntime::spawn(self : EntityRuntime, spawn : EntitySpawn) -> Bool {
+  guard !self.entities.contains(spawn.id) else { false }
+  self.entities[spawn.id] = EntityState::new(spawn)
   true
+}
+
+///|
+pub fn EntityRuntime::kind(self : EntityRuntime, id : String) -> EntityKind? {
+  self.entities.get(id).map(entity => entity.kind)
 }
 
 ///|

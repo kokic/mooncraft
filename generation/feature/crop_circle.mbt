@@ -3,10 +3,7 @@
 // terrain experiments.
 // STATUS: NEEDS_ADJUSTMENT - glyph coverage and placement rules are bespoke;
 // move to data if this becomes user-facing content.
-pub let crop_circle_texts : Array[String] = [
-  "Spore", "Jerry", "Yorkin", "Herobrine", "knifefire", "Guest0x0", "Also try Minecraft",
-  "Also try Manosaba",
-]
+pub let crop_circle_texts : Array[String] = []
 
 ///|
 const GLYPH_WIDTH : Int = 5

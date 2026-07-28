@@ -49,3 +49,13 @@ test "profile outline uses cactus bounds" {
   @test.assert_eq(box.min[0], 0.0625F)
   @test.assert_eq(box.max[0], 0.9375F)
 }
+
+///|
+test "grass path occludes adjacent cube faces while retaining its lower shape" {
+  let grass_path = lookup_by_name("grass_path").unwrap()
+  @test.assert_eq(grass_path.occlusion_cull, true)
+  let (_, (_max_x, max_y, _max_z)) = @genus.GrassPath::face_box(
+    @shape.FaceName::PosY,
+  ).unwrap()
+  @test.assert_eq(max_y, @genus.GRASS_PATH_MAX_Y)
+}

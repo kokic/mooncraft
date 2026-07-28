@@ -44,7 +44,6 @@ pub let blocks : Array[Block] = [
     "grass_path",
     ["grass_path_top", "dirt", "grass_path_side"],
     shape=Shape::GrassPath,
-    occlusion_cull=false,
     opacity=14,
     alpha_mode=AlphaMode::Opaque,
   ),

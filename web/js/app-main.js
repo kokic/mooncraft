@@ -1,8 +1,9 @@
 import { loadBlockTextures } from "./block-textures.js";
 import { createBlockRegistry } from "./block-registry.js";
-import { renderTestChunk } from "./world-renderer.js?v=pause-menu-v1";
-import { createSaveMenu } from "./save-manager.js?v=world-height-v1";
-import { createSaveWriter, parseSavePayload } from "./save-store.js?v=indexeddb-v3";
+import { renderTestChunk } from "./world-renderer.js";
+import { createSaveMenu } from "./save-manager.js";
+import { createSaveWriter, parseSavePayload } from "./save-store.js";
+import mooncraftRuntimeUrl from "virtual:mooncraft-runtime";
 
 function assert_webgl2() {
   const ctx = document.createElement("canvas").getContext("webgl2");
@@ -14,7 +15,7 @@ function assert_webgl2() {
 function loadMooncraftRuntime() {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "./js/release/build/mooncraft.js?v=world-height-v1";
+    script.src = mooncraftRuntimeUrl;
     script.async = true;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error("failed to load Mooncraft runtime"));

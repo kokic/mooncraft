@@ -8,14 +8,6 @@ priv enum ClientCommand {
 }
 
 ///|
-priv enum BuildType {
-  Oak
-  FallenOak
-  Cactus
-  NetherSpire
-}
-
-///|
 pub struct CommandResult {
   success : Bool
   message : String
@@ -23,12 +15,6 @@ pub struct CommandResult {
 
 ///|
 const PLAYER_EYE_HEIGHT : Double = 1.65
-
-///|
-const SUMMON_RAYCAST_MAX_DISTANCE : Double = 10.0
-
-///|
-const SUMMON_RAYCAST_STEP : Double = 0.05
 
 ///|
 fn command_success(message : String) -> CommandResult {
@@ -55,28 +41,6 @@ fn parse_finite_double(token : StringView) -> Double? {
 fn parse_int(token : StringView) -> Int? {
   Some(@strconv.from_str(token)) catch {
     _ => None
-  }
-}
-
-///|
-fn parse_summon_command(
-  entity_type : StringView,
-  animation : String,
-) -> ClientCommand {
-  match @entity.MobKind::from_name(entity_type) {
-    Some(entity_type) => Summon(entity_type, animation)
-    None => Invalid("Entity type must be a supported mob")
-  }
-}
-
-///|
-fn parse_build_command(build_type : StringView) -> ClientCommand {
-  match build_type {
-    "oak" => Build(Oak)
-    "fallen_oak" => Build(FallenOak)
-    "cactus" => Build(Cactus)
-    "nether_spire" => Build(NetherSpire)
-    _ => Invalid("Build type must be oak, fallen_oak, cactus, or nether_spire")
   }
 }
 
@@ -134,52 +98,6 @@ fn GameRuntime::crosshair_block(self : GameRuntime) -> (Int, Int, Int)? {
     @block.AIR_LONG_ID,
     false,
   ).map(hit => (hit.block[0], hit.block[1], hit.block[2]))
-}
-
-///|
-fn GameRuntime::summon_target(self : GameRuntime) -> (Double, Double, Double)? {
-  self
-  .crosshair_block()
-  .map(point => {
-    let (x, y, z) = point
-    (x.to_double() + 0.5, y.to_double() + 1.0, z.to_double() + 0.5)
-  })
-}
-
-///|
-fn GameRuntime::build_deltas(
-  self : GameRuntime,
-  build_type : BuildType,
-  wx : Int,
-  wy : Int,
-  wz : Int,
-) -> Array[@level.BlockDelta] {
-  let deltas : Array[@level.BlockDelta] = []
-  let set_block = (x : Int, y : Int, z : Int, id : UInt) => {
-    deltas.push(@level.BlockDelta::new(x, y, z, id))
-  }
-  match build_type {
-    Oak =>
-      @feature.place_oak_tree_genus(
-        set_block,
-        wx,
-        wy,
-        wz,
-        seed=self.world.seed(),
-      )
-    FallenOak =>
-      @feature.place_fallen_oak_tree(
-        set_block,
-        wx,
-        wy,
-        wz,
-        seed=self.world.seed(),
-      )
-    Cactus =>
-      @feature.place_cactus(set_block, wx, wy, wz, seed=self.world.seed())
-    NetherSpire => @structure.place_nether_spire(set_block, wx, wy, wz)
-  }
-  deltas
 }
 
 ///|

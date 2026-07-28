@@ -2,7 +2,7 @@ import {
   createPlayerController,
 } from "./player-controller.js";
 import { createHotbarUI } from "./hotbar-ui.js";
-import { createInventoryUI } from "./inventory-ui.js?v=pause-menu-v1";
+import { createInventoryUI } from "./inventory-ui.js";
 import { createChatUI } from "./chat-ui.js";
 import { createPauseMenu } from "./pause-menu.js";
 import { unpackLongId } from "./block-registry.js";

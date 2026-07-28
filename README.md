@@ -8,13 +8,17 @@
 ### Build
 
 ```sh
-moon build --release --target-dir ./dist
+npm install
+npm run build
 ```
+
+`npm run build` invokes `moon build --release`, then Rollup writes the Web
+frontend to `.dist`.
 
 ### Run
 
 ```sh
-miniserve dist --index index.html --port 8089 --media-type image --upload-files assets
+miniserve .dist --index index.html --port 8089 --media-type image --upload-files assets
 ```
 
 ### World Type
@@ -61,7 +65,7 @@ Replace `Infinite` with one of:
 
 ## Asset Copyright Notice (Minecraft EULA)
 
-- Files under `dist/assets` may contain textures or other resources derived from Minecraft.
+- Files under `web/assets` may contain textures or other resources derived from Minecraft.
 - Minecraft and all related assets and intellectual property are owned by Mojang Studios / Microsoft.
 - This project is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Mojang Studios or Microsoft.
 - Use and redistribution of these assets must comply with the Minecraft EULA.

@@ -3,7 +3,7 @@ import {
   deleteSaveSlot,
   listSaveSlots,
   parseSavePayload,
-} from "./save-store.js?v=indexeddb-v2";
+} from "./save-store.js";
 
 function getWorldTypes() {
   const types = globalThis.mcWorldTypes;

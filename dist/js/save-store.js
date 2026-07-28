@@ -1,5 +1,5 @@
 const DATABASE_NAME = "mooncraft";
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const SAVE_STORE_NAME = "saves";
 
 let databasePromise = null;

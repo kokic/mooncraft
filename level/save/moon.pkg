@@ -2,6 +2,7 @@ import {
   "moonbitlang/core/json",
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
+  "kokic/mooncraft/entity",
 }
 
 import {

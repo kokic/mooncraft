@@ -19,6 +19,19 @@ let navigation_requests : Map[String, NavigationRequest] = Map([])
 let path_searches : Map[String, PathSearch] = Map([])
 
 ///|
+pub fn save_entities() -> Array[@entity.EntitySave] {
+  entity_runtime.save_entities()
+}
+
+///|
+pub fn reset_entities() -> Unit {
+  entity_runtime.restore_entities([])
+  navigation_requests.clear()
+  path_searches.clear()
+  pending_render_configs.clear()
+}
+
+///|
 fn find_standable_y(
   chunk_map : @ffi.JsValue,
   size : Int,

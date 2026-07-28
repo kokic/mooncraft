@@ -54,3 +54,34 @@ test "entity tick emits one start event and turns toward movement" {
   assert_true((snapshot.position.z - 0.1).abs() < 0.000001)
   guard runtime.tick(0.1) is [] else { fail("movement start must not repeat") }
 }
+
+///|
+test "entity save restores movement state" {
+  let source = EntityRuntime::new()
+  assert_true(
+    source.spawn(
+      EntitySpawn::new(
+        "zombie",
+        Mob(Zombie),
+        0.0,
+        1.0,
+        0.0,
+        1.35,
+        2.0,
+        @math.PI * 4.0,
+      ),
+    ),
+  )
+  assert_true(source.set_path("zombie", [EntityPosition::new(2.0, 1.0, 0.0)]))
+  ignore(source.tick(0.5))
+
+  let restored = EntityRuntime::new()
+  restored.restore_entities(source.save_entities())
+  guard restored.snapshots() is [snapshot] else { fail("expected one entity") }
+  @test.assert_eq(snapshot.id, "zombie")
+  assert_true((snapshot.position.x - 1.0).abs() < 0.000001)
+  guard restored.tick(0.5)
+    is [WaypointReached("zombie", 0), MovementCompleted("zombie")] else {
+    fail("expected restored movement to complete")
+  }
+}

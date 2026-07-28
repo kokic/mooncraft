@@ -151,3 +151,43 @@ fn EntityState::snapshot(self : EntityState) -> EntitySnapshot {
     render_y_offset: self.render_y_offset,
   }
 }
+
+///|
+fn EntityState::save(self : EntityState) -> EntitySave {
+  let movement : EntityMovementSave? = self.movement.map((plan : MovementPlan) => {
+    waypoints: plan.waypoints.copy(),
+    next_index: plan.next_index,
+    started: plan.started,
+  })
+  {
+    id: self.id,
+    kind: self.kind,
+    position: self.position,
+    yaw: self.yaw,
+    render_y_offset: self.render_y_offset,
+    move_speed: self.move_speed,
+    turn_speed: self.turn_speed,
+    movement,
+  }
+}
+
+///|
+fn EntityState::from_save(save : EntitySave) -> EntityState {
+  let movement : MovementPlan? = save.movement.map((
+    snapshot : EntityMovementSave,
+  ) => {
+    waypoints: snapshot.waypoints.copy(),
+    next_index: snapshot.next_index,
+    started: snapshot.started,
+  })
+  {
+    id: save.id,
+    kind: save.kind,
+    position: save.position,
+    yaw: save.yaw,
+    render_y_offset: save.render_y_offset,
+    move_speed: save.move_speed,
+    turn_speed: save.turn_speed,
+    movement,
+  }
+}

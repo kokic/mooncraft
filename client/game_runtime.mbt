@@ -48,6 +48,7 @@ fn GameRuntime::save_snapshot(self : GameRuntime, saved_at : Double) -> String {
     self.player_runtime.pitch(),
     self.player_runtime.inventory_snapshot(),
     self.chunk_runtime.block_deltas(),
+    @mob.save_entities(),
   ).encode()
 }
 
@@ -170,4 +171,5 @@ fn GameRuntime::load_save(
   for delta in payload.block_deltas() {
     self.chunk_runtime.load_block_delta(delta.x, delta.y, delta.z, delta.id)
   }
+  @mob.restore_entities(payload.entities())
 }

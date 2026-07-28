@@ -24,6 +24,7 @@ fn register_runtime_api(
   chunk_data : Array[UInt],
   save_text : String,
 ) -> Unit {
+  @mob.reset_entities()
   publish_global("mcCollectHotbarItems", collect_hotbar_items)
   publish_global("mcCollectInventoryItems", collect_inventory_items)
   let chunk_runtime = @render.ChunkRuntime::new(

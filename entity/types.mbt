@@ -3,7 +3,7 @@ pub struct EntityPosition {
   x : Double
   y : Double
   z : Double
-} derive(Debug)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub fn EntityPosition::new(
@@ -19,7 +19,7 @@ pub(all) enum MobKind {
   Zombie
   Rabbit
   Snowman
-} derive(Debug)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub fn MobKind::from_name(name : StringView) -> MobKind? {
@@ -36,7 +36,7 @@ pub fn MobKind::from_name(name : StringView) -> MobKind? {
 pub(all) enum ProjectileKind {
   Arrow
   Fireball
-} derive(Debug)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 #warnings("-unused_constructor")
@@ -44,7 +44,7 @@ pub(all) enum EntityKind {
   Mob(MobKind)
   Projectile(ProjectileKind)
   ItemDrop
-} derive(Debug)
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub struct EntitySpawn {
@@ -85,6 +85,27 @@ pub struct EntitySnapshot {
   yaw : Double
   render_y_offset : Double
 } derive(Debug)
+
+///|
+/// Persistent movement state for an entity that was moving when the world was saved.
+pub struct EntityMovementSave {
+  waypoints : Array[EntityPosition]
+  next_index : Int
+  started : Bool
+} derive(Debug, ToJson, FromJson)
+
+///|
+/// Complete persistent state owned by the entity runtime.
+pub struct EntitySave {
+  id : String
+  kind : EntityKind
+  position : EntityPosition
+  yaw : Double
+  render_y_offset : Double
+  move_speed : Double
+  turn_speed : Double
+  movement : EntityMovementSave?
+} derive(Debug, ToJson, FromJson)
 
 ///|
 pub enum EntityEvent {

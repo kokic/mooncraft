@@ -1,5 +1,5 @@
 ///|
-pub const SAVE_SCHEMA_VERSION : Int = 3
+pub const SAVE_SCHEMA_VERSION : Int = 4
 
 ///|
 pub struct SaveWorld {
@@ -23,6 +23,7 @@ pub struct SavePayload {
   player : SavePlayer
   inventory : @player.PlayerInventorySnapshot
   block_deltas : Array[@level.BlockDelta]
+  entities : Array[@entity.EntitySave]
 } derive(Debug, ToJson, FromJson)
 
 ///|
@@ -36,6 +37,7 @@ pub fn SavePayload::new(
   pitch : Double,
   inventory : @player.PlayerInventorySnapshot,
   block_deltas : Array[@level.BlockDelta],
+  entities : Array[@entity.EntitySave],
 ) -> SavePayload {
   let position = if position.length() >= 3 {
     [position[0], position[1], position[2]]
@@ -49,6 +51,7 @@ pub fn SavePayload::new(
     player: { position, yaw, pitch },
     inventory,
     block_deltas,
+    entities,
   }
 }
 
@@ -96,6 +99,11 @@ pub fn SavePayload::block_deltas(
   self : SavePayload,
 ) -> Array[@level.BlockDelta] {
   self.block_deltas
+}
+
+///|
+pub fn SavePayload::entities(self : SavePayload) -> Array[@entity.EntitySave] {
+  self.entities
 }
 
 ///|

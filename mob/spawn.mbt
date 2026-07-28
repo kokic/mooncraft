@@ -37,3 +37,32 @@ pub fn spawn(request : MobSpawnRequest) -> Bool {
   pending_render_configs.push(resolved.render_config)
   true
 }
+
+///|
+pub fn restore_entities(saved_entities : Array[@entity.EntitySave]) -> Unit {
+  reset_entities()
+  entity_runtime.restore_entities(saved_entities)
+  for entity in saved_entities {
+    match entity.kind {
+      Mob(kind) => {
+        let spec = mob_spec(kind)
+        pending_render_configs.push(
+          @render.entity_config(
+            entity.id,
+            spec.model_url,
+            texture=spec.texture_url,
+            position=[
+              entity.position.x,
+              entity.position.y + entity.render_y_offset,
+              entity.position.z,
+            ],
+            scale=spec.scale,
+            animation=spec.idle_animation,
+            looped=true,
+          ),
+        )
+      }
+      _ => ()
+    }
+  }
+}

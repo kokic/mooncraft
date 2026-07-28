@@ -75,3 +75,19 @@ pub fn EntityRuntime::tick(
 pub fn EntityRuntime::snapshots(self : EntityRuntime) -> Array[EntitySnapshot] {
   self.entities.values().map(entity => entity.snapshot()).to_array()
 }
+
+///|
+pub fn EntityRuntime::save_entities(self : EntityRuntime) -> Array[EntitySave] {
+  self.entities.values().map(entity => entity.save()).to_array()
+}
+
+///|
+pub fn EntityRuntime::restore_entities(
+  self : EntityRuntime,
+  saved_entities : Array[EntitySave],
+) -> Unit {
+  self.entities.clear()
+  for saved in saved_entities {
+    self.entities[saved.id] = EntityState::from_save(saved)
+  }
+}

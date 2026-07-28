@@ -3,7 +3,16 @@ priv enum ClientCommand {
   Teleport(Double, Double, Double)
   SetRenderDistance(Int)
   Summon(@entity.MobKind, String)
+  Build(BuildType)
   Invalid(String)
+}
+
+///|
+priv enum BuildType {
+  Oak
+  FallenOak
+  Cactus
+  NetherSpire
 }
 
 ///|
@@ -61,6 +70,17 @@ fn parse_summon_command(
 }
 
 ///|
+fn parse_build_command(build_type : StringView) -> ClientCommand {
+  match build_type {
+    "oak" => Build(Oak)
+    "fallen_oak" => Build(FallenOak)
+    "cactus" => Build(Cactus)
+    "nether_spire" => Build(NetherSpire)
+    _ => Invalid("Build type must be oak, fallen_oak, cactus, or nether_spire")
+  }
+}
+
+///|
 fn parse_command(input : String) -> ClientCommand {
   let tokens = input
     .trim()
@@ -89,13 +109,15 @@ fn parse_command(input : String) -> ClientCommand {
     ["/summon", entity_type, animation] =>
       parse_summon_command(entity_type, animation.to_owned())
     ["/summon", ..] => Invalid("Usage: /summon <entity_type> [animation]")
+    ["/build", build_type] => parse_build_command(build_type)
+    ["/build", ..] => Invalid("Usage: /build <type>")
     [command, ..] => Invalid("Unknown command: \{command}")
     [] => Invalid("Command cannot be empty")
   }
 }
 
 ///|
-fn GameRuntime::summon_target(self : GameRuntime) -> (Double, Double, Double)? {
+fn GameRuntime::crosshair_block(self : GameRuntime) -> (Int, Int, Int)? {
   let position = self.player_runtime.position()
   let camera = @render.camera_from_yaw_pitch(
     [position[0], position[1] + PLAYER_EYE_HEIGHT, position[2]],
@@ -111,13 +133,53 @@ fn GameRuntime::summon_target(self : GameRuntime) -> (Double, Double, Double)? {
     SUMMON_RAYCAST_STEP,
     @block.AIR_LONG_ID,
     false,
-  ).map(hit => {
-    (
-      hit.block[0].to_double() + 0.5,
-      hit.block[1].to_double() + 1.0,
-      hit.block[2].to_double() + 0.5,
-    )
+  ).map(hit => (hit.block[0], hit.block[1], hit.block[2]))
+}
+
+///|
+fn GameRuntime::summon_target(self : GameRuntime) -> (Double, Double, Double)? {
+  self
+  .crosshair_block()
+  .map(point => {
+    let (x, y, z) = point
+    (x.to_double() + 0.5, y.to_double() + 1.0, z.to_double() + 0.5)
   })
+}
+
+///|
+fn GameRuntime::build_deltas(
+  self : GameRuntime,
+  build_type : BuildType,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Array[@level.BlockDelta] {
+  let deltas : Array[@level.BlockDelta] = []
+  let set_block = (x : Int, y : Int, z : Int, id : UInt) => {
+    deltas.push(@level.BlockDelta::new(x, y, z, id))
+  }
+  match build_type {
+    Oak =>
+      @feature.place_oak_tree_genus(
+        set_block,
+        wx,
+        wy,
+        wz,
+        seed=self.world.seed(),
+      )
+    FallenOak =>
+      @feature.place_fallen_oak_tree(
+        set_block,
+        wx,
+        wy,
+        wz,
+        seed=self.world.seed(),
+      )
+    Cactus =>
+      @feature.place_cactus(set_block, wx, wy, wz, seed=self.world.seed())
+    NetherSpire => @structure.place_nether_spire(set_block, wx, wy, wz)
+  }
+  deltas
 }
 
 ///|
@@ -151,6 +213,18 @@ fn GameRuntime::execute_command(
             command_success("Summoned mob")
           } else {
             command_error("An entity with that id already exists")
+          }
+        }
+        None => command_error("No block in sight")
+      }
+    Build(build_type) =>
+      match self.crosshair_block() {
+        Some((wx, wy, wz)) => {
+          let deltas = self.build_deltas(build_type, wx, wy + 1, wz)
+          if self.chunk_runtime.apply_block_deltas(deltas) {
+            command_success("Built structure")
+          } else {
+            command_error("Structure extends into an unloaded chunk")
           }
         }
         None => command_error("No block in sight")

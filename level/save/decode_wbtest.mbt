@@ -11,6 +11,7 @@ test "current level save encodes world height" {
     0.0,
     inventory,
     [],
+    [],
   )
   let encoded = payload.encode()
   assert_true(encoded.contains("\"world_type\""))
@@ -33,6 +34,7 @@ test "save payload requires a matching world height" {
     0.0,
     0.0,
     inventory,
+    [],
     [],
   )
   @test.assert_eq(payload.matches_world(12U, "Infinite", 192), true)

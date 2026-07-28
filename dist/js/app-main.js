@@ -2,7 +2,7 @@ import { loadBlockTextures } from "./block-textures.js";
 import { createBlockRegistry } from "./block-registry.js";
 import { renderTestChunk } from "./world-renderer.js?v=pause-menu-v1";
 import { createSaveMenu } from "./save-manager.js?v=world-height-v1";
-import { createSaveWriter, parseSavePayload } from "./save-store.js?v=indexeddb-v2";
+import { createSaveWriter, parseSavePayload } from "./save-store.js?v=indexeddb-v3";
 
 function assert_webgl2() {
   const ctx = document.createElement("canvas").getContext("webgl2");

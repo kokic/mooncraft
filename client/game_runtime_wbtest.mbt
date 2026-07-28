@@ -36,6 +36,26 @@ test "explicit game save restores only its matching world" {
 }
 
 ///|
+test "game save includes spawned entities" {
+  @mob.reset_entities()
+  assert_true(
+    @mob.spawn(
+      @mob.MobSpawnRequest::new("saved_zombie", Zombie, 4.0, 65.0, -2.0),
+    ),
+  )
+  let saved = game_runtime_fixture().save_snapshot(1500.0)
+  @mob.reset_entities()
+
+  guard @save.decode_save_payload(saved) is Some(payload) else {
+    fail("expected entity save payload")
+  }
+  guard payload.entities() is [entity] else { fail("expected saved entity") }
+  @test.assert_eq(entity.id, "saved_zombie")
+  guard entity.kind is Mob(Zombie) else { fail("expected saved zombie") }
+  @test.assert_eq(entity.position.x, 4.0)
+}
+
+///|
 test "game runtime executes teleport command" {
   let runtime = game_runtime_fixture()
   let result = runtime.execute_command("/tp 12.5 80 -4")
@@ -68,6 +88,35 @@ test "summon command accepts supported entities and defaults animation" {
 }
 
 ///|
+test "build command accepts supported structures" {
+  match parse_command("/build oak") {
+    Build(Oak) => ()
+    _ => fail("oak build was not accepted")
+  }
+  match parse_command("/build fallen_oak") {
+    Build(FallenOak) => ()
+    _ => fail("fallen oak build was not accepted")
+  }
+  match parse_command("/build cactus") {
+    Build(Cactus) => ()
+    _ => fail("cactus build was not accepted")
+  }
+  match parse_command("/build nether_spire") {
+    Build(NetherSpire) => ()
+    _ => fail("nether spire build was not accepted")
+  }
+}
+
+///|
+test "game runtime builds an oak at the crosshair target" {
+  let runtime = game_runtime_fixture()
+  ignore(runtime.player_runtime.restore([8.5, 4.0, 8.5], 0.0, -1.0))
+  let result = runtime.execute_command("/build oak")
+  @test.assert_eq(result.success, true)
+  assert_true(runtime.chunk_runtime.block_deltas().length() > 0)
+}
+
+///|
 test "game runtime summons a zombie at the crosshair target" {
   let runtime = game_runtime_fixture()
   ignore(runtime.player_runtime.restore([0.5, 4.0, 0.5], 0.0, -1.0))
@@ -89,6 +138,8 @@ test "game runtime rejects invalid commands without changing state" {
       "/rd \{invalid_distance}",
       "/summon skeleton",
       "/summon zombie idle extra",
+      "/build acacia",
+      "/build oak extra",
       "/unknown",
     ] {
     let result = runtime.execute_command(command)

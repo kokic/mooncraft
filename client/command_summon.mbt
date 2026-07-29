@@ -57,7 +57,7 @@ fn GameRuntime::summon_target(
     let (x, y, z) = point
     (
       x.to_double() + 0.5,
-      y.to_double() + 0,
+      y.to_double() + 1,
       z.to_double() + 0.5,
       self.player_runtime.yaw() + @math.PI,
     )

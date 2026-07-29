@@ -71,7 +71,12 @@ fn GameRuntime::tick(
 ) -> GameFrame {
   let player = self.player_runtime.tick(delta)
   let (center_x, center_z) = self.player_chunk_center()
-  let chunk = self.chunk_runtime.tick(registry, center_x, center_z)
+  let chunk = self.chunk_runtime.tick(
+    registry,
+    center_x,
+    center_z,
+    center_y=player.position[1].to_int(),
+  )
   {
     chunk,
     player,

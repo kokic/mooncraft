@@ -20,6 +20,11 @@ pub const CHUNK_GENERATION_WORK_BUDGET : Int = 8
 pub const CHUNK_MESH_BUDGET : Int = 8
 
 ///|
+/// Vertical block radius kept mesh-resident around the player. Terrain data
+/// remains in `chunk_map`; sections outside this window are built on demand.
+pub const VERTICAL_MESH_RADIUS : Int = 48
+
+///|
 /// Owns all CPU-side chunk streaming, lighting, and mesh invalidation state.
 /// `chunk_map` is an opaque browser map used only as a zero-copy data bridge.
 pub struct ChunkRuntime {
@@ -43,6 +48,8 @@ pub struct ChunkRuntime {
   mut column_queue : Array[String]
   mut queue_head : Int
   mut active_infinite_column : @level.InfiniteChunkColumnGeneration?
+  mut mesh_min_y : Int
+  mut mesh_max_y : Int
   dirty_sections : Map[String, ChunkSection]
   rendered_sections : Map[String, ChunkSection]
   mut dirty_lights : Map[String, Bool]
@@ -155,6 +162,8 @@ pub fn ChunkRuntime::new(
     column_queue: [],
     queue_head: 0,
     active_infinite_column: None,
+    mesh_min_y: world.min_y(),
+    mesh_max_y: world.max_y(),
     dirty_sections: {},
     rendered_sections: {},
     dirty_lights,
@@ -518,6 +527,11 @@ fn ChunkRuntime::refresh_lights(self : ChunkRuntime) -> Array[String] {
   for column_key in self.desired_columns.keys() {
     let (x, z) = @level.chunk_xz_by_chunk_column_key(column_key)
     for y in self.chunk_min_y..<=self.chunk_max_y {
+      let chunk_min_y = y * self.chunk_size
+      let chunk_max_y = chunk_min_y + self.chunk_size - 1
+      guard chunk_max_y >= self.mesh_min_y && chunk_min_y <= self.mesh_max_y else {
+        continue
+      }
       keys.push(@level.chunk_key_by_chunk_xyz(x, y, z))
     }
   }
@@ -599,12 +613,54 @@ fn ChunkRuntime::mark_section_dirty(
   sz : Int,
 ) -> Unit {
   let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
+  guard self.section_in_mesh_window(section) else { return }
   let key = section_key(chunk_key, sx, sy, sz)
   guard self.section_has_non_air(section) ||
     self.rendered_sections.contains(key) else {
     return
   }
   self.dirty_sections[key] = section
+}
+
+///|
+fn ChunkRuntime::section_in_mesh_window(
+  self : ChunkRuntime,
+  section : ChunkSection,
+) -> Bool {
+  let (_, chunk_y, _) = @level.chunk_xyz_by_chunk_key(section.chunk_key)
+  let section_min_y = chunk_y * self.chunk_size + section.y * self.section_size
+  let section_max_y = section_min_y + self.section_size - 1
+  section_max_y >= self.mesh_min_y && section_min_y <= self.mesh_max_y
+}
+
+///|
+fn ChunkRuntime::refresh_mesh_window(
+  self : ChunkRuntime,
+  center_y : Int,
+) -> Unit {
+  let min_y = (center_y - VERTICAL_MESH_RADIUS).clamp(
+    min=self.world.min_y(),
+    max=self.world.max_y(),
+  )
+  let max_y = (center_y + VERTICAL_MESH_RADIUS).clamp(
+    min=self.world.min_y(),
+    max=self.world.max_y(),
+  )
+  guard min_y != self.mesh_min_y || max_y != self.mesh_max_y else { return }
+  self.mesh_min_y = min_y
+  self.mesh_max_y = max_y
+  for key in self.dirty_sections.keys().to_array() {
+    guard self.dirty_sections.get(key) is Some(section) else { continue }
+    if !self.section_in_mesh_window(section) {
+      self.dirty_sections.remove(key)
+    }
+  }
+  for column_key in self.loaded_columns.keys() {
+    let (x, z) = @level.chunk_xz_by_chunk_column_key(column_key)
+    for y in self.chunk_min_y..<=self.chunk_max_y {
+      self.mark_chunk_sections_dirty(@level.chunk_key_by_chunk_xyz(x, y, z))
+    }
+  }
 }
 
 ///|

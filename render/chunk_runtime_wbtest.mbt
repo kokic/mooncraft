@@ -148,6 +148,39 @@ test "infinite high-air sections are not meshed" {
 }
 
 ///|
+test "mesh window defers distant vertical sections until the player reaches them" {
+  let world = @level.World::new(seed=41U, world_type=@level.WorldType::Flat)
+  let initial = world.generate_chunk(0, 0, 0).tile_map
+  let runtime = ChunkRuntime::new(world, initial, render_distance=0)
+  let stone = @block.lookup_by_name("stone").unwrap().internal_id()
+  let distant_y = 128
+  let distant_chunk = @util.floor_div(distant_y, @level.CHUNK_Y_SIZE)
+  let distant_key = @level.chunk_key_by_chunk_xyz(0, distant_chunk, 0)
+  runtime.refresh_mesh_window(0)
+  assert_false(
+    runtime.section_in_mesh_window(ChunkSection::{
+      chunk_key: distant_key,
+      x: 0,
+      y: 0,
+      z: 0,
+    }),
+  )
+  for key in runtime.dirty_sections.keys().to_array() {
+    runtime.dirty_sections.remove(key)
+  }
+  assert_true(runtime.set_block(1, distant_y, 1, stone))
+  let registry = BlockRegistry::create([], [])
+  let hidden_frame = runtime.tick(registry, 0, 0, center_y=0)
+  assert_false(
+    hidden_frame.mesh_updates.any(command => command.chunk_key == distant_key),
+  )
+  let visible_frame = runtime.tick(registry, 0, 0, center_y=distant_y)
+  assert_true(
+    visible_frame.mesh_updates.any(command => command.chunk_key == distant_key),
+  )
+}
+
+///|
 test "neighbor loading invalidates only the shared section boundary" {
   let world = @level.World::new(seed=5U, world_type=@level.WorldType::Flat)
   let initial = world.generate_chunk(0, 0, 0).tile_map

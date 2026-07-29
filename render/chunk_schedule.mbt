@@ -110,6 +110,7 @@ fn ChunkRuntime::take_dirty_sections(
           let key = section_key(chunk_key, sx, sy, sz)
           guard self.dirty_sections.get(key) is Some(section) else { continue }
           self.dirty_sections.remove(key)
+          guard self.section_in_mesh_window(section) else { continue }
           sections.push(section)
           remaining = remaining - 1
         }
@@ -127,7 +128,9 @@ pub fn ChunkRuntime::tick(
   registry : BlockRegistry,
   center_x : Int,
   center_z : Int,
+  center_y? : Int = 0,
 ) -> ChunkRenderFrame {
+  self.refresh_mesh_window(center_y)
   self.refresh_desired(center_x, center_z)
   let generated = self.generate_queued()
   let evicted = self.evict_undesired()

@@ -399,6 +399,18 @@ function renderTestChunk({
         colors[i + 3] = 1;
       }
     }
+    if (mesh.count === 0) {
+      return {
+        count: 0,
+        vaoWorld: null,
+        vaoLeaf: null,
+        vaoWater: null,
+        positionBuffer: null,
+        colorBuffer: null,
+        uvBuffer: null,
+        layerBuffer: null,
+      };
+    }
     const positionBuffer = gl.createBuffer();
     const uvBuffer = gl.createBuffer();
     const layerBuffer = gl.createBuffer();
@@ -466,6 +478,7 @@ function renderTestChunk({
     const colors = command?.colors;
     if (!section || !colors) return false;
     const uploadColors = (part, colors) => {
+      if (part.count === 0) return true;
       const expected = part.count * 4;
       const arr = Float32Array.from(colors ?? []);
       if (part.count > 0 && arr.length !== expected) {

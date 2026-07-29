@@ -256,16 +256,16 @@ pub fn Block::outline_boxes(block : Block) -> Array[@shape.Box] {
 }
 
 ///|
-pub fn get_shape_desc(long_id : @schema.InternalID) -> @shape.Source? {
-  lookup_by_long_id(long_id).map(block => @shape.Source::{
+pub fn get_shape_desc(internal_id : @schema.InternalID) -> @shape.Source? {
+  lookup_by_internal_id(internal_id).map(block => @shape.Source::{
     boxes: block.collision_boxes(),
     facing: -1,
   })
 }
 
 ///|
-pub fn get_outline_desc(long_id : @schema.InternalID) -> @shape.Source? {
-  lookup_by_long_id(long_id).map(block => @shape.Source::{
+pub fn get_outline_desc(internal_id : @schema.InternalID) -> @shape.Source? {
+  lookup_by_internal_id(internal_id).map(block => @shape.Source::{
     boxes: block.outline_boxes(),
     facing: -1,
   })
@@ -329,7 +329,7 @@ fn ray_intersects_box(
 ///|
 /// Test whether a ray can target the block's profile-defined bounds.
 pub fn raycast_intersects(
-  long_id : @schema.InternalID,
+  internal_id : @schema.InternalID,
   origin : Array[Double],
   direction : Array[Double],
   wx : Int,
@@ -338,7 +338,7 @@ pub fn raycast_intersects(
   include_liquid : Bool,
 ) -> Bool {
   guard origin.length() >= 3 && direction.length() >= 3 else { false }
-  match lookup_by_long_id(long_id) {
+  match lookup_by_internal_id(internal_id) {
     None => false
     Some(block) => {
       let profile = block.profile()

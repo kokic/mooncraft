@@ -1,9 +1,9 @@
 ///|
-fn can_break_block(long_id : UInt) -> Bool {
-  if long_id == @schema.AIR_ID {
+fn can_break_block(internal_id : UInt) -> Bool {
+  if internal_id == @schema.AIR_ID {
     false
   } else {
-    @block.lookup_by_long_id(long_id)
+    @block.lookup_by_internal_id(internal_id)
     .map(block => block.is_selectable())
     .unwrap_or(false)
   }

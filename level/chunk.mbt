@@ -34,10 +34,10 @@ pub fn Chunk::update_tile_map(
   block_rx : Int,
   block_ry : Int,
   block_rz : Int,
-  long_id : UInt,
+  internal_id : UInt,
 ) -> Unit {
   let idx = get_linear_block_index(block_rx, block_ry, block_rz)
-  self.tile_map[idx] = long_id
+  self.tile_map[idx] = internal_id
 }
 
 ///|
@@ -74,7 +74,7 @@ pub fn Chunk::set_block(
   wx : Int,
   wy : Int,
   wz : Int,
-  long_id : UInt,
+  internal_id : UInt,
 ) -> Unit {
   let base_x = chunk.x * CHUNK_X_SIZE
   let base_y = chunk.y * CHUNK_Y_SIZE
@@ -85,5 +85,5 @@ pub fn Chunk::set_block(
   let rx = wx - base_x
   let ry = wy - base_y
   let rz = wz - base_z
-  chunk.update_tile_map(rx, ry, rz, long_id)
+  chunk.update_tile_map(rx, ry, rz, internal_id)
 }

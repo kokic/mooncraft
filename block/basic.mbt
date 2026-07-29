@@ -34,7 +34,6 @@ fn alloc_block_id() -> @schema.InternalID {
 ///|
 fn Block::create(
   name : @schema.UniqueID,
-  id? : BlockId = alloc_block_id(),
   state? : UInt = 0,
   occlusion_cull? : Bool = true,
   same_block_cull? : Bool = true,
@@ -47,8 +46,39 @@ fn Block::create(
   category? : @item.Category = @item.Block,
   faces : FixedArray[String],
 ) -> Block {
-  // STATUS: COMPLETE - supported face layouts are 0/1/2/3/6 textures. The
-  // panic below catches invalid registry entries during development.
+  Block::unsafe_create_with_specified_id(
+    name,
+    state~,
+    occlusion_cull~,
+    same_block_cull~,
+    luminance~,
+    opacity~,
+    alpha_mode~,
+    shape~,
+    facing~,
+    material~,
+    category~,
+    faces,
+    alloc_block_id(),
+  )
+}
+
+///|
+fn Block::unsafe_create_with_specified_id(
+  name : @schema.UniqueID,
+  state? : UInt = 0,
+  occlusion_cull? : Bool = true,
+  same_block_cull? : Bool = true,
+  luminance? : Int = 0,
+  opacity? : Int = 15,
+  alpha_mode? : AlphaMode = AlphaMode::Opaque,
+  shape? : Shape = Shape::Cube,
+  facing? : Facing = Facing::None,
+  material? : Material = Material::Normal,
+  category? : @item.Category = @item.Block,
+  faces : FixedArray[String],
+  id : BlockId,
+) -> Block {
   let faces = match faces.length() {
     0 => TextureNames::new()
     1 => TextureNames::isotropic(faces[0])
@@ -83,7 +113,10 @@ fn Block::create(
 }
 
 ///|
-pub fn Block::long_id(block : Block, state? : UInt = block.state) -> @schema.InternalID {
+pub fn Block::internal_id(
+  block : Block,
+  state? : UInt = block.state,
+) -> @schema.InternalID {
   @schema.encode_variant(block.id, state)
 }
 
@@ -133,12 +166,12 @@ pub fn collect_texture_names() -> Array[String] {
 }
 
 ///|
-/// Collect (long_id, opacity, luminance) for lighting.
+/// Collect (internal_id, opacity, luminance) for lighting.
 pub fn collect_block_light_info() -> Array[Array[Int]] {
   let out : Array[Array[Int]] = []
   for block in blocks {
-    let long_id = block.long_id().reinterpret_as_int()
-    out.push([long_id, block.opacity, block.luminance])
+    let internal_id = block.internal_id().reinterpret_as_int()
+    out.push([internal_id, block.opacity, block.luminance])
   }
   out
 }

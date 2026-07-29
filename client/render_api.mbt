@@ -20,8 +20,8 @@ pub fn register_render_api() -> Unit {
   @ffi.cast_global_set("mcQuatSlerp", @math3d.quat_slerp)
   @ffi.cast_global_set("mcCreateBlockRegistry", @render.BlockRegistry::create)
   @ffi.cast_global_set(
-    "mcGetRenderBlockByLongId",
-    @render.BlockRegistry::get_by_long_id,
+    "mcGetRenderBlockByInternalId",
+    @render.BlockRegistry::get_by_internal_id,
   )
   @ffi.cast_global_set("mcBuildUiItemMesh", @render.build_ui_item_mesh)
   @ffi.cast_global_set("mcParseGlb", @render.parse_glb)

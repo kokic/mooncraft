@@ -230,9 +230,9 @@ class ItemIconRenderer {
     window.mcMat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
     window.mcMat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
 
-    const longId = window.mcGetLongIdByName(item.name);
-    if (!Number.isFinite(longId)) throw new Error(`mcGetLongIdByName failed for ${item.name}`);
-    const mesh = window.mcBuildUiItemMesh(window.mcBlocks, longId);
+    const internalId = window.mcGetInternalIdByName(item.name);
+    if (!Number.isFinite(internalId)) throw new Error(`mcGetInternalIdByName failed for ${item.name}`);
+    const mesh = window.mcBuildUiItemMesh(window.mcBlocks, internalId);
     if (!mesh) throw new Error("mcBuildUiItemMesh returned null");
     const positions = Float32Array.from(mesh.positions);
     const colors = Float32Array.from(mesh.colors);

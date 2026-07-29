@@ -4,7 +4,7 @@ pub fn place_cactus(
   center_x : Int,
   base_y : Int,
   center_z : Int,
-  filler_cactus? : @block.BlockId = @block.lookup_by_name("cactus").unwrap().id,
+  filler_cactus? : @block.BlockId = @block.lookup_by_name("cactus").unwrap().internal_id(),
   seed? : UInt = 0U,
 ) -> Unit {
   let height = match feature_noise(seed, center_x, base_y, center_z, 53) {

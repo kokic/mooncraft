@@ -296,8 +296,8 @@ fn chunk_intersects_nether_spire(world : World, chunk : Chunk) -> Bool {
 ///|
 fn place_nether_spire_in_chunk(world : World, chunk : Chunk) -> Unit {
   let base_y = finite_terrain_column(world, 0, 0).surface
-  let setter = fn(wx : Int, wy : Int, wz : Int, long_id : UInt) -> Unit {
-    Chunk::set_block(chunk, wx, wy, wz, long_id)
+  let setter = fn(wx : Int, wy : Int, wz : Int, internal_id : UInt) -> Unit {
+    Chunk::set_block(chunk, wx, wy, wz, internal_id)
   }
   @structure.place_nether_spire(setter, 0, base_y, 0)
 }
@@ -306,12 +306,12 @@ fn place_nether_spire_in_chunk(world : World, chunk : Chunk) -> Unit {
 /// Finite world terrain generation (256 x 128 x 256).
 fn fill_finite(world : World, chunk : Chunk) -> Chunk {
   let air = @schema.AIR_ID
-  let bedrock = @block.lookup_by_name("bedrock").unwrap().id
-  let stone = @block.lookup_by_name("stone").unwrap().id
-  let grass = @block.lookup_by_name("grass").unwrap().id
-  let dirt = @block.lookup_by_name("dirt").unwrap().id
-  let sand = @block.lookup_by_name("sand").unwrap().id
-  let sandstone = @block.lookup_by_name("sandstone").unwrap().id
+  let bedrock = @block.lookup_by_name("bedrock").unwrap().internal_id()
+  let stone = @block.lookup_by_name("stone").unwrap().internal_id()
+  let grass = @block.lookup_by_name("grass").unwrap().internal_id()
+  let dirt = @block.lookup_by_name("dirt").unwrap().internal_id()
+  let sand = @block.lookup_by_name("sand").unwrap().internal_id()
+  let sandstone = @block.lookup_by_name("sandstone").unwrap().internal_id()
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)

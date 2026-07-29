@@ -55,23 +55,23 @@ priv struct InfiniteBlockPalette {
 ///|
 fn InfiniteBlockPalette::new() -> InfiniteBlockPalette {
   {
-    bedrock: @block.lookup_by_name("bedrock").unwrap().id,
-    stone: @block.lookup_by_name("stone").unwrap().id,
-    deepslate: @block.lookup_by_name("deepslate").unwrap().id,
-    grass: @block.lookup_by_name("grass").unwrap().id,
-    snow: @block.lookup_by_name("classic.snow").unwrap().id,
-    dirt: @block.lookup_by_name("dirt").unwrap().id,
-    sand: @block.lookup_by_name("sand").unwrap().id,
-    sandstone: @block.lookup_by_name("sandstone").unwrap().id,
-    water: @block.lookup_by_name("water").unwrap().id,
-    lava: @block.lookup_by_name("lava").unwrap().id,
-    coal_ore: @block.lookup_by_name("classic.coal_ore").unwrap().id,
-    iron_ore: @block.lookup_by_name("classic.iron_ore").unwrap().id,
-    gold_ore: @block.lookup_by_name("classic.gold_ore").unwrap().id,
-    redstone_ore: @block.lookup_by_name("classic.redstone_ore").unwrap().id,
-    diamond_ore: @block.lookup_by_name("classic.diamond_ore").unwrap().id,
-    lapis_ore: @block.lookup_by_name("classic.lapis_ore").unwrap().id,
-    emerald_ore: @block.lookup_by_name("classic.emerald_ore").unwrap().id,
+    bedrock: @block.lookup_by_name("bedrock").unwrap().internal_id(),
+    stone: @block.lookup_by_name("stone").unwrap().internal_id(),
+    deepslate: @block.lookup_by_name("deepslate").unwrap().internal_id(),
+    grass: @block.lookup_by_name("grass").unwrap().internal_id(),
+    snow: @block.lookup_by_name("classic.snow").unwrap().internal_id(),
+    dirt: @block.lookup_by_name("dirt").unwrap().internal_id(),
+    sand: @block.lookup_by_name("sand").unwrap().internal_id(),
+    sandstone: @block.lookup_by_name("sandstone").unwrap().internal_id(),
+    water: @block.lookup_by_name("water").unwrap().internal_id(),
+    lava: @block.lookup_by_name("lava").unwrap().internal_id(),
+    coal_ore: @block.lookup_by_name("classic.coal_ore").unwrap().internal_id(),
+    iron_ore: @block.lookup_by_name("classic.iron_ore").unwrap().internal_id(),
+    gold_ore: @block.lookup_by_name("classic.gold_ore").unwrap().internal_id(),
+    redstone_ore: @block.lookup_by_name("classic.redstone_ore").unwrap().internal_id(),
+    diamond_ore: @block.lookup_by_name("classic.diamond_ore").unwrap().internal_id(),
+    lapis_ore: @block.lookup_by_name("classic.lapis_ore").unwrap().internal_id(),
+    emerald_ore: @block.lookup_by_name("classic.emerald_ore").unwrap().internal_id(),
   }
 }
 
@@ -382,7 +382,7 @@ fn place_biome_trees_in_generated_chunk(
       let rz = wz - base_z
       columns[rx * CHUNK_Z_SIZE + rz].terrain.surface_biome
     },
-    long_id => long_id == grass,
+    internal_id => internal_id == grass,
   )
 }
 

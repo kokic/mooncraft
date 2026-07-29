@@ -11,7 +11,7 @@ pub fn get_chunk_data(chunk_map : @ffi.JsValue, key : String) -> Array[UInt]? {
 }
 
 ///|
-/// Read the block long_id at world coordinates (wx, wy, wz).
+/// Read the block internal_id at world coordinates (wx, wy, wz).
 /// Returns None if the chunk is missing or coordinates are out of bounds.
 pub fn get_block_id(
   chunk_map : @ffi.JsValue,
@@ -49,13 +49,13 @@ pub fn is_water_at(
   wz : Int,
 ) -> Bool {
   get_block_id(chunk_map, size, wx, wy, wz)
-  .bind(id => @block.lookup_by_long_id(id))
+  .bind(id => @block.lookup_by_internal_id(id))
   .map(block => block.is_water())
   .unwrap_or(false)
 }
 
 ///|
-/// Update the block long_id at world coordinates (wx, wy, wz).
+/// Update the block internal_id at world coordinates (wx, wy, wz).
 /// Returns the list of chunk keys that need mesh rebuilds (self + neighbors).
 pub fn set_block_id(
   chunk_map : @ffi.JsValue,

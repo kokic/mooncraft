@@ -188,8 +188,8 @@ pub fn place_oak_trees_in_chunk(
   world : World,
   chunk : Chunk,
   params? : PlacementParams = plains_tree_params,
-  is_grass? : (UInt) -> Bool = long_id => {
-    long_id == @block.lookup_by_name("grass").unwrap().long_id()
+  is_grass? : (UInt) -> Bool = internal_id => {
+    internal_id == @block.lookup_by_name("grass").unwrap().internal_id()
   },
 ) -> Unit {
   apply_pending_to_chunk(chunk)
@@ -242,16 +242,16 @@ fn place_biome_trees_in_chunk_with_biome(
 
   // blocks
   let air = @schema.AIR_ID
-  let grass_id = @block.lookup_by_name("grass").unwrap().id
-  let dirt_id = @block.lookup_by_name("dirt").unwrap().id
-  let sand_id = @block.lookup_by_name("sand").unwrap().id
-  let snow_id = @block.lookup_by_name("classic.snow").unwrap().id
+  let grass_id = @block.lookup_by_name("grass").unwrap().internal_id()
+  let dirt_id = @block.lookup_by_name("dirt").unwrap().internal_id()
+  let sand_id = @block.lookup_by_name("sand").unwrap().internal_id()
+  let snow_id = @block.lookup_by_name("classic.snow").unwrap().internal_id()
   let oak_log = @block.lookup_by_name("classic.oak_log").unwrap()
   let birch_log = @block.lookup_by_name("classic.birch_log").unwrap()
   let spruce_log = @block.lookup_by_name("classic.spruce_log").unwrap()
   let acacia_log = @block.lookup_by_name("classic.acacia_log").unwrap()
   let jungle_log = @block.lookup_by_name("classic.jungle_log").unwrap()
-  let leaves_id = @block.lookup_by_name("oak_leaves").unwrap().id
+  let leaves_id = @block.lookup_by_name("oak_leaves").unwrap().internal_id()
 
   // placement
   for rx in 0..<CHUNK_X_SIZE {
@@ -318,8 +318,8 @@ fn place_biome_trees_in_chunk_with_biome(
 pub fn place_biome_trees_in_chunk(
   world : World,
   chunk : Chunk,
-  is_grass? : (UInt) -> Bool = long_id => {
-    long_id == @block.lookup_by_name("grass").unwrap().long_id()
+  is_grass? : (UInt) -> Bool = internal_id => {
+    internal_id == @block.lookup_by_name("grass").unwrap().internal_id()
   },
 ) -> Unit {
   place_biome_trees_in_chunk_with_biome(

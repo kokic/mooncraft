@@ -39,11 +39,11 @@ test "Infinite surface materials use the global column surface" {
   let world = World::new(seed=7U, world_type=WorldType::Infinite)
   let column = terrain_column(world, 0, 0)
   let top = test_top_solid_y(world, column)
-  let grass = @block.lookup_by_name("grass").unwrap().id
-  let snow = @block.lookup_by_name("classic.snow").unwrap().id
-  let dirt = @block.lookup_by_name("dirt").unwrap().id
-  let sand = @block.lookup_by_name("sand").unwrap().id
-  let sandstone = @block.lookup_by_name("sandstone").unwrap().id
+  let grass = @block.lookup_by_name("grass").unwrap().internal_id()
+  let snow = @block.lookup_by_name("classic.snow").unwrap().internal_id()
+  let dirt = @block.lookup_by_name("dirt").unwrap().internal_id()
+  let sand = @block.lookup_by_name("sand").unwrap().internal_id()
+  let sandstone = @block.lookup_by_name("sandstone").unwrap().internal_id()
   let surface_ids : Array[UInt] = [grass, snow, dirt, sand, sandstone]
   let min_cy = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
   let top_cy = @util.floor_div(top, CHUNK_Y_SIZE)
@@ -65,7 +65,7 @@ test "Infinite surface materials use the global column surface" {
 ///|
 test "Infinite bedrock has a solid floor and a randomized upper edge" {
   let world = World::new(seed=19U, world_type=WorldType::Infinite)
-  let bedrock = @block.lookup_by_name("bedrock").unwrap().id
+  let bedrock = @block.lookup_by_name("bedrock").unwrap().internal_id()
   let bottom_cy = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
   let chunk = world.generate_chunk(0, bottom_cy, 0)
   let mut upper_bedrock = 0
@@ -91,7 +91,7 @@ test "Infinite bedrock has a solid floor and a randomized upper edge" {
 ///|
 test "Infinite underground switches from stone to deepslate" {
   let world = World::new(seed=29U, world_type=WorldType::Infinite)
-  let deepslate = @block.lookup_by_name("deepslate").unwrap().id
+  let deepslate = @block.lookup_by_name("deepslate").unwrap().internal_id()
   let mut found = false
   for wx in 0..<CHUNK_X_SIZE {
     for wz in 0..<CHUNK_Z_SIZE {

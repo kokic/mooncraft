@@ -173,12 +173,12 @@ fn preclassic_should_carve_cave(
 /// Pre-classic world terrain generation (256 x 64 x 256).
 fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
   let air = @schema.AIR_ID
-  let bedrock = @block.lookup_by_name("bedrock").unwrap().id
-  let stone = @block.lookup_by_name("pre-classic.cobblestone").unwrap().id
-  let grass = @block.lookup_by_name("pre-classic.grass").unwrap().id
-  let dirt = @block.lookup_by_name("dirt").unwrap().id
-  let sand = @block.lookup_by_name("sand").unwrap().id
-  let water = @block.lookup_by_name("water").unwrap().id
+  let bedrock = @block.lookup_by_name("bedrock").unwrap().internal_id()
+  let stone = @block.lookup_by_name("pre-classic.cobblestone").unwrap().internal_id()
+  let grass = @block.lookup_by_name("pre-classic.grass").unwrap().internal_id()
+  let dirt = @block.lookup_by_name("dirt").unwrap().internal_id()
+  let sand = @block.lookup_by_name("sand").unwrap().internal_id()
+  let water = @block.lookup_by_name("water").unwrap().internal_id()
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
@@ -217,6 +217,6 @@ fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
       }
     }
   }
-  place_oak_trees_in_chunk(world, chunk, is_grass=long_id => long_id == grass)
+  place_oak_trees_in_chunk(world, chunk, is_grass=internal_id => internal_id == grass)
   chunk
 }

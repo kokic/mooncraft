@@ -1,17 +1,17 @@
 ///|
-fn resolve_block_long_id(name : String) -> UInt? {
-  @block.lookup_by_name(name).map(block => block.long_id())
+fn resolve_block_internal_id(name : String) -> UInt? {
+  @block.lookup_by_name(name).map(block => block.internal_id())
 }
 
 ///|
-fn block_name_matches(long_id : UInt, selector : @item.BlockSelector) -> Bool {
-  @block.lookup_by_long_id(long_id)
+fn block_name_matches(internal_id : UInt, selector : @item.BlockSelector) -> Bool {
+  @block.lookup_by_internal_id(internal_id)
   .map(block => selector.matches(block.name))
   .unwrap_or(false)
 }
 
 ///|
-fn resolve_block_long_id_by_selector(selector : @item.BlockSelector) -> UInt? {
+fn resolve_block_internal_id_by_selector(selector : @item.BlockSelector) -> UInt? {
   let mut found : UInt? = None
   for block in @block.blocks {
     if selector.matches(block.name) {
@@ -19,7 +19,7 @@ fn resolve_block_long_id_by_selector(selector : @item.BlockSelector) -> UInt? {
         Some(_) =>
           // Ambiguous predicate: refuse replacement to keep behavior deterministic.
           return None
-        None => found = Some(block.long_id())
+        None => found = Some(block.internal_id())
       }
     }
   }
@@ -50,7 +50,7 @@ fn can_replace_at(
   get_block_id(chunk_map, size, wx, wy, wz)
   .map(id => {
     id == @schema.AIR_ID ||
-    @block.lookup_by_long_id(id)
+    @block.lookup_by_internal_id(id)
     .map(block => block.shape is @block.Shape::Liquid)
     .unwrap_or(false)
   })
@@ -82,7 +82,7 @@ fn intersects(
 
 ///|
 fn can_place_block(
-  long_id : UInt,
+  internal_id : UInt,
   player_pos : Array[Double],
   entity_height : Double,
   entity_radius : Double,
@@ -90,13 +90,13 @@ fn can_place_block(
   wy : Int,
   wz : Int,
 ) -> Bool {
-  if long_id == @schema.AIR_ID {
+  if internal_id == @schema.AIR_ID {
     return true
   }
   if player_pos.length() < 3 {
     return true
   }
-  match @block.get_shape_desc(long_id) {
+  match @block.get_shape_desc(internal_id) {
     None => false
     Some(desc) => {
       let px = player_pos[0]
@@ -172,7 +172,7 @@ pub fn apply_use_on_action(
             if !expected_ok {
               []
             } else {
-              match resolve_block_long_id_by_selector(new_predicate) {
+              match resolve_block_internal_id_by_selector(new_predicate) {
                 None => []
                 Some(new_id) =>
                   set_block_id(chunk_map, size, wx, wy, wz, new_id)
@@ -195,7 +195,7 @@ pub fn apply_use_on_action(
         !can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) {
         []
       } else {
-        match resolve_block_long_id(name) {
+        match resolve_block_internal_id(name) {
           None => []
           Some(base_id) => {
             let block = [target_wx, target_wy, target_wz]
@@ -207,13 +207,13 @@ pub fn apply_use_on_action(
               player_pos~,
             )
             let raw_id = @schema.decode_block_id(base_id)
-            let long_id = @schema.encode_variant(raw_id, placement_state)
+            let internal_id = @schema.encode_variant(raw_id, placement_state)
             if can_place_block(
-                long_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
+                internal_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
                 place_wz,
               ) {
               set_block_id(
-                chunk_map, size, place_wx, place_wy, place_wz, long_id,
+                chunk_map, size, place_wx, place_wy, place_wz, internal_id,
               )
             } else {
               []

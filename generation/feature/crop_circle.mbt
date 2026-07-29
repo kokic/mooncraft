@@ -149,7 +149,7 @@ pub fn place_crop_circle_texts_flat(
   set_block : (Int, Int, Int, UInt) -> Unit,
   world_seed : Int,
   surface_y : Int,
-  filler? : @block.BlockId = @block.lookup_by_name("grass_path").unwrap().id,
+  filler? : @block.BlockId = @block.lookup_by_name("grass_path").unwrap().internal_id(),
 ) -> Unit {
   for i in 0..<crop_circle_texts.length() {
     let text = crop_circle_texts[i]

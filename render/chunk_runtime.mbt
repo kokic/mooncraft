@@ -237,7 +237,7 @@ pub fn ChunkRuntime::apply_block_deltas(
     }
   }
   for delta in deltas {
-    ignore(self.set_block(delta.x, delta.y, delta.z, @block.name_to_long_id(delta.id)))
+    ignore(self.set_block(delta.x, delta.y, delta.z, @block.name_to_internal_id(delta.id)))
   }
   true
 }
@@ -413,7 +413,7 @@ fn ChunkRuntime::apply_saved_block_deltas(
     let lz = delta.z - cz * self.chunk_size
     let index = (ly * self.chunk_size + lz) * self.chunk_size + lx
     if index >= 0 && index < data.length() {
-      data[index] = @block.name_to_long_id(delta.id)
+      data[index] = @block.name_to_internal_id(delta.id)
     }
   }
 }
@@ -426,7 +426,7 @@ fn ChunkRuntime::record_block_delta(
   z : Int,
   id : UInt,
 ) -> Unit {
-  let name = @block.lookup_by_long_id(id).map(b => b.name).unwrap_or("air")
+  let name = @block.lookup_by_internal_id(id).map(b => b.name).unwrap_or("air")
   self.block_deltas["\{x},\{y},\{z}"] = @level.BlockDelta::new(x, y, z, name)
 }
 
@@ -441,7 +441,7 @@ pub fn ChunkRuntime::load_block_delta(
   id : String,
 ) -> Unit {
   self.block_deltas["\{x},\{y},\{z}"] = @level.BlockDelta::new(x, y, z, id)
-  let long_id = @block.name_to_long_id(id)
+  let internal_id = @block.name_to_internal_id(id)
   let key = chunk_key_by_world(self.chunk_size, x, y, z)
   guard @level.get_chunk_data(self.chunk_map, key) is Some(data) else { return }
   let cx = @util.floor_div(x, self.chunk_size)
@@ -452,7 +452,7 @@ pub fn ChunkRuntime::load_block_delta(
   let lz = z - cz * self.chunk_size
   let index = (ly * self.chunk_size + lz) * self.chunk_size + lx
   if index >= 0 && index < data.length() {
-    data[index] = long_id
+    data[index] = internal_id
   }
   self.mark_block_changed(x, y, z)
 }

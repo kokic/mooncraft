@@ -14,8 +14,8 @@ function normalizeGameMode(mode) {
   return mode === "survival" || mode === "spectator" ? mode : "creative";
 }
 
-function getBlockOutlineDesc(longId) {
-  return window.mcGetBlockOutlineDesc(longId);
+function getBlockOutlineDesc(internalId) {
+  return window.mcGetBlockOutlineDesc(internalId);
 }
 
 function createShader(gl, type, source) {
@@ -352,7 +352,7 @@ function renderTestChunk({
     throw new Error("MoonBit chunk runtime did not provide its chunk map");
   }
   const chunkMeshes = new Map();
-  const rawAirLongId = Number(window.mcAirLongId ?? 0);
+  const rawAirLongId = Number(window.mcAirInternalId ?? 0);
   const airLongId = Number.isFinite(rawAirLongId) ? rawAirLongId : 0;
   const meshSectionRaw = Number(window.mcChunkSectionSize ?? DEFAULT_MESH_SECTION_SIZE);
   const meshSectionSize = Number.isFinite(meshSectionRaw)
@@ -1195,15 +1195,15 @@ function renderTestChunk({
     const currentId = getBlockId(hit.block[0], hit.block[1], hit.block[2]);
     if (!Number.isFinite(currentId)) return null;
     if (currentId === airLongId) return null;
-    const renderBlock = typeof window.mcGetRenderBlockByLongId === "function"
-      ? window.mcGetRenderBlockByLongId(blockRegistry, currentId)
+    const renderBlock = typeof window.mcGetRenderBlockByInternalId === "function"
+      ? window.mcGetRenderBlockByInternalId(blockRegistry, currentId)
       : null;
     const block = renderBlock && renderBlock.block ? renderBlock.block : null;
     const isSelectable = block && typeof window.mcBlockIsSelectable === "function"
       ? window.mcBlockIsSelectable(block)
       : currentId !== airLongId;
     if (!isSelectable) return null;
-    return { pos: hit.block, longId: currentId };
+    return { pos: hit.block, internalId: currentId };
   };
 
   const onMouseDown = (event) => {
@@ -1540,7 +1540,7 @@ function renderTestChunk({
       gl.useProgram(outlineProgram);
       assertCurrentProgram("outline mvp", outlineProgram);
       gl.uniformMatrix4fv(outlineMvp, false, mvpMatrix);
-      const boxes = getBlockOutlineDesc(outlineBlock.longId)?.boxes;
+      const boxes = getBlockOutlineDesc(outlineBlock.internalId)?.boxes;
       const outlineBias = 0.006;
       gl.uniform3f(
         outlineViewOffset,

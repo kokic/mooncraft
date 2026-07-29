@@ -21,7 +21,7 @@ pub fn place_oak_tree_genus(
   base_y : Int,
   center_z : Int,
   filler_log? : @block.Block = @block.lookup_by_name("classic.oak_log").unwrap(),
-  filler_leaves? : @block.BlockId = @block.lookup_by_name("oak_leaves").unwrap().id,
+  filler_leaves? : @block.BlockId = @block.lookup_by_name("oak_leaves").unwrap().internal_id(),
   seed? : UInt = 0U,
 ) -> Unit {
   let filler_log_id = filler_log.id
@@ -131,11 +131,11 @@ pub fn place_fallen_oak_tree(
   }
   if feature_noise(seed, center_x, base_y, center_z, 43) >= 0.0 {
     for lx in -3..<=(amount - 3) {
-      set_block(center_x + lx, base_y, center_z, filler_log.long_id(state=1))
+      set_block(center_x + lx, base_y, center_z, filler_log.internal_id(state=1))
     }
   } else {
     for lz in -3..<=(amount - 3) {
-      set_block(center_x, base_y, center_z + lz, filler_log.long_id(state=2))
+      set_block(center_x, base_y, center_z + lz, filler_log.internal_id(state=2))
     }
   }
 }

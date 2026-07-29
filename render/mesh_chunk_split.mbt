@@ -84,7 +84,7 @@ pub fn build_chunk_mesh_split(
         air_block
       } else {
         let idx = get_index(x, y, z)
-        registry.get_by_long_id(chunk_data[idx]).unwrap_or(air_block)
+        registry.get_by_internal_id(chunk_data[idx]).unwrap_or(air_block)
       }
     } else if data_len == pad_len {
       let px = x + 1
@@ -94,7 +94,7 @@ pub fn build_chunk_mesh_split(
         air_block
       } else {
         let idx = (py * pad + pz) * pad + px
-        registry.get_by_long_id(chunk_data[idx]).unwrap_or(air_block)
+        registry.get_by_internal_id(chunk_data[idx]).unwrap_or(air_block)
       }
     } else {
       air_block
@@ -368,7 +368,7 @@ pub fn build_chunk_mesh_split(
           let occlusion = @shape.FaceOcclusion::{
             neighbor_occludes: neighbor.block.occlusion_cull,
             same_block_cull: block.block.inter_cull &&
-            block.long_id == neighbor.long_id,
+            block.internal_id == neighbor.internal_id,
           }
           let visible = (model.face_visible)(render_info, face, occlusion)
           let boundary_transparent = is_chunk_boundary_face(

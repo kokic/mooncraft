@@ -1,7 +1,7 @@
 ///|
 /// Check if a block placement collides with the player AABB.
 pub fn can_place_block(
-  long_id : UInt,
+  internal_id : UInt,
   player_pos : Array[Double],
   entity_height : Double,
   entity_radius : Double,
@@ -9,13 +9,13 @@ pub fn can_place_block(
   wy : Int,
   wz : Int,
 ) -> Bool {
-  if long_id == @schema.AIR_ID {
+  if internal_id == @schema.AIR_ID {
     return true
   }
   if player_pos.length() < 3 {
     return true
   }
-  match @block.get_shape_desc(long_id) {
+  match @block.get_shape_desc(internal_id) {
     None => false
     Some(desc) => {
       let px = player_pos[0]

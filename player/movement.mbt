@@ -61,7 +61,7 @@ fn get_block_boxes_at(
     if id == @schema.AIR_ID {
       None
     } else {
-      @block.lookup_by_long_id(id).bind(block => {
+      @block.lookup_by_internal_id(id).bind(block => {
         if block.is_selectable() {
           Some(id)
         } else {

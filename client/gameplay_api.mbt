@@ -13,7 +13,7 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
   @ffi.cast_global_set(
     "mcCollectBlockLightInfo", @block.collect_block_light_info,
   )
-  @ffi.cast_global_set("mcGetLongIdByName", @block.name_to_long_id)
+  @ffi.cast_global_set("mcGetInternalIdByName", @block.name_to_internal_id)
   @ffi.cast_global_set("mcBlockIsSelectable", @block.Block::is_selectable)
   @ffi.cast_global_set("mcCanPlaceBlock", @player.can_place_block)
   @ffi.cast_global_set("mcRaycastBlocks", @level.raycast_blocks)
@@ -28,10 +28,10 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
   @ffi.cast_global_set("mcGetBlockShapeDesc", @block.get_shape_desc)
   @ffi.cast_global_set("mcGetBlockOutlineDesc", @block.get_outline_desc)
   @ffi.cast_global_set("mcComputePlacementState", (
-    long_id : UInt,
+    internal_id : UInt,
     block : Array[Int],
     previous : Array[Int],
-  ) => @block.compute_placement_state(long_id, block, previous))
+  ) => @block.compute_placement_state(internal_id, block, previous))
   @ffi.cast_global_set("mcUseItemOn", @item.use_item_on)
   @ffi.cast_global_set("mcUseItem", @item.use_item)
   @ffi.cast_global_set("mcGetItemDisplayName", @i18n.item_display_name)

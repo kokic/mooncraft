@@ -26,9 +26,7 @@ pub let blocks : Array[Block] = [
 
   // Terrain
   Block::create("grass_snow", ["snow", "dirt", "grass_side_snowed"]),
-  // STATUS: NEEDS_ADJUSTMENT - the `classoc` prefix is likely a compatibility
-  // typo; keep it stable until save/registry references are audited.
-  Block::create("classoc.grass_snow", [
+  Block::create("classic.grass_snow", [
     "classic/snow", "dirt", "classic/grass_side_snowed",
   ]),
   ..[
@@ -181,45 +179,45 @@ pub let blocks : Array[Block] = [
 ///|
 fn create_torch(
   base : String,
-  id : UInt,
   state : UInt,
   faces : FixedArray[String],
   shape : Shape,
+  id : BlockId,
   luminance? : Int = 0,
   category? : @item.Category = @item.Block,
 ) -> Block {
-  Block::create(
+  Block::unsafe_create_with_specified_id(
     @genus.Torch::unique_name(base, state),
     occlusion_cull=false,
     alpha_mode=AlphaMode::Cutout,
     luminance~,
-    id~,
     state~,
     shape~,
     category~,
     faces,
+    id,
   )
 }
 
 ///|
 fn create_torch_group(
   base : String,
-  id? : UInt = alloc_block_id(),
   faces : FixedArray[String],
   shape : Shape,
   luminance? : Int = 0,
 ) -> Array[Block] {
+  let id = alloc_block_id()
   [
-    create_torch(base, id, 0, faces, shape, luminance~),
-    create_torch(base, id, 1, faces, shape, luminance~, category=@item.None),
-    create_torch(base, id, 2, faces, shape, luminance~, category=@item.None),
-    create_torch(base, id, 3, faces, shape, luminance~, category=@item.None),
-    create_torch(base, id, 4, faces, shape, luminance~, category=@item.None),
+    create_torch(base, 0, faces, shape, id, luminance~),
+    create_torch(base, 1, faces, shape, id, luminance~, category=@item.None),
+    create_torch(base, 2, faces, shape, id, luminance~, category=@item.None),
+    create_torch(base, 3, faces, shape, id, luminance~, category=@item.None),
+    create_torch(base, 4, faces, shape, id, luminance~, category=@item.None),
   ]
 }
 
 ///|
-fn unique_name_by_facing(
+pub fn variant_name(
   base : String,
   facing : Facing,
   state : UInt,
@@ -235,56 +233,56 @@ fn unique_name_by_facing(
 ///|
 fn create_facing(
   base : String,
-  id : UInt,
   state : UInt,
   faces : FixedArray[String],
   facing : Facing,
+  id : BlockId,
   shape? : Shape = Shape::Cube,
   category? : @item.Category = @item.Block,
 ) -> Block {
-  Block::create(
-    unique_name_by_facing(base, facing, state),
-    id~,
+  Block::unsafe_create_with_specified_id(
+    variant_name(base, facing, state),
     state~,
     facing~,
     shape~,
     category~,
     faces,
+    id,
   )
 }
 
 ///|
 fn create_facing_group(
   base : String,
-  id? : UInt = alloc_block_id(),
   faces : FixedArray[String],
   facing? : Facing = Facing::None,
   shape? : Shape = Shape::Cube,
 ) -> Array[Block] {
+  let id = alloc_block_id()
   match facing {
     Facing::Axis =>
       [
-        create_facing(base, id, 0, faces, facing, shape~),
-        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
+        create_facing(base, 0, faces, facing, id, shape~),
+        create_facing(base, 1, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 2, faces, facing, id, shape~, category=@item.None),
       ]
     Facing::Horizontal =>
       [
-        create_facing(base, id, 0, faces, facing, shape~),
-        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 3, faces, facing, shape~, category=@item.None),
+        create_facing(base, 0, faces, facing, id, shape~),
+        create_facing(base, 1, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 2, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 3, faces, facing, id, shape~, category=@item.None),
       ]
     Facing::Six =>
       [
-        create_facing(base, id, 0, faces, facing, shape~),
-        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 3, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 4, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 5, faces, facing, shape~, category=@item.None),
+        create_facing(base, 0, faces, facing, id, shape~),
+        create_facing(base, 1, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 2, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 3, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 4, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 5, faces, facing, id, shape~, category=@item.None),
       ]
-    Facing::None => [create_facing(base, id, 0, faces, facing, shape~)]
+    Facing::None => [create_facing(base, 0, faces, facing, id, shape~)]
   }
 }
 
@@ -305,7 +303,6 @@ fn Block::create_with_classic(
 ) -> Array[Block] {
   [
     Block::create(
-      id=alloc_block_id(),
       name,
       state~,
       occlusion_cull~,
@@ -320,7 +317,6 @@ fn Block::create_with_classic(
       faces,
     ),
     Block::create(
-      id=alloc_block_id(),
       "classic." + name,
       state~,
       occlusion_cull~,

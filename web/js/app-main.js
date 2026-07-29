@@ -3,10 +3,10 @@ import { createBlockRegistry } from "./block-registry.js";
 import { renderTestChunk } from "./world-renderer.js";
 import { createSaveMenu } from "./save-manager.js";
 import { createSaveWriter, parseSavePayload } from "./save-store.js";
-import { launchGame } from "virtual:mooncraft-runtime";
+import { initializeGlobalConstants, launchGame } from "virtual:mooncraft-runtime";
 import { getWorldTypeNames } from "virtual:mooncraft-level";
 
-launchGame();
+initializeGlobalConstants();
 
 const DEFAULT_WORLD_TYPE = getWorldTypeNames()[0]
 
@@ -60,7 +60,7 @@ function launchRequest(slot) {
 async function bootstrap(slot) {
   assert_webgl2();
   const launch = launchRequest(slot);
-  launch_game(launch.seed, launch.worldType, launch.height, launch.saveText);
+  launchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
   window.mcBlocks = blockRegistry;

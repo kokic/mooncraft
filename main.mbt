@@ -1,35 +1,8 @@
 ///|
-/// Create the selected world and publish the complete browser client API.
-#export_name("launchGame")
-pub fn launch_game(
-  seed : UInt,
-  world_type_name : String,
-  height : Int,
-  save_text : String,
-) -> Unit {
-  let world_type = @level.world_type_from_name(world_type_name)
-  let world = @level.World::new(seed~, world_type~, height~)
-  let initial_chunk = world.generate_chunk(0, 0, 0)
-  initialize_client(world, initial_chunk.tile_map, save_text)
-  @mob.install_default_demo(world)
-}
-
-///|
-/// Publish configuration before callable APIs so browser startup observes a
-/// complete, consistent client contract.
-fn initialize_client(
-  world : @level.World,
-  chunk_data : Array[UInt],
-  save_text : String,
-) -> Unit {
-  publish_client_config(world)
-  register_client_api(world, chunk_data, save_text)
-}
-
-///|
-/// Publish scalar configuration and initial world metadata for JS bootstrap.
-fn publish_client_config(world : @level.World) -> Unit {
-  // @ffi.cast_global_set("mcWorldTypes", @level.world_type_names())
+/// Publish world-independent configuration before any JS module accesses
+/// `globalThis.mc*` globals (e.g., IndexedDB reads `mcSaveSchemaVersion`).
+#export_name("initializeGlobalConstants")
+pub fn initialize_global_constants() -> Unit {
   @ffi.cast_global_set(
     "mcInfiniteWorldMinHeight",
     @level.INFINITE_WORLD_MIN_HEIGHT,
@@ -45,11 +18,7 @@ fn publish_client_config(world : @level.World) -> Unit {
 
   @ffi.cast_global_set("mcUpdateLabel", "1:10")
   @ffi.cast_global_set("mcSaveSchemaVersion", @save.SAVE_SCHEMA_VERSION)
-  @ffi.cast_global_set("mcWorldSeed", world.seed())
-  @ffi.cast_global_set("mcWorldType", world.world_type_name())
   @ffi.cast_global_set("mcChunkSize", @level.CHUNK_X_SIZE)
-  @ffi.cast_global_set("mcWorldMinY", world.min_y())
-  @ffi.cast_global_set("mcWorldMaxY", world.max_y())
   @ffi.cast_global_set(
     "mcRenderDistance",
     @render.DEFAULT_CHUNK_RENDER_DISTANCE,
@@ -82,13 +51,36 @@ fn publish_client_config(world : @level.World) -> Unit {
 }
 
 ///|
-/// Register the browser API by domain boundary. Each `mc*` name has exactly
-/// one owner in the client package.
-fn register_client_api(
+/// Create the selected world and publish the complete browser client API.
+#export_name("launchGame")
+pub fn launch_game(
+  seed : UInt,
+  world_type_name : String,
+  height : Int,
+  save_text : String,
+) -> Unit {
+  let world_type = @level.world_type_from_name(world_type_name)
+  let world = @level.World::new(seed~, world_type~, height~)
+  let initial_chunk = world.generate_chunk(0, 0, 0)
+  initialize_client(world, initial_chunk.tile_map, save_text)
+  @mob.install_default_demo(world)
+}
+
+///|
+/// Publish configuration before callable APIs so browser startup observes a
+/// complete, consistent client contract.
+fn initialize_client(
   world : @level.World,
   chunk_data : Array[UInt],
   save_text : String,
 ) -> Unit {
+  // Publish world-dependent configuration (overrides the early defaults).
+  @ffi.cast_global_set("mcWorldSeed", world.seed())
+  @ffi.cast_global_set("mcWorldType", world.world_type_name())
+  @ffi.cast_global_set("mcWorldMinY", world.min_y())
+  @ffi.cast_global_set("mcWorldMaxY", world.max_y())
+
+  // Register the browser API by domain boundary. Each `mc*` name has exactly one owner in the client package.
   @client.register_render_api()
   @client.register_gameplay_api(world)
   @client.register_runtime_api(world, chunk_data, save_text)

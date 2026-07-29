@@ -24,8 +24,11 @@ function openDatabase() {
     return Promise.reject(new Error("IndexedDB is unavailable"));
   }
   databasePromise = new Promise((resolve, reject) => {
-    const databaseVersion = globalThis.mcSaveSchemaVersion ?? 1;
-    const request = globalThis.indexedDB.open(DATABASE_NAME, databaseVersion);
+    const schemaVersion = globalThis.mcSaveSchemaVersion;
+    if (typeof schemaVersion !== "number") {
+      reject(new Error("publishMooncraftConfig must run before IndexedDB access"));
+    }
+    const request = globalThis.indexedDB.open(DATABASE_NAME, schemaVersion);
     request.onupgradeneeded = () => {
       const database = request.result;
       if (database.objectStoreNames.contains(SAVE_STORE_NAME)) {

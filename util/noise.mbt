@@ -20,6 +20,7 @@
 /// assembles into the full graded-noise algorithm.
 ///
 
+///|
 /// Standard linear interpolation (affine combination).
 ///
 /// lerp(a, b, t) := (1 - t) · a + t · b
@@ -33,6 +34,7 @@ pub fn Noise::lerp(a : Double, b : Double, t : Double) -> Double {
   (1 - t) * a + t * b
 }
 
+///|
 /// Smoothstep: f(t) = 3t² - 2t³.
 ///
 /// This is the classic Hermite easing curve. Properties:
@@ -47,6 +49,7 @@ pub fn Noise::fade(t : Double) -> Double {
   t * t * (3 - 2 * t)
 }
 
+///|
 /// Improved Perlin easing: f(t) = 6t⁵ − 15t⁴ + 10t³.
 ///
 /// This quintic polynomial satisfies:
@@ -63,6 +66,7 @@ pub fn Noise::fade2(t : Double) -> Double {
   t * t * t * (t * (t * 6 - 15) + 10)
 }
 
+///|
 /// Fast integer hash returning a value in [-1, 1].
 ///
 /// Computes a deterministic pseudo-random `Double` from an integer seed
@@ -86,6 +90,7 @@ pub fn Noise::fast(n : Int) -> Double {
   1.0 - d / 1073741824.0
 }
 
+///|
 /// A noise source defined by a seed and a shuffled permutation table.
 ///
 /// The permutation table is an array of length 512 that contains every
@@ -100,6 +105,7 @@ pub struct Noise {
   permutations : Array[Int]
 }
 
+///|
 /// Construct a new `Noise` with a shuffled permutation table.
 ///
 /// If no seed is provided, the current system tick (`@env.now`) is used.
@@ -111,6 +117,7 @@ pub fn Noise::new(seed? : UInt = @env.now().to_uint()) -> Noise {
   Noise::{ seed, permutations }
 }
 
+///|
 /// Fisher–Yates shuffling of [0..255] into an array of length 512.
 ///
 /// Algorithm:

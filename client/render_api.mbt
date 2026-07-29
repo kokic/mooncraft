@@ -2,7 +2,9 @@
 /// Publish pure camera, matrix, quaternion, mesh, and GLTF rendering APIs.
 pub fn register_render_api() -> Unit {
   @ffi.cast_global_set("mcCameraFromYawPitch", @render.camera_from_yaw_pitch)
-  @ffi.cast_global_set("mcCameraFromYawPitchInto", @math3d.camera_from_yaw_pitch_into)
+  @ffi.cast_global_set(
+    "mcCameraFromYawPitchInto", @math3d.camera_from_yaw_pitch_into,
+  )
   @ffi.cast_global_set("mcMat4Create", @render.mat4_create)
   @ffi.cast_global_set("mcMat4Copy", @render.mat4_copy)
   @ffi.cast_global_set("mcMat4Perspective", @render.mat4_perspective)
@@ -29,9 +31,13 @@ pub fn register_render_api() -> Unit {
   @ffi.cast_global_set("mcGltfVsSource", @render.GLTF_VS_SOURCE)
   @ffi.cast_global_set("mcGltfFsSource", @render.GLTF_FS_SOURCE)
   @ffi.cast_global_set("mcCreateWhiteTexture", @render.create_white_texture)
-  @ffi.cast_global_set("mcCreateTextureFromImage", @render.create_texture_from_image)
+  @ffi.cast_global_set(
+    "mcCreateTextureFromImage", @render.create_texture_from_image,
+  )
   @ffi.cast_global_set("mcBuildGltfPrimitive", @render.build_gltf_primitive)
-  @ffi.cast_global_set("mcDisposeGltfPrimitives", @render.dispose_gltf_primitives)
+  @ffi.cast_global_set(
+    "mcDisposeGltfPrimitives", @render.dispose_gltf_primitives,
+  )
   @ffi.cast_global_set("mcCreateGltfRenderer", @render.create_gltf_renderer)
   @ffi.cast_global_set("mcUpdateGltfRenderer", @render.update_gltf_renderer)
   @ffi.cast_global_set("mcRenderGltfRenderer", @render.render_gltf_renderer)

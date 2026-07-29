@@ -76,7 +76,7 @@ fn Block::create(
 
 ///|
 pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
-  @util.pack_long_id(block.id, state)
+  @schema.encode_raw_id(block.id, state)
 }
 
 ///|

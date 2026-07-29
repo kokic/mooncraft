@@ -68,17 +68,26 @@ pub fn register_runtime_api(
   ) {
     game.tick(registry, delta)
   })
-  @ffi.cast_global_set("mcMarkChunkBlockChanged", fn(wx : Int, wy : Int, wz : Int) {
+  @ffi.cast_global_set("mcMarkChunkBlockChanged", fn(
+    wx : Int,
+    wy : Int,
+    wz : Int,
+  ) {
     game.mark_block_changed(wx, wy, wz)
   })
   @ffi.cast_global_set("mcPlayerSnapshot", fn() { game.player_snapshot() })
   @ffi.cast_global_set("mcSetPlayerMoveIntent", fn(input : @player.MoveInput) {
     game.set_move_intent(input)
   })
-  @ffi.cast_global_set("mcAddPlayerLookIntent", fn(yaw : Double, pitch : Double) {
+  @ffi.cast_global_set("mcAddPlayerLookIntent", fn(
+    yaw : Double,
+    pitch : Double,
+  ) {
     game.add_look_intent(yaw, pitch)
   })
-  @ffi.cast_global_set("mcPlayerInventorySnapshot", fn() { game.inventory_snapshot() })
+  @ffi.cast_global_set("mcPlayerInventorySnapshot", fn() {
+    game.inventory_snapshot()
+  })
   @ffi.cast_global_set("mcSetPlayerGameMode", fn(mode : String) {
     game.set_game_mode(mode)
   })
@@ -106,6 +115,8 @@ pub fn register_runtime_api(
   @ffi.cast_global_set("mcExecuteCommand", fn(input : String) {
     game.execute_command(input)
   })
-  @ffi.cast_global_set("mcRequestZombieNavigation", @mob.request_zombie_0_navigation)
+  @ffi.cast_global_set(
+    "mcRequestZombieNavigation", @mob.request_zombie_0_navigation,
+  )
   @ffi.cast_global_set("mcTickEntityRuntime", @mob.tick_entity_runtime)
 }

@@ -1,5 +1,5 @@
 ///|
-pub const SAVE_SCHEMA_VERSION : Int = 4
+pub const SAVE_SCHEMA_VERSION : Int = 5
 
 ///|
 pub struct SaveWorld {

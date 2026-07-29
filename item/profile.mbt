@@ -12,11 +12,10 @@ pub(all) struct ItemProfile {
 }
 
 ///|
-fn generic_use_action(
-  _stack : ItemStack,
-  block : Array[Int],
-) -> UseAction {
-  UseAction::Batch([UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2])])
+fn generic_use_action(_stack : ItemStack, block : Array[Int]) -> UseAction {
+  UseAction::Batch([
+    UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2]),
+  ])
 }
 
 ///|

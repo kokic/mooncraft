@@ -11,7 +11,9 @@ pub fn use_item(
   match UseTarget::from_wire(name, category) {
     KnownItem(item) => item.use_action(ItemStack::from_item(item), block)
     KnownBlock(_) | Empty =>
-      UseAction::Batch([UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2])])
+      UseAction::Batch([
+        UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2]),
+      ])
     Unknown => UseAction::None
   }
 }

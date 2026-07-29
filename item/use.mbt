@@ -4,12 +4,14 @@ pub fn use_item(
   category : String,
   block : Array[Int],
 ) -> UseAction {
-  // STATUS: INCOMPLETE - left click currently means "break selected block" for
-  // every item. Durability, tool speed, drops, and non-block actions are absent.
-  guard block.length() >= 3 && UseTarget::from_wire(name, category).is_usable() else {
-    UseAction::None
+  guard block.length() >= 3 else { UseAction::None }
+  // STATUS: INCOMPLETE - durability, tool speed, drops, and non-block actions
+  // are absent.  Only KnownItem items can override the default break action via
+  // their profile; KnownBlock and Empty (empty hand) always break.
+  match UseTarget::from_wire(name, category) {
+    KnownItem(item) => item.use_action(ItemStack::from_item(item), block)
+    KnownBlock(_) | Empty =>
+      UseAction::Batch([UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2])])
+    Unknown => UseAction::None
   }
-  UseAction::Batch([
-    UseAction::BreakBlock(wx=block[0], wy=block[1], wz=block[2]),
-  ])
 }

@@ -2,39 +2,12 @@
 pub type ItemId = UInt
 
 ///|
-pub enum ItemArchetype {
-  Generic
-  Tool(kind~ : ToolKind, tier~ : ToolTier)
-}
-
-///|
-pub enum ToolKind {
-  // STATUS: INCOMPLETE - only shovel behavior is implemented today.
-  Shovel
-  // Pickaxe
-  // Axe
-  // Hoe
-  // Sword
-}
-
-///|
-pub enum ToolTier {
-  // STATUS: INCOMPLETE - item definitions currently exercise only iron tools.
-  // Wood
-  // Stone
-  Iron
-  // Gold
-  // Diamond
-  // Netherite
-}
-
-///|
 pub struct Item {
   name : @util.UniqueName
   id : ItemId
   texture : String
   category : Category
-  archetype : ItemArchetype
+  profile : ItemProfile
 }
 
 ///|
@@ -49,18 +22,6 @@ pub fn ItemStack::from_item(item : Item, count? : Int = 1) -> ItemStack {
 }
 
 ///|
-fn default_use_on(
-  _ : ItemStack,
-  _ : Int,
-  _ : Int,
-  _ : Int,
-  _ : @shape.FaceName,
-  _ : (Float, Float, Float),
-) -> UseOnAction {
-  UseOnAction::None
-}
-
-///|
 pub fn Item::use_on(
   item : Item,
   stack : ItemStack,
@@ -70,14 +31,16 @@ pub fn Item::use_on(
   face : @shape.FaceName,
   click : (Float, Float, Float),
 ) -> UseOnAction {
-  // STATUS: NEEDS_ADJUSTMENT - special cases are still keyed by names/archetypes
-  // here; richer item behavior should move behind dedicated dispatch metadata.
-  match item.archetype {
-    ItemArchetype::Tool(kind=ToolKind::Shovel, ..) =>
-      shovel_use_on(stack, x, y, z, face, click)
-    _ if item.name == "bucket" => bucket_use_on(stack, x, y, z, face, click)
-    _ => default_use_on(stack, x, y, z, face, click)
-  }
+  (item.profile.use_on_action)(stack, x, y, z, face, click)
+}
+
+///|
+pub fn Item::use_action(
+  item : Item,
+  stack : ItemStack,
+  block : Array[Int],
+) -> UseAction {
+  (item.profile.use_action)(stack, block)
 }
 
 ///|
@@ -85,8 +48,8 @@ fn Item::create(
   name : @util.UniqueName,
   id? : ItemId = alloc_id(),
   category? : Category = Category::Item,
-  archetype? : ItemArchetype = ItemArchetype::Generic,
+  profile? : ItemProfile = generic_profile,
   texture : String,
 ) -> Item {
-  Item::{ name, id, texture, category, archetype }
+  Item::{ name, id, texture, category, profile }
 }

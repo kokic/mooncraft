@@ -7,15 +7,6 @@ priv enum UseTarget {
 }
 
 ///|
-fn UseTarget::is_usable(target : UseTarget) -> Bool {
-  match target {
-    KnownItem(_) | KnownBlock(_) => true
-    Unknown => false
-    Empty => true
-  }
-}
-
-///|
 fn UseTarget::from_wire(name : String, category : String) -> UseTarget {
   match Category::from_tag(category) {
     Some(Item) =>

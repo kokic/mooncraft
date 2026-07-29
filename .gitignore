@@ -9,6 +9,7 @@ target
 .local/
 .dist/
 node_modules/
+package-lock.json
 dev/
 *.mbti
 AGENTS.md

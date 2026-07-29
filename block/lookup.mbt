@@ -2,9 +2,7 @@
 let blocks_by_name : Map[@schema.UniqueID, Block] = {
   let out : Map[@schema.UniqueID, Block] = Map([])
   for block in blocks {
-    if !out.contains(block.name) {
-      out[block.name] = block
-    }
+    out[block.name] = block
   }
   out
 }
@@ -30,7 +28,7 @@ pub fn lookup_by_internal_id(internal_id : @schema.InternalID) -> Block? {
 
 ///|
 pub fn name_to_internal_id(name : String) -> @schema.InternalID {
-  lookup_by_name(name).map(block => block.internal_id()).unwrap_or(@schema.AIR_ID)
+  lookup_by_name(name)
+  .map(block => block.internal_id())
+  .unwrap_or(@schema.AIR_ID)
 }
-
-

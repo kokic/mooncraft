@@ -206,13 +206,13 @@ pub fn build_chunk_mesh_split(
     }
   }
   let select_arrays = fn(
-    block : RenderBlock,
+    render_block : RenderBlock,
   ) -> (Array[Float], Array[Float], Array[Float], Array[Float]) {
-    if block.block.is_water() {
+    if render_block.block.is_water() {
       (water_positions, water_uvs, water_layers, water_colors)
-    } else if block.block.material is @block.Material::TintedLeaf {
+    } else if render_block.block.material is @block.Material::TintedLeaf {
       (leaf_positions, leaf_uvs, leaf_layers, leaf_colors)
-    } else if block.block.alpha_mode is @block.AlphaMode::Translucent {
+    } else if render_block.block.alpha_mode is @block.AlphaMode::Translucent {
       (trans_positions, trans_uvs, trans_layers, trans_colors)
     } else {
       (positions, uvs, layers, colors)
@@ -316,14 +316,14 @@ pub fn build_chunk_mesh_split(
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
-        let block = get_block(x, y, z)
-        if block.block.shape is @block.Shape::Air {
+        let render_block = get_block(x, y, z)
+        if render_block.block.shape is @block.Shape::Air {
           continue
         }
-        let model = @block.model_by_block(block.block)
+        let model = @block.model_by_block(render_block.block)
         let render_info = @shape.FaceSource::{
-          faces: block.faces,
-          state: block.block.state,
+          faces: render_block.faces,
+          state: render_block.block.state,
         }
         let bx = Float::from_int(x)
         let by = Float::from_int(y)
@@ -340,7 +340,7 @@ pub fn build_chunk_mesh_split(
           color_scale,
         ) {
           push_face(
-            block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+            render_block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
           )
         }
         let emit_face_rev = fn(
@@ -355,7 +355,7 @@ pub fn build_chunk_mesh_split(
           color_scale,
         ) {
           push_face_rev(
-            block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
+            render_block, a, b, c, d, normal, layer_f, uv_rect, flip_v, color_scale,
           )
         }
         if (model.emit_mesh)(render_info, bx, by, bz, emit_face, emit_face_rev) {
@@ -367,14 +367,14 @@ pub fn build_chunk_mesh_split(
           let neighbor = get_block(x + nx, y + ny, z + nz)
           let occlusion = @shape.FaceOcclusion::{
             neighbor_occludes: neighbor.block.occlusion_cull,
-            same_block_cull: block.block.inter_cull &&
-            block.internal_id == neighbor.internal_id,
+            same_block_cull: render_block.block.inter_cull &&
+            render_block.internal_id == neighbor.internal_id,
           }
           let visible = (model.face_visible)(render_info, face, occlusion)
           let boundary_transparent = is_chunk_boundary_face(
               x, y, z, nx, ny, nz, size,
             ) &&
-            !block.block.occlusion_cull
+            !render_block.block.occlusion_cull
           if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)
@@ -399,7 +399,7 @@ pub fn build_chunk_mesh_split(
             let rotate_uv = (model.rotate_uv)(render_info, face)
             let uv_rect = (model.uv_rect)(render_info, face.name)
             push_face_cube(
-              block,
+              render_block,
               rotate_uv,
               a,
               b,
@@ -414,7 +414,7 @@ pub fn build_chunk_mesh_split(
             )
             if is_double_sided {
               push_face_rev_cube(
-                block,
+                render_block,
                 a,
                 b,
                 c,

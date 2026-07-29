@@ -89,26 +89,26 @@ pub fn build_chunk_colors_split(
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
-        let block = get_block(x, y, z)
-        if block.block.shape is @block.Shape::Air {
+        let render_block = get_block(x, y, z)
+        if render_block.block.shape is @block.Shape::Air {
           continue
         }
-        let model = @block.model_by_block(block.block)
+        let model = @block.model_by_block(render_block.block)
         let render_info = @shape.FaceSource::{
-          faces: block.faces,
-          state: block.block.state,
+          faces: render_block.faces,
+          state: render_block.block.state,
         }
         let is_double_sided = (model.double_sided)(render_info)
-        let target = if block.block.is_water() {
+        let target = if render_block.block.is_water() {
           water_colors
-        } else if block.block.material is @block.Material::TintedLeaf {
+        } else if render_block.block.material is @block.Material::TintedLeaf {
           leaf_colors
-        } else if block.block.alpha_mode is @block.AlphaMode::Translucent {
+        } else if render_block.block.alpha_mode is @block.AlphaMode::Translucent {
           trans_colors
         } else {
           colors
         }
-        let tint = block.block.material.tint()
+        let tint = render_block.block.material.tint()
         let push_color_alpha = fn(
           count : Int,
           color_scale : Float,
@@ -127,14 +127,14 @@ pub fn build_chunk_colors_split(
           let neighbor = get_block(x + nx, y + ny, z + nz)
           let occlusion = @shape.FaceOcclusion::{
             neighbor_occludes: neighbor.block.occlusion_cull,
-            same_block_cull: block.block.inter_cull &&
-            block.internal_id == neighbor.internal_id,
+            same_block_cull: render_block.block.inter_cull &&
+            render_block.internal_id == neighbor.internal_id,
           }
           let visible = (model.face_visible)(render_info, face, occlusion)
           let boundary_transparent = is_chunk_boundary_face(
               x, y, z, nx, ny, nz, size,
             ) &&
-            !block.block.occlusion_cull
+            !render_block.block.occlusion_cull
           if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)
@@ -222,7 +222,7 @@ pub fn build_chunk_colors(
     Some(block) => block
     None => return []
   }
-  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
+  let get_block : (Int, Int, Int) -> RenderBlock = (x, y, z) => {
     if data_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
         air_block
@@ -247,19 +247,19 @@ pub fn build_chunk_colors(
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
-        let block = get_block(x, y, z)
-        if block.block.shape is @block.Shape::Air {
+        let render_block = get_block(x, y, z)
+        if render_block.block.shape is @block.Shape::Air {
           continue
         }
-        let (tr, tg, tb, ta) = block.block.material.tint()
+        let (tr, tg, tb, ta) = render_block.block.material.tint()
         tint_r = tr
         tint_g = tg
         tint_b = tb
         tint_a = ta
-        let model = @block.model_by_block(block.block)
+        let model = @block.model_by_block(render_block.block)
         let render_info = @shape.FaceSource::{
-          faces: block.faces,
-          state: block.block.state,
+          faces: render_block.faces,
+          state: render_block.block.state,
         }
         if (model.emit_colors)(render_info, push_color) {
           continue
@@ -270,14 +270,14 @@ pub fn build_chunk_colors(
           let neighbor = get_block(x + nx, y + ny, z + nz)
           let occlusion = @shape.FaceOcclusion::{
             neighbor_occludes: neighbor.block.occlusion_cull,
-            same_block_cull: block.block.inter_cull &&
-            block.internal_id == neighbor.internal_id,
+            same_block_cull: render_block.block.inter_cull &&
+            render_block.internal_id == neighbor.internal_id,
           }
           let visible = (model.face_visible)(render_info, face, occlusion)
           let boundary_transparent = is_chunk_boundary_face(
               x, y, z, nx, ny, nz, size,
             ) &&
-            !block.block.occlusion_cull
+            !render_block.block.occlusion_cull
           if visible || boundary_transparent {
             let light = get_light(x + nx, y + ny, z + nz)
             let light_scale = @util.light_level_scale(light)

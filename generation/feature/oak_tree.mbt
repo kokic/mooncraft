@@ -21,10 +21,10 @@ pub fn place_oak_tree_genus(
   base_y : Int,
   center_z : Int,
   filler_log? : @block.Block = @block.lookup_by_name("classic.oak_log").unwrap(),
-  filler_leaves? : @block.BlockId = @block.lookup_by_name("oak_leaves").unwrap().internal_id(),
+  filler_leaves? : @schema.InternalID = @block.lookup_by_name("oak_leaves").unwrap().internal_id(),
   seed? : UInt = 0U,
 ) -> Unit {
-  let filler_log_id = filler_log.id
+  let filler_log_id = filler_log.internal_id()
 
   //
   let oak_tree = () => {
@@ -105,7 +105,7 @@ fn cross_leaves(
   center_x : Int,
   y : Int,
   center_z : Int,
-  filler_leaves : @block.BlockId,
+  filler_leaves : @schema.InternalID,
 ) -> Unit {
   set_block(center_x - 1, y, center_z, filler_leaves)
   set_block(center_x + 1, y, center_z, filler_leaves)

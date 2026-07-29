@@ -3,7 +3,7 @@
 /// Rendering derives texture indices from `faces`.
 pub struct Block {
   name : @schema.UniqueID
-  id : BlockId
+  priv id : BlockId
   state : UInt
   occlusion_cull : Bool
   /// Eliminate coplanarity between adjacent blocks

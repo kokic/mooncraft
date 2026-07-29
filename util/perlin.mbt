@@ -1,5 +1,10 @@
 ///|
 /// Perlin-noise field — the "improved" algorithm from Ken Perlin (2002).
+/// - https://developer.nvidia.com/gpugems/gpugems/part-i-natural-effects/chapter-5-implementing-improved-perlin-noise
+/// - https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-26-implementing-improved-perlin-noise
+/// - https://blog.hirnschall.net/perlin-noise/
+/// - https://www.jdhwilkins.com/mountains-cliffs-and-caves-a-comprehensive-guide-to-using-perlin-noise-for-procedural-generation/
+/// - https://mrl.cs.nyu.edu/~perlin/noise/
 ///
 /// The noise value at (x, y [,z]) is computed by:
 ///

@@ -2,6 +2,15 @@ import {
   "moonbitlang/core/hashmap",
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/client",
+  "kokic/mooncraft/level",
+  "kokic/mooncraft/mob",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/block/genus" @block_genus,
+  "kokic/mooncraft/math3d",
+  "kokic/mooncraft/level/save",
+  "kokic/mooncraft/render",
+  "kokic/mooncraft/player",
 }
 
-pkgtype(kind: "executable")
+// pkgtype(kind: "executable")
+pkgtype(kind: "foreign_library")

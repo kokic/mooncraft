@@ -71,7 +71,7 @@ function launchRequest(slot) {
 async function bootstrap(slot) {
   assert_webgl2();
   const launch = launchRequest(slot);
-  window.mcLaunchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
+  mooncraftRuntimeUrl.launch_game(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
   window.mcBlocks = blockRegistry;

@@ -27,7 +27,7 @@ fn EntityState::new(spawn : EntitySpawn) -> EntityState {
     id: spawn.id,
     kind: spawn.kind,
     position: spawn.position,
-    yaw: 0.0,
+    yaw: spawn.yaw,
     render_y_offset: spawn.render_y_offset,
     move_speed: spawn.move_speed,
     turn_speed: spawn.turn_speed,

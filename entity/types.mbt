@@ -55,6 +55,7 @@ pub struct EntitySpawn {
   move_speed : Double
   turn_speed : Double
   upside_down : Bool
+  yaw : Double
 } derive(Debug)
 
 ///|
@@ -68,6 +69,7 @@ pub fn EntitySpawn::new(
   move_speed : Double,
   turn_speed : Double,
   upside_down? : Bool = false,
+  yaw? : Double = 0.0,
 ) -> EntitySpawn {
   {
     id,
@@ -77,6 +79,7 @@ pub fn EntitySpawn::new(
     move_speed,
     turn_speed,
     upside_down,
+    yaw,
   }
 }
 

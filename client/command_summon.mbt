@@ -17,11 +17,18 @@ fn parse_summon_command(
 }
 
 ///|
-fn GameRuntime::summon_target(self : GameRuntime) -> (Double, Double, Double)? {
+fn GameRuntime::summon_target(
+  self : GameRuntime,
+) -> (Double, Double, Double, Double)? {
   self
   .crosshair_block()
   .map(point => {
     let (x, y, z) = point
-    (x.to_double() + 0.5, y.to_double() + 1.0, z.to_double() + 0.5)
+    (
+      x.to_double() + 0.5,
+      y.to_double() + 1.0,
+      z.to_double() + 0.5,
+      self.player_runtime.yaw() + @math.PI,
+    )
   })
 }

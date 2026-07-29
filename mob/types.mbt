@@ -7,6 +7,7 @@ pub struct MobSpawnRequest {
   z : Double
   animation : String
   upside_down : Bool
+  yaw : Double
 }
 
 ///|
@@ -18,8 +19,9 @@ pub fn MobSpawnRequest::new(
   z : Double,
   animation? : String = "none",
   upside_down? : Bool = false,
+  yaw? : Double = 0.0,
 ) -> MobSpawnRequest {
-  { id, kind, x, y, z, animation, upside_down }
+  { id, kind, x, y, z, animation, upside_down, yaw }
 }
 
 ///|

@@ -125,7 +125,7 @@ fn GameRuntime::execute_command(
     }
     Summon(kind, animation, upside_down) =>
       match self.summon_target() {
-        Some((x, y, z)) => {
+        Some((x, y, z, mob_yaw)) => {
           let spawned = @mob.spawn(
             @mob.MobSpawnRequest::new(
               @env.now().to_string(),
@@ -135,6 +135,7 @@ fn GameRuntime::execute_command(
               z,
               animation~,
               upside_down~,
+              yaw=mob_yaw,
             ),
           )
           if spawned {

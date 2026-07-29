@@ -43,7 +43,8 @@ fn sync_entity_snapshots(renderer : @render.GltfRenderer) -> Unit {
 fn mob_rotation(yaw : Double, upside_down : Bool) -> Array[Double] {
   let rotation = [0.0, 0.0, 0.0, 1.0]
   let pitch = if upside_down { @math.PI } else { 0.0 }
-  ignore(@math3d.quat_from_yaw_pitch(rotation, yaw, pitch))
+  // or, ignore(...)
+  let _ = @math3d.quat_from_yaw_pitch(rotation, yaw, pitch)
   rotation
 }
 

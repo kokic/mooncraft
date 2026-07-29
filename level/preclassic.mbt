@@ -172,7 +172,7 @@ fn preclassic_should_carve_cave(
 ///|
 /// Pre-classic world terrain generation (256 x 64 x 256).
 fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   let bedrock = @block.lookup_by_name("bedrock").unwrap().id
   let stone = @block.lookup_by_name("pre-classic.cobblestone").unwrap().id
   let grass = @block.lookup_by_name("pre-classic.grass").unwrap().id

@@ -598,7 +598,7 @@ pub fn World::max_y(self : World) -> Int {
 
 ///|
 fn fill_air(chunk : Chunk) -> Chunk {
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       for ry in 0..<CHUNK_Y_SIZE {

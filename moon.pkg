@@ -1,10 +1,10 @@
 import {
   "moonbitlang/core/hashmap",
+  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/client",
   "kokic/mooncraft/level",
   "kokic/mooncraft/mob",
-  "kokic/mooncraft/block",
   "kokic/mooncraft/block/genus" @block_genus,
   "kokic/mooncraft/math3d",
   "kokic/mooncraft/level/save",

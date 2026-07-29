@@ -104,7 +104,7 @@ fn GameRuntime::crosshair_block(self : GameRuntime) -> (Int, Int, Int)? {
     camera.direction,
     SUMMON_RAYCAST_MAX_DISTANCE,
     SUMMON_RAYCAST_STEP,
-    @block.AIR_LONG_ID,
+    @schema.AIR_ID,
     false,
   ).map(hit => (hit.block[0], hit.block[1], hit.block[2]))
 }

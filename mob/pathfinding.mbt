@@ -7,7 +7,7 @@ priv struct PathNode {
 
 ///|
 fn is_solid_floor(long_id : UInt) -> Bool {
-  guard long_id != @block.AIR_LONG_ID else { false }
+  guard long_id != @schema.AIR_ID else { false }
   @block.lookup_by_long_id(long_id)
   .map(fn(block) {
     guard !block.is_water() else { false }
@@ -21,7 +21,7 @@ fn is_solid_floor(long_id : UInt) -> Bool {
 
 ///|
 fn is_passable(long_id : UInt) -> Bool {
-  guard long_id == @block.AIR_LONG_ID else {
+  guard long_id == @schema.AIR_ID else {
     @block.lookup_by_long_id(long_id)
     .map(fn(block) { block.is_water() })
     .unwrap_or(false)

@@ -9,7 +9,7 @@ pub fn can_place_block(
   wy : Int,
   wz : Int,
 ) -> Bool {
-  if long_id == @block.AIR_LONG_ID {
+  if long_id == @schema.AIR_ID {
     return true
   }
   if player_pos.length() < 3 {

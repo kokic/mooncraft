@@ -270,7 +270,7 @@ fn fill_infinite_block(
   column : InfiniteColumnSample,
   palette : InfiniteBlockPalette,
 ) -> Unit {
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   let (wx, wy, wz) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
   if wy < world.min_y() || wy > world.max_y() {
     chunk.update_tile_map(rx, ry, rz, air)

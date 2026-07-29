@@ -14,7 +14,7 @@ The Perlin noise implementation follows the classic Ken Perlin algorithm:
 
 `pack_long_id(block_id, state)` combines 16-bit block ID (lower) + 16-bit state (upper) into a single `UInt`. This is the integer stored in chunk tile arrays. `unpack_long_id` reverses it.
 
-`AIR_LONG_ID` = pack(0, 0) — the sentinel for empty blocks.
+`AIR_ID` = pack(0, 0) — the sentinel for empty blocks.
 
 ## AABB
 

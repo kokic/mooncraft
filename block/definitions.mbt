@@ -338,10 +338,6 @@ fn Block::create_with_classic(
 }
 
 ///|
-/// The long id of the air block should be an invariant
-pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
-
-///|
 pub fn Block::is_air(block : Block) -> Bool {
   block.id == 0
 }

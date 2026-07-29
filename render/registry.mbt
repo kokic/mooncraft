@@ -2,13 +2,13 @@
 pub struct RenderBlock {
   block : @block.Block
   faces : @shape.FaceLayerIndices
-  long_id : UInt
+  long_id : @schema.InternalID
 }
 
 ///|
 pub struct BlockRegistry {
   by_name : Map[String, RenderBlock]
-  by_long_id : Map[UInt, RenderBlock]
+  by_long_id : Map[@schema.InternalID, RenderBlock]
 }
 
 ///|
@@ -30,7 +30,7 @@ pub fn BlockRegistry::create(
     }
   }
   let blocks_by_name : Map[String, RenderBlock] = Map([])
-  let blocks_by_long_id : Map[UInt, RenderBlock] = Map([])
+  let blocks_by_long_id : Map[@schema.InternalID, RenderBlock] = Map([])
   for def in @block.blocks {
     let resolve_layer = fn(tex_name : String?) -> Int {
       tex_name.bind(name => texture_index.get(name)).unwrap_or(0)
@@ -62,7 +62,7 @@ pub fn BlockRegistry::get_by_name(
 ///|
 pub fn BlockRegistry::get_by_long_id(
   registry : BlockRegistry,
-  long_id : UInt,
+  long_id : @schema.InternalID,
 ) -> RenderBlock? {
   registry.by_long_id.get(long_id)
 }

@@ -11,7 +11,7 @@ fn fill_flat(
   chunk : Chunk,
   flat_layer_names? : Array[String] = default_flat_layer_blocks,
 ) -> Chunk {
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   let layer_ids = flat_layer_long_ids(flat_layer_names)
   let layer_count = layer_ids.length()
   for rx in 0..<CHUNK_X_SIZE {
@@ -51,7 +51,7 @@ fn flat_layer_long_ids(flat_layer_blocks : Array[String]) -> Array[UInt] {
     ids.push(
       @block.lookup_by_name(name)
       .map(block => block.long_id())
-      .unwrap_or(@block.AIR_LONG_ID),
+      .unwrap_or(@schema.AIR_ID),
     )
   }
   ids

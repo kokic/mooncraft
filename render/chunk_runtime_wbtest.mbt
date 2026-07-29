@@ -48,7 +48,7 @@ test "chunk runtime applies structures atomically to loaded chunks" {
   assert_false(runtime.apply_block_deltas(partial))
   @test.assert_eq(
     @level.get_block_id(runtime.chunk_map(), @level.CHUNK_X_SIZE, 1, 5, 1),
-    Some(@block.AIR_LONG_ID),
+    Some(@schema.AIR_ID),
   )
   @test.assert_eq(runtime.block_deltas().length(), 0)
 

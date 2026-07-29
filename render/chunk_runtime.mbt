@@ -583,7 +583,7 @@ fn ChunkRuntime::section_has_non_air(
     for z in base_z..<(base_z + self.section_size) {
       for x in base_x..<(base_x + self.section_size) {
         let index = (y * self.chunk_size + z) * self.chunk_size + x
-        guard data[index] == @block.AIR_LONG_ID else { return true }
+        guard data[index] == @schema.AIR_ID else { return true }
       }
     }
   }
@@ -685,7 +685,7 @@ fn ChunkRuntime::section_data(
             base_x + x,
             base_y + y,
             base_z + z,
-          ).unwrap_or(@block.AIR_LONG_ID),
+          ).unwrap_or(@schema.AIR_ID),
         )
       }
     }

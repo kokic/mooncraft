@@ -58,7 +58,7 @@ fn get_block_boxes_at(
 ) -> Array[@shape.Box]? {
   @level.get_block_id(chunk_map, size, wx, wy, wz)
   .bind(id => {
-    if id == @block.AIR_LONG_ID {
+    if id == @schema.AIR_ID {
       None
     } else {
       @block.lookup_by_long_id(id).bind(block => {

@@ -1,6 +1,6 @@
 ///|
 fn can_break_block(long_id : UInt) -> Bool {
-  if long_id == @block.AIR_LONG_ID {
+  if long_id == @schema.AIR_ID {
     false
   } else {
     @block.lookup_by_long_id(long_id)
@@ -34,7 +34,7 @@ pub fn apply_use_action(
         None => []
         Some(id) =>
           if can_break_block(id) {
-            set_block_id(chunk_map, size, wx, wy, wz, @block.AIR_LONG_ID)
+            set_block_id(chunk_map, size, wx, wy, wz, @schema.AIR_ID)
           } else {
             []
           }

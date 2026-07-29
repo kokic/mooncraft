@@ -194,7 +194,7 @@ pub fn place_oak_trees_in_chunk(
 ) -> Unit {
   apply_pending_to_chunk(chunk)
   let region = ChunkRegion::new(chunk)
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
@@ -241,7 +241,7 @@ fn place_biome_trees_in_chunk_with_biome(
   let region = ChunkRegion::new(chunk)
 
   // blocks
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   let grass_id = @block.lookup_by_name("grass").unwrap().id
   let dirt_id = @block.lookup_by_name("dirt").unwrap().id
   let sand_id = @block.lookup_by_name("sand").unwrap().id

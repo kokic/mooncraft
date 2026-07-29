@@ -10,8 +10,8 @@ let blocks_by_name : Map[@schema.UniqueID, Block] = {
 }
 
 ///|
-let blocks_by_long_id : Map[UInt, Block] = {
-  let out : Map[UInt, Block] = Map([])
+let blocks_by_long_id : Map[@schema.InternalID, Block] = {
+  let out : Map[@schema.InternalID, Block] = Map([])
   for block in blocks {
     out[block.long_id()] = block
   }
@@ -24,13 +24,13 @@ pub fn lookup_by_name(name : String) -> Block? {
 }
 
 ///|
-pub fn lookup_by_long_id(long_id : UInt) -> Block? {
+pub fn lookup_by_long_id(long_id : @schema.InternalID) -> Block? {
   blocks_by_long_id.get(long_id)
 }
 
 ///|
-pub fn name_to_long_id(name : String) -> UInt {
-  lookup_by_name(name).map(block => block.long_id()).unwrap_or(AIR_LONG_ID)
+pub fn name_to_long_id(name : String) -> @schema.InternalID {
+  lookup_by_name(name).map(block => block.long_id()).unwrap_or(@schema.AIR_ID)
 }
 
 ///

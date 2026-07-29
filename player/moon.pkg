@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/math",
   "moonbitlang/core/json",
+  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/block",
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/level",

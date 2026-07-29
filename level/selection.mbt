@@ -53,7 +53,7 @@ pub fn find_surface_y(
       Some(data) =>
         for y = size - 1; y >= 0; {
           let idx = (y * size + local_z) * size + local_x
-          if data[idx] != @block.AIR_LONG_ID {
+          if data[idx] != @schema.AIR_ID {
             return Some(cy * size + y)
           }
           continue y - 1

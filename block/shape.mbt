@@ -256,7 +256,7 @@ pub fn Block::outline_boxes(block : Block) -> Array[@shape.Box] {
 }
 
 ///|
-pub fn get_shape_desc(long_id : UInt) -> @shape.Source? {
+pub fn get_shape_desc(long_id : @schema.InternalID) -> @shape.Source? {
   lookup_by_long_id(long_id).map(block => @shape.Source::{
     boxes: block.collision_boxes(),
     facing: -1,
@@ -264,7 +264,7 @@ pub fn get_shape_desc(long_id : UInt) -> @shape.Source? {
 }
 
 ///|
-pub fn get_outline_desc(long_id : UInt) -> @shape.Source? {
+pub fn get_outline_desc(long_id : @schema.InternalID) -> @shape.Source? {
   lookup_by_long_id(long_id).map(block => @shape.Source::{
     boxes: block.outline_boxes(),
     facing: -1,
@@ -329,7 +329,7 @@ fn ray_intersects_box(
 ///|
 /// Test whether a ray can target the block's profile-defined bounds.
 pub fn raycast_intersects(
-  long_id : UInt,
+  long_id : @schema.InternalID,
   origin : Array[Double],
   direction : Array[Double],
   wx : Int,

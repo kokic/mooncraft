@@ -2,6 +2,7 @@ import {
   "moonbitlang/core/env",
   "moonbitlang/core/math",
   "moonbitlang/core/strconv",
+  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/level",
   "kokic/mooncraft/block",

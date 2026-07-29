@@ -305,7 +305,7 @@ fn place_nether_spire_in_chunk(world : World, chunk : Chunk) -> Unit {
 ///|
 /// Finite world terrain generation (256 x 128 x 256).
 fn fill_finite(world : World, chunk : Chunk) -> Chunk {
-  let air = @block.AIR_LONG_ID
+  let air = @schema.AIR_ID
   let bedrock = @block.lookup_by_name("bedrock").unwrap().id
   let stone = @block.lookup_by_name("stone").unwrap().id
   let grass = @block.lookup_by_name("grass").unwrap().id

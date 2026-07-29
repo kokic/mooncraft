@@ -75,8 +75,8 @@ fn Block::create(
 }
 
 ///|
-pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
-  block.id * 256 + state
+pub fn Block::long_id(block : Block, state? : UInt = block.state) -> @schema.InternalID {
+  @schema.encode_variant(block.id, state)
 }
 
 ///|

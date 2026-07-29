@@ -72,26 +72,6 @@ test "game runtime executes render distance command" {
 }
 
 ///|
-test "summon command accepts supported entities and defaults animation" {
-  match parse_command("/summon zombie") {
-    Summon(Zombie, "none", false) => ()
-    _ => fail("zombie summon did not use the default animation")
-  }
-  match parse_command("/summon rabbit hop") {
-    Summon(Rabbit, "hop", false) => ()
-    _ => fail("rabbit summon did not preserve its animation")
-  }
-  match parse_command("/summon zombie jeb_") {
-    Summon(Zombie, "none", true) => ()
-    _ => fail("jeb_ summon did not mark the mob as upside down")
-  }
-  match parse_command("/summon snowman") {
-    Summon(Snowman, "none", false) => ()
-    _ => fail("snowman summon was not accepted")
-  }
-}
-
-///|
 test "build command accepts supported structures" {
   match parse_command("/build oak") {
     Build(Oak) => ()

@@ -2,7 +2,7 @@
 priv enum ClientCommand {
   Teleport(Double, Double, Double)
   SetRenderDistance(Int)
-  Summon(@entity.MobKind, String, Bool)
+  Summon(@entity.MobKind, String, Bool, Array[Double]?)
   Build(BuildType)
   Invalid(String)
 }
@@ -35,6 +35,21 @@ fn parse_finite_double(token : StringView) -> Double? {
   } catch {
     _ => None
   }
+}
+
+///|
+fn parse_finite_double3(
+  x : StringView,
+  y : StringView,
+  z : StringView,
+) -> (Double, Double, Double)? {
+  let group = (
+    parse_finite_double(x),
+    parse_finite_double(y),
+    parse_finite_double(z),
+  )
+  guard group is (Some(x), Some(y), Some(z)) else { None }
+  Some((x, y, z))
 }
 
 ///|
@@ -74,12 +89,7 @@ fn parse_command(input : String) -> ClientCommand {
     ["/rd", ..] => Invalid("Usage: /rd <number>")
 
     // summon an entity at the block position pointed by the crosshair
-    ["/summon", entity_type] => parse_summon_command(entity_type, "none")
-    ["/summon", entity_type, "jeb_"] =>
-      parse_summon_command(entity_type, "none", upside_down=true)
-    ["/summon", entity_type, animation] =>
-      parse_summon_command(entity_type, animation.to_owned())
-    ["/summon", ..] => Invalid("Usage: /summon <entity_type> [animation]")
+    ["/summon", ..] => parse_summon_command(tokens)
 
     // generate a multi-block structure at the block position pointed by the crosshair
     ["/build", build_type] => parse_build_command(build_type)
@@ -123,7 +133,7 @@ fn GameRuntime::execute_command(
       self.chunk_runtime.set_render_distance(distance)
       command_success("Render distance set to \{distance}")
     }
-    Summon(kind, animation, upside_down) =>
+    Summon(kind, animation, upside_down, scale) =>
       match self.summon_target() {
         Some((x, y, z, mob_yaw)) => {
           let spawned = @mob.spawn(
@@ -136,6 +146,7 @@ fn GameRuntime::execute_command(
               animation~,
               upside_down~,
               yaw=mob_yaw,
+              scale~,
             ),
           )
           if spawned {

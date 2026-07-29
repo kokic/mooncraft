@@ -9,7 +9,7 @@ fn rabbit_spec() -> MobSpec {
   {
     model_url: RABBIT_MODEL_URL,
     texture_url: RABBIT_TEXTURE_URL,
-    render_y_offset: -1.05,
+    render_y_offset: 0,
     scale: [4.0, 4.0, 4.0],
     move_speed: 0.0,
     turn_speed: 0.0,

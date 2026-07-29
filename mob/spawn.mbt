@@ -7,6 +7,7 @@ priv struct MobSpawn {
 ///|
 fn resolve_spawn(request : MobSpawnRequest) -> MobSpawn {
   let spec = mob_spec(request.kind)
+  let scale = request.scale.unwrap_or(spec.scale)
   {
     entity_spawn: @entity.EntitySpawn::new(
       request.id,
@@ -26,7 +27,7 @@ fn resolve_spawn(request : MobSpawnRequest) -> MobSpawn {
       texture=spec.texture_url,
       position=[request.x, request.y + spec.render_y_offset, request.z],
       rotation=mob_rotation(request.yaw, request.upside_down),
-      scale=spec.scale,
+      scale~,
       animation=request.animation,
       looped=true,
     ),

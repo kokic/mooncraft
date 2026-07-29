@@ -9,7 +9,7 @@ fn snowman_spec() -> MobSpec {
   {
     model_url: SNOWMAN_MODEL_URL,
     texture_url: SNOWMAN_TEXTURE_URL,
-    render_y_offset: -1.05,
+    render_y_offset: 0,
     scale: [1.0, 1.0, 1.0],
     move_speed: 0.0,
     turn_speed: 0.0,

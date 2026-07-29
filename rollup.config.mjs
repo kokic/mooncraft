@@ -4,7 +4,14 @@ import { resolve } from "node:path";
 
 const webRoot = resolve("web");
 const distRoot = resolve(".dist");
+
+const levelPath = resolve("_build/js/release/build/level/level.js");
 const runtimePath = resolve("_build/js/release/build/mooncraft.js");
+const mooncraftModules = new Map([
+  ["virtual:mooncraft-level", levelPath],
+  ["virtual:mooncraft-runtime", runtimePath],
+]);
+
 const entryPlaceholder = "<!-- mooncraft-entry -->";
 
 function mooncraftReleaseBuild() {
@@ -36,25 +43,17 @@ function copyStaticAssets() {
 }
 
 function mooncraftRuntime() {
-  let runtimeReference;
   return {
     name: "mooncraft-runtime",
     buildStart() {
-      if (!existsSync(runtimePath)) {
-        this.error("MoonBit runtime is missing after the release build.");
+      for (const [moduleId, modulePath] of mooncraftModules) {
+        if (!existsSync(modulePath)) {
+          this.error(`${moduleId} is missing after the release build.`);
+        }
       }
-      runtimeReference = this.emitFile({
-        type: "asset",
-        name: "mooncraft-runtime.js",
-        source: readFileSync(runtimePath),
-      });
     },
     resolveId(source) {
-      return source === "virtual:mooncraft-runtime" ? source : null;
-    },
-    load(id) {
-      if (id !== "virtual:mooncraft-runtime") return null;
-      return `export default import.meta.ROLLUP_FILE_URL_${runtimeReference};`;
+      return mooncraftModules.get(source) ?? null;
     },
   };
 }

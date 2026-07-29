@@ -4,21 +4,10 @@ import {
   listSaveSlots,
   parseSavePayload,
 } from "./save-store.js";
-
-function getWorldTypes() {
-  const types = globalThis.mcWorldTypes;
-  return Array.isArray(types) && types.length > 0
-    ? types.filter((t) => typeof t === "string")
-    : [];
-}
-
-function defaultWorldType() {
-  const types = getWorldTypes();
-  return types.length > 0 ? types[0] : "Infinite";
-}
+import { getWorldTypeNames, defaultWorldTypeName } from "virtual:mooncraft-level";
 
 function isValidWorldType(wt) {
-  return getWorldTypes().includes(wt);
+  return getWorldTypeNames().includes(wt);
 }
 
 function infiniteWorldHeightConfig() {
@@ -366,7 +355,7 @@ async function createSaveMenu({ onOpen }) {
 
     const worldTypeSelect = document.createElement("select");
     worldTypeSelect.className = "mc-save-world-type";
-    const worldTypes = getWorldTypes();
+    const worldTypes = getWorldTypeNames();
     for (const wt of worldTypes) {
       const option = document.createElement("option");
       option.value = wt;
@@ -374,7 +363,7 @@ async function createSaveMenu({ onOpen }) {
       worldTypeSelect.append(option);
     }
     if (worldTypes.length === 0) {
-      const def = defaultWorldType();
+      const def = defaultWorldTypeName();
       const option = document.createElement("option");
       option.value = def;
       option.textContent = def;
@@ -398,7 +387,7 @@ async function createSaveMenu({ onOpen }) {
     const create = createButton("New Save", "mc-save-new", () => {
       const worldType = isValidWorldType(worldTypeSelect.value)
         ? worldTypeSelect.value
-        : defaultWorldType();
+        : defaultWorldTypeName();
       void createSaveSlot(
         `World ${slots.length + 1}`,
         worldType,

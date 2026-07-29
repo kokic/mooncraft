@@ -1,5 +1,4 @@
 const DATABASE_NAME = "mooncraft";
-const DATABASE_VERSION = 3;
 const SAVE_STORE_NAME = "saves";
 
 let databasePromise = null;
@@ -25,7 +24,8 @@ function openDatabase() {
     return Promise.reject(new Error("IndexedDB is unavailable"));
   }
   databasePromise = new Promise((resolve, reject) => {
-    const request = globalThis.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    const databaseVersion = globalThis.mcSaveSchemaVersion ?? 1;
+    const request = globalThis.indexedDB.open(DATABASE_NAME, databaseVersion);
     request.onupgradeneeded = () => {
       const database = request.result;
       if (database.objectStoreNames.contains(SAVE_STORE_NAME)) {

@@ -18,3 +18,5 @@ import {
 import {
   "moonbitlang/core/test",
 } for "test"
+
+pkgtype(kind: "foreign_library")

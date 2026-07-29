@@ -1,6 +1,6 @@
 ///|
 /// Create the selected world and publish the complete browser client API.
-#export_name("launch_game")
+#export_name("launchGame")
 pub fn launch_game(
   seed : UInt,
   world_type_name : String,
@@ -29,7 +29,7 @@ fn initialize_client(
 ///|
 /// Publish scalar configuration and initial world metadata for JS bootstrap.
 fn publish_client_config(world : @level.World) -> Unit {
-  @ffi.cast_global_set("mcWorldTypes", @level.world_type_names())
+  // @ffi.cast_global_set("mcWorldTypes", @level.world_type_names())
   @ffi.cast_global_set(
     "mcInfiniteWorldMinHeight",
     @level.INFINITE_WORLD_MIN_HEIGHT,

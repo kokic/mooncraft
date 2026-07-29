@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "paths": {
+      "virtual:mooncraft-runtime": [
+        "./_build/js/release/build/mooncraft.d.ts"
+      ],
+      "virtual:mooncraft-level": [
+        "./_build/js/release/build/level/level.d.ts"
+      ]
+    }
+  },
+  "include": ["web/js/**/*.js"]
+}

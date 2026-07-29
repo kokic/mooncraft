@@ -35,6 +35,11 @@ pub const WORLD_MIN_Y : Int = -64
 ///|
 /// Minimum selectable Infinite-world height. This preserves terrain below and
 /// above sea level while reducing vertical chunk work.
+/// 
+/// ```text
+/// #export_name can only be used on functions.
+/// #export_name("INFINITE_WORLD_MIN_HEIGHT")
+/// ```
 pub const INFINITE_WORLD_MIN_HEIGHT : Int = 192
 
 ///|

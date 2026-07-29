@@ -3,29 +3,18 @@ import { createBlockRegistry } from "./block-registry.js";
 import { renderTestChunk } from "./world-renderer.js";
 import { createSaveMenu } from "./save-manager.js";
 import { createSaveWriter, parseSavePayload } from "./save-store.js";
-import mooncraftRuntimeUrl from "virtual:mooncraft-runtime";
+import { launchGame } from "virtual:mooncraft-runtime";
+import { getWorldTypeNames } from "virtual:mooncraft-level";
+
+launchGame();
+
+const DEFAULT_WORLD_TYPE = getWorldTypeNames()[0]
 
 function assert_webgl2() {
   const ctx = document.createElement("canvas").getContext("webgl2");
   if (!ctx) {
     throw new Error("webgl2 not supported");
   }
-}
-
-function loadMooncraftRuntime() {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = mooncraftRuntimeUrl;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("failed to load Mooncraft runtime"));
-    document.head.appendChild(script);
-  });
-}
-
-function defaultWorldType() {
-  const types = globalThis.mcWorldTypes;
-  return Array.isArray(types) && typeof types[0] === "string" ? types[0] : "Infinite";
 }
 
 function randomWorldSeed() {
@@ -60,7 +49,7 @@ function launchRequest(slot) {
   }
   return {
     seed: randomWorldSeed(),
-    worldType: slot.newWorldType ?? defaultWorldType(),
+    worldType: slot.newWorldType ?? DEFAULT_WORLD_TYPE,
     height: Number.isSafeInteger(slot.newWorldHeight)
       ? slot.newWorldHeight
       : defaultInfiniteWorldHeight(),
@@ -71,7 +60,7 @@ function launchRequest(slot) {
 async function bootstrap(slot) {
   assert_webgl2();
   const launch = launchRequest(slot);
-  mooncraftRuntimeUrl.launch_game(launch.seed, launch.worldType, launch.height, launch.saveText);
+  launch_game(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();
   const blockRegistry = createBlockRegistry(textures.textureIndex);
   window.mcBlocks = blockRegistry;
@@ -108,7 +97,6 @@ async function showSaveMenu() {
 }
 
 async function start() {
-  await loadMooncraftRuntime();
   await showSaveMenu();
 }
 

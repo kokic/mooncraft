@@ -21,20 +21,23 @@ pub fn world_type_from_name(
   name : String,
   fallback? : WorldType = WorldType::PreClassic,
 ) -> WorldType {
-  if name is "Flat" {
-    WorldType::Flat
-  } else if name is "Infinite" {
-    WorldType::Infinite
-  } else if name is "PreClassic" {
-    WorldType::PreClassic
-  } else if name is "Finite" {
-    WorldType::Finite
-  } else {
-    fallback
+  match name {
+    "Flat" => WorldType::Flat
+    "Infinite" => WorldType::Infinite
+    "PreClassic" => WorldType::PreClassic
+    "Finite" => WorldType::Finite
+    _ => fallback
   }
 }
 
 ///|
-pub fn world_type_names() -> Array[String] {
+#export_name("getWorldTypeNames")
+pub fn get_world_type_names() -> FixedArray[String] {
   ["Flat", "Infinite", "PreClassic", "Finite"]
+}
+
+///|
+#export_name("defaultWorldTypeName")
+pub fn default_world_type_name() -> String {
+  get_world_type_names()[0]
 }

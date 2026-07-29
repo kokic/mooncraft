@@ -24,9 +24,17 @@ pub struct Block {
 pub type BlockId = UInt
 
 ///|
+let block_id_table : @schema.InternalIDCounter = @schema.InternalIDCounter::new()
+
+///|
+fn alloc_block_id() -> @schema.InternalID {
+  block_id_table.allocate()
+}
+
+///|
 fn Block::create(
   name : @schema.UniqueID,
-  id? : BlockId = alloc_id(),
+  id? : BlockId = alloc_block_id(),
   state? : UInt = 0,
   occlusion_cull? : Bool = true,
   same_block_cull? : Bool = true,

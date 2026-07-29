@@ -204,7 +204,7 @@ fn create_torch(
 ///|
 fn create_torch_group(
   base : String,
-  id? : UInt = alloc_id(),
+  id? : UInt = alloc_block_id(),
   faces : FixedArray[String],
   shape : Shape,
   luminance? : Int = 0,
@@ -256,7 +256,7 @@ fn create_facing(
 ///|
 fn create_facing_group(
   base : String,
-  id? : UInt = alloc_id(),
+  id? : UInt = alloc_block_id(),
   faces : FixedArray[String],
   facing? : Facing = Facing::None,
   shape? : Shape = Shape::Cube,
@@ -305,7 +305,7 @@ fn Block::create_with_classic(
 ) -> Array[Block] {
   [
     Block::create(
-      id=alloc_id(),
+      id=alloc_block_id(),
       name,
       state~,
       occlusion_cull~,
@@ -320,7 +320,7 @@ fn Block::create_with_classic(
       faces,
     ),
     Block::create(
-      id=alloc_id(),
+      id=alloc_block_id(),
       "classic." + name,
       state~,
       occlusion_cull~,

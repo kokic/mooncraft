@@ -2,6 +2,14 @@
 pub type ItemId = UInt
 
 ///|
+let item_id_table : @schema.InternalIDCounter = @schema.InternalIDCounter::new()
+
+///|
+fn alloc_item_id() -> @schema.InternalID {
+  item_id_table.allocate()
+}
+
+///|
 pub struct Item {
   name : @schema.UniqueID
   id : ItemId
@@ -46,10 +54,9 @@ pub fn Item::use_action(
 ///|
 fn Item::create(
   name : @schema.UniqueID,
-  id? : ItemId = alloc_id(),
   category? : Category = Category::Item,
   profile? : ItemProfile = generic_profile,
   texture : String,
 ) -> Item {
-  Item::{ name, id, texture, category, profile }
+  Item::{ name, id: alloc_item_id(), texture, category, profile }
 }

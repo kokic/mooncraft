@@ -1,8 +1,6 @@
 ///|
 /// Publish stateless block, item, placement, localization, and biome APIs.
 pub fn register_gameplay_api(world : @level.World) -> Unit {
-  @ffi.cast_global_set("mcPackLongId", @util.pack_long_id)
-  @ffi.cast_global_set("mcUnpackLongId", @util.unpack_long_id)
   @ffi.cast_global_set(
     "mcTorchStateFromPlacement",
     @genus.Torch::torch_state_from_placement,

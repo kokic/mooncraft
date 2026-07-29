@@ -1,13 +1,13 @@
 ///|
 pub enum BlockSelector {
-  Exact(@util.UniqueName)
-  AnyOf(Array[@util.UniqueName])
+  Exact(@schema.UniqueID)
+  AnyOf(Array[@schema.UniqueID])
 }
 
 ///|
 pub fn BlockSelector::matches(
   selector : BlockSelector,
-  name : @util.UniqueName,
+  name : @schema.UniqueID,
 ) -> Bool {
   match selector {
     Exact(expected) => name == expected
@@ -59,7 +59,7 @@ pub enum UseOnAction {
     place_wx~ : Int,
     place_wy~ : Int,
     place_wz~ : Int,
-    name~ : @util.UniqueName,
+    name~ : @schema.UniqueID,
     require_air~ : Bool
   )
   Batch(Array[UseOnAction])

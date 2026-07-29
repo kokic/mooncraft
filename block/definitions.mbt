@@ -290,7 +290,7 @@ fn create_facing_group(
 
 ///|
 fn Block::create_with_classic(
-  name : @util.UniqueName,
+  name : @schema.UniqueID,
   state? : UInt = 0,
   occlusion_cull? : Bool = true,
   same_block_cull? : Bool = false,
@@ -343,7 +343,7 @@ pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
 
 ///|
 pub fn Block::is_air(block : Block) -> Bool {
-  block.id == AIR_LONG_ID
+  block.id == 0
 }
 
 ///|

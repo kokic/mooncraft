@@ -1,4 +1,4 @@
 import {
-  "kokic/mooncraft/util",
+  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/block/shape",
 }

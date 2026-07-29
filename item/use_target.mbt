@@ -1,7 +1,7 @@
 ///|
 priv enum UseTarget {
   KnownItem(Item)
-  KnownBlock(@util.UniqueName)
+  KnownBlock(@schema.UniqueID)
   Empty
   Unknown
 }

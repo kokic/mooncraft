@@ -27,7 +27,8 @@ fn GameRuntime::build_deltas(
 ) -> Array[@level.BlockDelta] {
   let deltas : Array[@level.BlockDelta] = []
   let set_block = (x : Int, y : Int, z : Int, id : UInt) => {
-    deltas.push(@level.BlockDelta::new(x, y, z, id))
+    let name = @block.lookup_by_id(id).map(b => b.name).unwrap_or("air")
+    deltas.push(@level.BlockDelta::new(x, y, z, name))
   }
   match build_type {
     Oak =>

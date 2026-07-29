@@ -2,7 +2,7 @@
 /// Block definition used by both simulation and rendering.
 /// Rendering derives texture indices from `faces`.
 pub struct Block {
-  name : @util.UniqueName
+  name : @schema.UniqueID
   id : BlockId
   state : UInt
   occlusion_cull : Bool
@@ -25,7 +25,7 @@ pub type BlockId = UInt
 
 ///|
 fn Block::create(
-  name : @util.UniqueName,
+  name : @schema.UniqueID,
   id? : BlockId = alloc_id(),
   state? : UInt = 0,
   occlusion_cull? : Bool = true,
@@ -76,7 +76,7 @@ fn Block::create(
 
 ///|
 pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
-  @schema.encode_raw_id(block.id, state)
+  block.id * 256 + state
 }
 
 ///|

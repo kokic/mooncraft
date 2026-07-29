@@ -41,8 +41,8 @@ test "chunk runtime applies structures atomically to loaded chunks" {
   let runtime = ChunkRuntime::new(world, initial, render_distance=0)
   let stone = @block.lookup_by_name("stone").unwrap().id
   let partial = [
-    @level.BlockDelta::new(1, 5, 1, stone),
-    @level.BlockDelta::new(16, 5, 1, stone),
+    @level.BlockDelta::new(1, 5, 1, "stone"),
+    @level.BlockDelta::new(16, 5, 1, "stone"),
   ]
 
   assert_false(runtime.apply_block_deltas(partial))
@@ -53,8 +53,8 @@ test "chunk runtime applies structures atomically to loaded chunks" {
   @test.assert_eq(runtime.block_deltas().length(), 0)
 
   let structure = [
-    @level.BlockDelta::new(1, 5, 1, stone),
-    @level.BlockDelta::new(2, 5, 1, stone),
+    @level.BlockDelta::new(1, 5, 1, "stone"),
+    @level.BlockDelta::new(2, 5, 1, "stone"),
   ]
   assert_true(runtime.apply_block_deltas(structure))
   @test.assert_eq(

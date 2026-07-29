@@ -5,7 +5,7 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { createChatUI } from "./chat-ui.js";
 import { createPauseMenu } from "./pause-menu.js";
-import { unpackLongId } from "./block-registry.js";
+
 const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
 const HOTBAR_SLOT_COUNT = 9;
@@ -1195,7 +1195,6 @@ function renderTestChunk({
     const currentId = getBlockId(hit.block[0], hit.block[1], hit.block[2]);
     if (!Number.isFinite(currentId)) return null;
     if (currentId === airLongId) return null;
-    const decoded = unpackLongId(currentId);
     const renderBlock = typeof window.mcGetRenderBlockByLongId === "function"
       ? window.mcGetRenderBlockByLongId(blockRegistry, currentId)
       : null;
@@ -1204,7 +1203,7 @@ function renderTestChunk({
       ? window.mcBlockIsSelectable(block)
       : currentId !== airLongId;
     if (!isSelectable) return null;
-    return { pos: hit.block, id: decoded.id, state: decoded.state, longId: currentId };
+    return { pos: hit.block, longId: currentId };
   };
 
   const onMouseDown = (event) => {

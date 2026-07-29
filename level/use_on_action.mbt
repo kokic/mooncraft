@@ -206,8 +206,8 @@ pub fn apply_use_on_action(
               prev,
               player_pos~,
             )
-            let (raw_id, _) = @schema.decode_raw_id(base_id)
-            let long_id = @schema.encode_raw_id(raw_id, placement_state)
+            let raw_id = base_id / 256
+            let long_id = raw_id * 256 + placement_state
             if can_place_block(
                 long_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
                 place_wz,

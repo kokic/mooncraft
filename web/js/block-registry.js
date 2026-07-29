@@ -1,10 +1,3 @@
-const packLongId = (id, state = 0) => window.mcPackLongId(id, state);
-
-const unpackLongId = (long_id) => {
-  const out = window.mcUnpackLongId(long_id);
-  return { id: out._0, state: out._1 };
-};
-
 function createBlockRegistry(textureIndex) {
   const names = [];
   const indices = [];
@@ -22,6 +15,4 @@ function createBlockRegistry(textureIndex) {
 
 export {
   createBlockRegistry,
-  packLongId,
-  unpackLongId,
 };

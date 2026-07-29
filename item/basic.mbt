@@ -3,7 +3,7 @@ pub type ItemId = UInt
 
 ///|
 pub struct Item {
-  name : @util.UniqueName
+  name : @schema.UniqueID
   id : ItemId
   texture : String
   category : Category
@@ -45,7 +45,7 @@ pub fn Item::use_action(
 
 ///|
 fn Item::create(
-  name : @util.UniqueName,
+  name : @schema.UniqueID,
   id? : ItemId = alloc_id(),
   category? : Category = Category::Item,
   profile? : ItemProfile = generic_profile,

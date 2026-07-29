@@ -9,7 +9,7 @@ pub struct UiTexture {
 ///|
 /// JS-facing UI item payload (normalized for item-icons.js).
 pub struct UiItemView {
-  name : @util.UniqueName
+  name : @schema.UniqueID
   kind : String
   shape : String
   material : String

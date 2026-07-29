@@ -189,7 +189,7 @@ pub fn place_oak_trees_in_chunk(
   chunk : Chunk,
   params? : PlacementParams = plains_tree_params,
   is_grass? : (UInt) -> Bool = long_id => {
-    long_id == @block.lookup_by_name("grass").unwrap().id
+    long_id == @block.lookup_by_name("grass").unwrap().long_id()
   },
 ) -> Unit {
   apply_pending_to_chunk(chunk)
@@ -319,7 +319,7 @@ pub fn place_biome_trees_in_chunk(
   world : World,
   chunk : Chunk,
   is_grass? : (UInt) -> Bool = long_id => {
-    long_id == @block.lookup_by_name("grass").unwrap().id
+    long_id == @block.lookup_by_name("grass").unwrap().long_id()
   },
 ) -> Unit {
   place_biome_trees_in_chunk_with_biome(

@@ -1,6 +1,6 @@
 ///|
-let blocks_by_name : Map[@util.UniqueName, Block] = {
-  let out : Map[@util.UniqueName, Block] = Map([])
+let blocks_by_name : Map[@schema.UniqueID, Block] = {
+  let out : Map[@schema.UniqueID, Block] = Map([])
   for block in blocks {
     if !out.contains(block.name) {
       out[block.name] = block
@@ -31,4 +31,20 @@ pub fn lookup_by_long_id(long_id : UInt) -> Block? {
 ///|
 pub fn name_to_long_id(name : String) -> UInt {
   lookup_by_name(name).map(block => block.long_id()).unwrap_or(AIR_LONG_ID)
+}
+
+///
+let blocks_by_id : Map[UInt, Block] = {
+  let out : Map[UInt, Block] = Map([])
+  for block in blocks {
+    if !out.contains(block.id) {
+      out[block.id] = block
+    }
+  }
+  out
+}
+
+///
+pub fn lookup_by_id(id : UInt) -> Block? {
+  blocks_by_id.get(id)
 }

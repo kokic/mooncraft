@@ -10,13 +10,6 @@ initializeGlobalConstants();
 
 const DEFAULT_WORLD_TYPE = getWorldTypeNames()[0]
 
-function assert_webgl2() {
-  const ctx = document.createElement("canvas").getContext("webgl2");
-  if (!ctx) {
-    throw new Error("webgl2 not supported");
-  }
-}
-
 function randomWorldSeed() {
   if (typeof globalThis.crypto?.getRandomValues === "function") {
     const value = new Uint32Array(1);
@@ -58,7 +51,6 @@ function launchRequest(slot) {
 }
 
 async function bootstrap(slot) {
-  assert_webgl2();
   const launch = launchRequest(slot);
   launchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();

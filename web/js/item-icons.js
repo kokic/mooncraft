@@ -98,7 +98,10 @@ function createTextureArray(gl, textures) {
 class ItemIconRenderer {
   constructor() {
     this.canvas = document.createElement("canvas");
-    this.gl = this.canvas.getContext("webgl2", { preserveDrawingBuffer: true });
+    this.gl = this.canvas.getContext("webgl2", {
+      powerPreference: "high-performance",
+      preserveDrawingBuffer: true,
+    });
     if (!this.gl) {
       throw new Error("webgl2 not supported");
     }

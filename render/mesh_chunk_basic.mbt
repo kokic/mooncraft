@@ -45,7 +45,7 @@ pub fn build_chunk_mesh(
   let base_len = size * size * size
   let pad = size + 2
   let pad_len = pad * pad * pad
-  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
+  let get_block = fn(x : Int, y : Int, z : Int) -> @block.RenderBlock {
     if data_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
         air_block

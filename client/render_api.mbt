@@ -20,8 +20,8 @@ pub fn register_render_api() -> Unit {
   // @ffi.cast_global_set("mcQuatSlerp", @math3d.quat_slerp)
   
   @ffi.cast_global_set(
-    "mcCreateBlockRegistry",
-    @render.RenderBlock::create_registry,
+    "mcBlocks",
+    @block.render_registry,
   )
 
   @ffi.cast_global_set(

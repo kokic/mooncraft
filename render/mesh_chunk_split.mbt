@@ -78,7 +78,7 @@ pub fn build_chunk_mesh_split(
   let base_len = size * size * size
   let pad = size + 2
   let pad_len = pad * pad * pad
-  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
+  let get_block = fn(x : Int, y : Int, z : Int) -> @block.RenderBlock {
     if data_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
         air_block
@@ -206,7 +206,7 @@ pub fn build_chunk_mesh_split(
     }
   }
   let select_arrays = fn(
-    render_block : RenderBlock,
+    render_block : @block.RenderBlock,
   ) -> (Array[Float], Array[Float], Array[Float], Array[Float]) {
     if render_block.block.is_water() {
       (water_positions, water_uvs, water_layers, water_colors)
@@ -219,7 +219,7 @@ pub fn build_chunk_mesh_split(
     }
   }
   let push_face = fn(
-    block : RenderBlock,
+    block : @block.RenderBlock,
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -238,7 +238,7 @@ pub fn build_chunk_mesh_split(
     )
   }
   let push_face_rev = fn(
-    block : RenderBlock,
+    block : @block.RenderBlock,
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -257,7 +257,7 @@ pub fn build_chunk_mesh_split(
     )
   }
   let push_face_rev_cube = fn(
-    block : RenderBlock,
+    block : @block.RenderBlock,
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -277,7 +277,7 @@ pub fn build_chunk_mesh_split(
     )
   }
   let push_face_cube = fn(
-    block : RenderBlock,
+    block : @block.RenderBlock,
     rotate_uv : Bool,
     a : (Float, Float, Float),
     b : (Float, Float, Float),

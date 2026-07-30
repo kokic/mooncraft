@@ -64,7 +64,7 @@ pub fn build_chunk_colors_split(
         translucent: [],
       }
   }
-  let get_block = fn(x : Int, y : Int, z : Int) -> RenderBlock {
+  let get_block = fn(x : Int, y : Int, z : Int) -> @block.RenderBlock {
     if data_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
         air_block
@@ -222,7 +222,7 @@ pub fn build_chunk_colors(
     Some(block) => block
     None => return []
   }
-  let get_block : (Int, Int, Int) -> RenderBlock = (x, y, z) => {
+  let get_block : (Int, Int, Int) -> @block.RenderBlock = (x, y, z) => {
     if data_len == base_len {
       if x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size {
         air_block

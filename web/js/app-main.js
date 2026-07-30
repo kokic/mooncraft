@@ -1,5 +1,4 @@
 import { loadBlockTextures } from "./block-textures.js";
-import { createBlockRegistry } from "./block-registry.js";
 import { renderTestChunk } from "./world-renderer.js";
 import { createSaveMenu } from "./save-manager.js";
 import { createSaveWriter, parseSavePayload } from "./save-store.js";
@@ -54,14 +53,12 @@ async function bootstrap(slot) {
   const launch = launchRequest(slot);
   launchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();
-  const blockRegistry = createBlockRegistry(textures.textureIndex);
-  window.mcBlocks = blockRegistry;
   window.mcTextures = textures;
   const chunkSize = window.mcChunkSize;
   const saveWriter = createSaveWriter(slot.id);
   let session = null;
   session = renderTestChunk({
-    blockRegistry,
+    blockRegistry: window.mcBlocks,
     textures,
     chunkSize,
     onSaveAndQuit: async (payload) => {

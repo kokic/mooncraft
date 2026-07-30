@@ -74,7 +74,6 @@ pub fn entity_config(
 }
 
 ///|
-/// Publish explicit entity configs to JS runtime (`window.mcGltfEntities`).
 pub fn publish_entities(entities : Array[GltfEntityConfig]) -> Unit {
   @ffi.cast_global_set("mcGltfEntities", entities)
 }

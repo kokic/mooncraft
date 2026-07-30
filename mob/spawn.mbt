@@ -7,7 +7,7 @@ priv struct MobSpawn {
 ///|
 fn resolve_spawn(request : MobSpawnRequest) -> MobSpawn {
   let spec = mob_spec(request.kind)
-  let scale = request.scale.unwrap_or(spec.scale)
+  let scale = request.scale
   {
     entity_spawn: @entity.EntitySpawn::new(
       request.id,

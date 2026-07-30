@@ -5,7 +5,7 @@ const SNOWMAN_MODEL_URL : String = "./assets/models/snowman_on.gltf"
 const SNOWMAN_TEXTURE_URL : String = "./assets/images/entity/snowman_face.png"
 
 ///|
-fn snowman_spec() -> MobSpec {
+pub fn snowman_spec() -> MobSpec {
   {
     model_url: SNOWMAN_MODEL_URL,
     texture_url: SNOWMAN_TEXTURE_URL,

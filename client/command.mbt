@@ -1,103 +1,5 @@
 ///|
-priv enum ClientCommand {
-  Teleport(Double, Double, Double)
-  SetRenderDistance(Int)
-  Summon(@entity.MobKind, String, Bool, Array[Double]?)
-  Build(BuildType)
-  Invalid(String)
-}
-
-///|
-pub struct CommandResult {
-  success : Bool
-  message : String
-}
-
-///|
 const PLAYER_EYE_HEIGHT : Double = 1.65
-
-///|
-fn command_success(message : String) -> CommandResult {
-  { success: true, message }
-}
-
-///|
-fn command_error(message : String) -> CommandResult {
-  { success: false, message }
-}
-
-///|
-fn parse_finite_double(token : StringView) -> Double? {
-  try {
-    let value : Double = @strconv.from_str(token)
-    guard !(value.is_nan() || value.is_inf()) else { None }
-    Some(value)
-  } catch {
-    _ => None
-  }
-}
-
-///|
-fn parse_finite_double3(
-  x : StringView,
-  y : StringView,
-  z : StringView,
-) -> (Double, Double, Double)? {
-  let group = (
-    parse_finite_double(x),
-    parse_finite_double(y),
-    parse_finite_double(z),
-  )
-  guard group is (Some(x), Some(y), Some(z)) else { None }
-  Some((x, y, z))
-}
-
-///|
-fn parse_int(token : StringView) -> Int? {
-  Some(@strconv.from_str(token)) catch {
-    _ => None
-  }
-}
-
-///|
-fn parse_command(input : String) -> ClientCommand {
-  let tokens = input
-    .trim()
-    .split(" ")
-    .filter(token => !token.is_empty())
-    .to_array()
-  match tokens {
-    // teleport player
-    ["/tp", x, y, z] =>
-      match
-        (parse_finite_double(x), parse_finite_double(y), parse_finite_double(z)) {
-        (Some(x), Some(y), Some(z)) => Teleport(x, y, z)
-        _ => Invalid("Usage: /tp <x> <y> <z>")
-      }
-    ["/tp", ..] => Invalid("Usage: /tp <x> <y> <z>")
-
-    // set the world render distance
-    ["/rd", value] =>
-      match parse_int(value) {
-        Some(value) if value >= @render.MIN_RENDER_DISTANCE &&
-          value <= @render.MAX_RENDER_DISTANCE => SetRenderDistance(value)
-        _ =>
-          Invalid(
-            "Render distance must be between \{@render.MIN_RENDER_DISTANCE} and \{@render.MAX_RENDER_DISTANCE}",
-          )
-      }
-    ["/rd", ..] => Invalid("Usage: /rd <number>")
-
-    // summon an entity at the block position pointed by the crosshair
-    ["/summon", ..] => parse_summon_command(tokens)
-
-    // generate a multi-block structure at the block position pointed by the crosshair
-    ["/build", build_type] => parse_build_command(build_type)
-    ["/build", ..] => Invalid("Usage: /build <type>")
-    [command, ..] => Invalid("Unknown command: \{command}")
-    [] => Invalid("Command cannot be empty")
-  }
-}
 
 ///|
 fn GameRuntime::crosshair_block(self : GameRuntime) -> (Int, Int, Int)? {
@@ -121,54 +23,108 @@ fn GameRuntime::crosshair_block(self : GameRuntime) -> (Int, Int, Int)? {
 
 ///|
 fn GameRuntime::execute_command(
-  self : GameRuntime,
+  game : GameRuntime,
   input : String,
-) -> CommandResult {
-  match parse_command(input) {
-    Teleport(x, y, z) => {
-      ignore(self.player_runtime.teleport(x, y, z))
-      command_success("Teleported to \{x}, \{y}, \{z}")
-    }
-    SetRenderDistance(distance) => {
-      self.chunk_runtime.set_render_distance(distance)
-      command_success("Render distance set to \{distance}")
-    }
-    Summon(kind, animation, upside_down, scale) =>
-      match self.summon_target() {
-        Some((x, y, z, mob_yaw)) => {
-          let spawned = @mob.spawn(
-            @mob.MobSpawnRequest::new(
-              @env.now().to_string(),
-              kind,
-              x,
-              y,
-              z,
-              animation~,
-              upside_down~,
-              yaw=mob_yaw,
-              scale~,
-            ),
+) -> Result[String, String] {
+  let tokens = input.trim().split(" ").filter(t => !t.is_empty()).to_array()
+
+  match tokens {
+    // 
+    ["/tp", ..] =>
+      parse(tokens, "Usage: /tp <x> <y> <z>", s => {
+        let x = s.take_double()
+        let y = s.take_double()
+        let z = s.take_double()
+        ignore(game.player_runtime.teleport(x, y, z))
+        Ok("Teleported to \{x}, \{y}, \{z}")
+      })
+
+    //
+    ["/rd", ..] =>
+      parse(
+        tokens,
+        "Usage: /rd <distance: \{@render.MIN_RENDER_DISTANCE}..\{@render.MAX_RENDER_DISTANCE}>",
+        s => {
+          let d = s.take_int(
+            min=Some(@render.MIN_RENDER_DISTANCE),
+            max=Some(@render.MAX_RENDER_DISTANCE),
           )
-          if spawned {
-            command_success("Summoned mob")
-          } else {
-            command_error("An entity with that id already exists")
+          game.chunk_runtime.set_render_distance(d)
+          Ok("Render distance set to \{d}")
+        },
+      )
+
+    // summon an entity at the block position pointed by the crosshair
+    ["/summon", ..] => summon_command(game, tokens)
+
+    // generate a multi-block structure at the block position pointed by the crosshair
+    ["/build", ..] =>
+      parse(
+        tokens,
+        "Usage: /build <oak | fallen_oak | cactus | nether_spire>",
+        s => {
+          guard BuildType::from_name(s.take_string()) is Some(build_type) else {
+            Err("Invalid building type")
           }
-        }
-        None => command_error("No block in sight")
-      }
-    Build(build_type) =>
-      match self.crosshair_block() {
-        Some((wx, wy, wz)) => {
-          let deltas = self.build_deltas(build_type, wx, wy + 1, wz)
-          if self.chunk_runtime.apply_block_deltas(deltas) {
-            command_success("Built structure")
-          } else {
-            command_error("Structure extends into an unloaded chunk")
+          match game.crosshair_block() {
+            Some((wx, wy, wz)) => {
+              let deltas = game.build_deltas(build_type, wx, wy + 1, wz)
+              if game.chunk_runtime.apply_block_deltas(deltas) {
+                Ok("Built structure")
+              } else {
+                Err("Structure extends into an unloaded chunk")
+              }
+            }
+            None => Err("No block in sight")
           }
-        }
-        None => command_error("No block in sight")
-      }
-    Invalid(message) => command_error(message)
+        },
+      )
+
+    // 
+    ["/noise", ..] =>
+      parse(
+        tokens,
+        "Usage: /noise [seed : uint := random] [size : [1, \{NOISE_MAX_SIZE}] := \{NOISE_DEFAULT_SIZE}] [frequency : [\{NOISE_MIN_FREQUENCY}, \{NOISE_MAX_FREQUENCY}] := \{NOISE_DEFAULT_FREQUENCY}] [octaves : [1, \{NOISE_MAX_OCTAVES}] := \{NOISE_DEFAULT_OCTAVES}] [amplitude : (0, \{NOISE_MAX_AMPLITUDE}] := \{NOISE_DEFAULT_AMPLITUDE}]",
+        s => {
+          let seed = s.take_uint(default=Some(@env.now().to_uint()))
+          let size = s.take_int(
+            min=Some(1),
+            max=Some(NOISE_MAX_SIZE),
+            default=Some(NOISE_DEFAULT_SIZE),
+          )
+          let frequency = s.take_double(
+            min=Some(NOISE_MIN_FREQUENCY),
+            max=Some(NOISE_MAX_FREQUENCY),
+            default=Some(NOISE_DEFAULT_FREQUENCY),
+          )
+          let octaves = s.take_int(
+            min=Some(1),
+            max=Some(NOISE_MAX_OCTAVES),
+            default=Some(NOISE_DEFAULT_OCTAVES),
+          )
+          let amplitude = s.take_double(
+            min=Some(NOISE_MIN_FREQUENCY),
+            max=Some(NOISE_MAX_AMPLITUDE),
+            default=Some(NOISE_DEFAULT_AMPLITUDE),
+          )
+          match game.noise_target(seed, size, frequency, octaves, amplitude) {
+            Some(target) => {
+              let deltas = noise_deltas(target)
+              if game.chunk_runtime.apply_block_deltas(deltas) {
+                Ok(
+                  "\{target.size}x\{target.size} noise terrain placed at (\{target.center_x()}, \{target.y}, \{target.center_z()})",
+                )
+              } else {
+                Err("extends into an unloaded chunk")
+              }
+            }
+            None => Err("No block in sight")
+          }
+        },
+      )
+    
+    // 
+    [cmd, ..] => Err("Unknown command: \{cmd}")
+    [] => Err("Command cannot be empty")
   }
 }

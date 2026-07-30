@@ -54,6 +54,7 @@ fn default_demo_requests(world : @level.World) -> Array[MobSpawnRequest] {
       zombie_0_x,
       zombie_0_y,
       zombie_0_z,
+      zombie_spec().scale,
     ),
     MobSpawnRequest::new(
       "zombie_1",
@@ -62,9 +63,24 @@ fn default_demo_requests(world : @level.World) -> Array[MobSpawnRequest] {
       zombie_1_y,
       zombie_1_z,
       animation="riding",
+      zombie_spec().scale,
     ),
-    MobSpawnRequest::new("rabbit_0", Rabbit, rabbit_x, rabbit_y, rabbit_z),
-    MobSpawnRequest::new("snowman_0", Snowman, snowman_x, snowman_y, snowman_z),
+    MobSpawnRequest::new(
+      "rabbit_0",
+      Rabbit,
+      rabbit_x,
+      rabbit_y,
+      rabbit_z,
+      rabbit_spec().scale,
+    ),
+    MobSpawnRequest::new(
+      "snowman_0",
+      Snowman,
+      snowman_x,
+      snowman_y,
+      snowman_z,
+      snowman_spec().scale,
+    ),
   ]
 }
 

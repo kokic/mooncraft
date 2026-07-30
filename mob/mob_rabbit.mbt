@@ -5,7 +5,7 @@ const RABBIT_MODEL_URL : String = "./assets/models/rabbit.gltf"
 const RABBIT_TEXTURE_URL : String = "./assets/images/entity/rabbit_white.png"
 
 ///|
-fn rabbit_spec() -> MobSpec {
+pub fn rabbit_spec() -> MobSpec {
   {
     model_url: RABBIT_MODEL_URL,
     texture_url: RABBIT_TEXTURE_URL,

@@ -8,7 +8,7 @@ pub struct MobSpawnRequest {
   animation : String
   upside_down : Bool
   yaw : Double
-  scale : Array[Double]?
+  scale : Array[Double]
 }
 
 ///|
@@ -21,13 +21,13 @@ pub fn MobSpawnRequest::new(
   animation? : String = "none",
   upside_down? : Bool = false,
   yaw? : Double = 0.0,
-  scale? : Array[Double]? = None,
+  scale : Array[Double],
 ) -> MobSpawnRequest {
   { id, kind, x, y, z, animation, upside_down, yaw, scale }
 }
 
 ///|
-priv struct MobSpec {
+pub struct MobSpec {
   model_url : String
   texture_url : String
   render_y_offset : Double
@@ -39,7 +39,7 @@ priv struct MobSpec {
 }
 
 ///|
-fn mob_spec(kind : @entity.MobKind) -> MobSpec {
+pub fn mob_spec(kind : @entity.MobKind) -> MobSpec {
   match kind {
     Zombie => zombie_spec()
     Rabbit => rabbit_spec()

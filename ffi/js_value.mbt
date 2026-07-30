@@ -2,6 +2,9 @@
 #external
 pub type JsValue
 
+#external
+pub type JsMap
+
 ///|
 pub extern "js" fn JsValue::undefined() -> JsValue =
   #| () => undefined

@@ -109,12 +109,10 @@ pub fn register_runtime_api(
   @ffi.cast_global_set("mcSetPlayerInventoryOpen", fn(open : Bool) {
     game.set_inventory_open(open)
   })
-  @ffi.cast_global_set("mcEncodeGameSave", fn(now : Double) {
+  @ffi.cast_global_set("mcEncodeGameSave", (now : Double) => {
     game.save_snapshot(now)
   })
-  @ffi.cast_global_set("mcExecuteCommand", fn(input : String) {
-    game.execute_command(input)
-  })
+  @ffi.cast_global_set("mcExecuteCommand", input => game.execute_command(input))
   @ffi.cast_global_set(
     "mcRequestZombieNavigation", @mob.request_zombie_0_navigation,
   )

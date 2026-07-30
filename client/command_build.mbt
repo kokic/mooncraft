@@ -1,5 +1,5 @@
 ///|
-priv enum BuildType {
+pub enum BuildType {
   Oak
   FallenOak
   Cactus
@@ -7,14 +7,16 @@ priv enum BuildType {
 }
 
 ///|
-fn parse_build_command(build_type : StringView) -> ClientCommand {
-  match build_type {
-    "oak" => Build(Oak)
-    "fallen_oak" => Build(FallenOak)
-    "cactus" => Build(Cactus)
-    "nether_spire" => Build(NetherSpire)
-    _ => Invalid("Build type must be oak, fallen_oak, cactus, or nether_spire")
-  }
+pub fn BuildType::from_name(name : String) -> BuildType? {
+  Some(
+    match name {
+      "oak" => Oak
+      "fallen_oak" => FallenOak
+      "cactus" => Cactus
+      "nether_spire" => NetherSpire
+      _ => return None
+    },
+  )
 }
 
 ///|
@@ -27,8 +29,14 @@ fn GameRuntime::build_deltas(
 ) -> Array[@level.BlockDelta] {
   let deltas : Array[@level.BlockDelta] = []
   let set_block = (x : Int, y : Int, z : Int, id : UInt) => {
-    let name = @block.lookup_by_internal_id(id).map(b => b.name).unwrap_or("air")
-    deltas.push(@level.BlockDelta::new(x, y, z, name))
+    deltas.push(
+      @level.BlockDelta::new(
+        x,
+        y,
+        z,
+        @block.lookup_by_internal_id(id).map(b => b.name).unwrap_or("air"),
+      ),
+    )
   }
   match build_type {
     Oak =>

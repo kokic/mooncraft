@@ -35,13 +35,10 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
   @ffi.cast_global_set("mcUseItemOn", @item.use_item_on)
   @ffi.cast_global_set("mcUseItem", @item.use_item)
   @ffi.cast_global_set("mcGetItemDisplayName", @i18n.item_display_name)
-  @ffi.cast_global_set("mcGetBiomeName", fn(wx : Int, wz : Int) -> String {
+  @ffi.cast_global_set("mcGetBiomeName", (wx : Int, wz : Int) => {
     @biome.name(@biome.biome_at(world.noise, wx, wz))
   })
-  @ffi.cast_global_set("mcGetWaterTint", fn(
-    wx : Int,
-    wz : Int,
-  ) -> Array[Double] {
+  @ffi.cast_global_set("mcGetWaterTint", (wx : Int, wz : Int) => {
     let sample = @biome.sample(world.noise, wx, wz)
     let biome = @biome.biome_from_sample(sample)
     let (r, g, b, a) = @genus.Water::tint_for_sample(biome, sample)

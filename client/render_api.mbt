@@ -12,13 +12,16 @@ pub fn register_render_api() -> Unit {
   @ffi.cast_global_set("mcMat4LookAt", @render.mat4_look_at)
   @ffi.cast_global_set("mcMat4Mul", @render.mat4_mul)
   @ffi.cast_global_set("mcMat4FromTRS", @render.mat4_from_trs)
-  @ffi.cast_global_set("mcTransformPoint", @render.transform_point)
-  @ffi.cast_global_set("mcQuatNormalize", @math3d.quat_normalize)
-  @ffi.cast_global_set("mcQuatMul", @math3d.quat_mul)
-  @ffi.cast_global_set("mcQuatApplyYawOffset", @math3d.quat_apply_yaw_offset)
-  @ffi.cast_global_set("mcQuatFromYawPitch", @math3d.quat_from_yaw_pitch)
-  @ffi.cast_global_set("mcQuatSlerp", @math3d.quat_slerp)
+  // @ffi.cast_global_set("mcTransformPoint", @render.transform_point)
+  // @ffi.cast_global_set("mcQuatNormalize", @math3d.quat_normalize)
+  // @ffi.cast_global_set("mcQuatMul", @math3d.quat_mul)
+  // @ffi.cast_global_set("mcQuatApplyYawOffset", @math3d.quat_apply_yaw_offset)
+  // @ffi.cast_global_set("mcQuatFromYawPitch", @math3d.quat_from_yaw_pitch)
+  // @ffi.cast_global_set("mcQuatSlerp", @math3d.quat_slerp)
+  
   @ffi.cast_global_set("mcCreateBlockRegistry", @render.BlockRegistry::create)
+
+
   @ffi.cast_global_set(
     "mcGetRenderBlockByInternalId",
     @render.BlockRegistry::get_by_internal_id,

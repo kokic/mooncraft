@@ -8,11 +8,8 @@ pub fn decode_save_payload(text : String) -> SavePayload? {
     root =>
       try {
         let payload : SavePayload = @json.from_json(root)
-        if payload.version == SAVE_SCHEMA_VERSION {
-          Some(payload)
-        } else {
-          None
-        }
+        guard payload.version == SAVE_SCHEMA_VERSION else { None }
+        Some(payload)
       } catch {
         _ => None
       }

@@ -75,10 +75,11 @@ fn initialize_client(
   save_text : String,
 ) -> Unit {
   // Publish world-dependent configuration (overrides the early defaults).
-  @ffi.cast_global_set("mcWorldSeed", world.seed())
-  @ffi.cast_global_set("mcWorldType", world.world_type_name())
-  @ffi.cast_global_set("mcWorldMinY", world.min_y())
-  @ffi.cast_global_set("mcWorldMaxY", world.max_y())
+  // (unused)
+  // @ffi.cast_global_set("mcWorldSeed", world.seed())
+  // @ffi.cast_global_set("mcWorldType", world.world_type_name())
+  // @ffi.cast_global_set("mcWorldMinY", world.min_y())
+  // @ffi.cast_global_set("mcWorldMaxY", world.max_y())
 
   // Register the browser API by domain boundary. Each `mc*` name has exactly one owner in the client package.
   @client.register_render_api()

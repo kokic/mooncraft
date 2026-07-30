@@ -106,15 +106,31 @@ pub fn register_runtime_api(
     }
     game.set_hotbar_slot(index, slot)
   })
-  @ffi.cast_global_set("mcSetPlayerInventoryOpen", fn(open : Bool) {
+  @ffi.cast_global_set("mcSetPlayerInventoryOpen", (open : Bool) => {
     game.set_inventory_open(open)
   })
   @ffi.cast_global_set("mcEncodeGameSave", (now : Double) => {
     game.save_snapshot(now)
   })
-  @ffi.cast_global_set("mcExecuteCommand", input => game.execute_command(input))
+  @ffi.cast_global_set("mcExecuteCommand", (input : String) => {
+    FlattenResult::from(game.execute_command(input))
+  })
   @ffi.cast_global_set(
     "mcRequestZombieNavigation", @mob.request_zombie_0_navigation,
   )
   @ffi.cast_global_set("mcTickEntityRuntime", @mob.tick_entity_runtime)
+}
+
+///|
+pub struct FlattenResult {
+  success : Bool
+  message : String
+}
+
+///|
+pub fn FlattenResult::from(result : Result[String, String]) -> FlattenResult {
+  match result {
+    Ok(msg) => { success: true, message: msg }
+    Err(msg) => { success: false, message: msg }
+  }
 }

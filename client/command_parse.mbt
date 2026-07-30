@@ -1,13 +1,4 @@
 ///|
-fn parse_decimal3(
-  x : StringView,
-  y : StringView,
-  z : StringView,
-) -> (Double, Double, Double) raise {
-  (@string.parse_double(x), @string.parse_double(y), @string.parse_double(z))
-}
-
-///|
 fn clamp_int(token : StringView, min : Int, max : Int) -> Int raise {
   let v = @string.parse_int(token)
   guard v >= min && v <= max else { fail("parse error") }
@@ -122,15 +113,6 @@ fn ParseScope::take_uint(
   let token = self.tokens[self.pos]
   self.pos = self.pos + 1
   @string.parse_uint(token)
-}
-
-///|
-fn ParseScope::remainder(self : ParseScope) -> Array[StringView] {
-  let r : Array[StringView] = []
-  for i in self.pos..<self.tokens.length() {
-    r.push(self.tokens[i])
-  }
-  r
 }
 
 ///|

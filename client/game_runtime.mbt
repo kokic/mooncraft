@@ -66,7 +66,7 @@ fn GameRuntime::player_chunk_center(self : GameRuntime) -> (Int, Int) {
 /// Advance the whole runtime one frame.
 fn GameRuntime::tick(
   self : GameRuntime,
-  registry : @render.BlockRegistry,
+  registry : @render.RenderRegistry,
   delta : Double,
 ) -> GameFrame {
   let player = self.player_runtime.tick(delta)

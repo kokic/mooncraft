@@ -1,6 +1,6 @@
 ///|
 pub fn build_chunk_colors_split(
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   chunk_data : Array[UInt],
   chunk_light : Bytes,
   size : Int,
@@ -163,7 +163,7 @@ pub fn build_chunk_colors_split(
 ///|
 /// Build only per-vertex colors for a chunk mesh (same vertex order as build_chunk_mesh).
 pub fn build_chunk_colors(
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   chunk_data : Array[UInt],
   chunk_light : Bytes,
   size : Int,

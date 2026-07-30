@@ -814,7 +814,7 @@ fn ChunkRuntime::section_entry(
 ///|
 fn ChunkRuntime::build_mesh_command(
   self : ChunkRuntime,
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   section : ChunkSection,
 ) -> ChunkMeshCommand {
   let entry = self.section_entry(section)
@@ -840,7 +840,7 @@ fn ChunkRuntime::build_mesh_command(
 ///|
 fn ChunkRuntime::build_recolor_commands(
   self : ChunkRuntime,
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   relit_chunks : Array[String],
   mesh_updates : Array[ChunkMeshCommand],
 ) -> Array[ChunkRecolorCommand] {

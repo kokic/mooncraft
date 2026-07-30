@@ -1,6 +1,6 @@
 ///|
 pub fn build_chunk_mesh(
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   chunk_data : Array[UInt],
   chunk_light : Bytes,
   size : Int,

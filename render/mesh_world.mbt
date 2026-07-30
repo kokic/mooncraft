@@ -1,6 +1,6 @@
 ///|
 pub fn build_world_mesh(
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   entries : Array[ChunkEntry],
   size : Int,
 ) -> MeshData {
@@ -17,7 +17,7 @@ pub fn build_world_mesh(
 
 ///|
 pub fn build_world_mesh_split(
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   entries : Array[ChunkEntry],
   size : Int,
 ) -> MeshSplit {

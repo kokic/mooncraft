@@ -125,7 +125,7 @@ fn ChunkRuntime::take_dirty_sections(
 /// the browser renderer is allowed to perform for world CPU state this frame.
 pub fn ChunkRuntime::tick(
   self : ChunkRuntime,
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   center_x : Int,
   center_z : Int,
   center_y? : Int = 0,

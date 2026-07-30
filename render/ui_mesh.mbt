@@ -1,7 +1,7 @@
 ///|
 /// Build a single-block mesh for UI rendering.
 pub fn build_ui_item_mesh(
-  registry : BlockRegistry,
+  registry : RenderRegistry,
   internal_id : UInt,
 ) -> MeshData {
   let data : Array[UInt] = [internal_id]

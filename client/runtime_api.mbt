@@ -63,7 +63,7 @@ pub fn register_runtime_api(
   load_initial_save(game, world, save_text)
   @ffi.cast_global_set("mcChunkRuntimeChunkMap", game.chunk_map())
   @ffi.cast_global_set("mcTickGame", fn(
-    registry : @render.BlockRegistry,
+    registry : @render.RenderRegistry,
     delta : Double,
   ) {
     game.tick(registry, delta)

@@ -17,7 +17,7 @@ fn summon_command(
     let animation = s.take_string(default=Some("none"))
     let upside_down = animation == "jeb_"
     let animation = if upside_down { "none" } else { animation }
-    
+
     let scale = [
       s.take_double(default=Some(1)), // scale X
       s.take_double(default=Some(1)), // scale Y

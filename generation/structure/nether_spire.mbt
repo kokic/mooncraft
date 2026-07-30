@@ -223,7 +223,9 @@ pub fn place_nether_spire(
   center_x : Int,
   base_y : Int,
   center_z : Int,
-  filler? : @block.BlockId = @block.lookup_by_name("netherrack").unwrap().internal_id(),
+  filler? : @block.BlockId = @block.lookup_by_name("netherrack")
+    .unwrap()
+    .internal_id(),
 ) -> Unit {
   let air = @schema.AIR_ID
   let half = NETHER_SPIRE_SIZE / 2

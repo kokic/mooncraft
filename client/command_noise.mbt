@@ -1,32 +1,50 @@
 ///|
-const NOISE_DEFAULT_SIZE : Int = 8
+/// width and depth of the generated square terrain plane (in blocks)
+const NOISE_DEFAULT_SIZE : Int = 16
 
 ///|
+/// maximum terrain plane size (in blocks)
 const NOISE_MAX_SIZE : Int = 64
 
 ///|
+/// number of stacked noise layers; more octaves produces finer detail and more rugged terrain
 const NOISE_DEFAULT_OCTAVES : Int = 4
 
 ///|
+/// maximum number of octaves
 const NOISE_MAX_OCTAVES : Int = 8
 
 ///|
+/// base spatial frequency of the noise; lower values yield smoother, broader features
 const NOISE_DEFAULT_FREQUENCY : Double = 0.05
 
 ///|
+/// minimum noise frequency
 const NOISE_MIN_FREQUENCY : Double = 0.01
 
 ///|
+/// maximum noise frequency
 const NOISE_MAX_FREQUENCY : Double = 1.0
 
 ///|
-const NOISE_DEFAULT_AMPLITUDE : Double = 8.0
+/// vertical height multiplier applied to the noise value; controls maximum terrain elevation
+const NOISE_DEFAULT_AMPLITUDE : Double = 32.0
 
 ///|
+/// maximum noise amplitude
 const NOISE_MAX_AMPLITUDE : Double = 128.0
 
 ///|
-const NOISE_SOIL_DEPTH : Int = 3
+/// number of dirt/soil blocks placed above the stone layer, with grass on the very top
+const NOISE_DEFAULT_SOIL_DEPTH : Int = 3
+
+///|
+/// minimum soil layer thickness (in blocks)
+const NOISE_MIN_SOIL_DEPTH : Int = 1
+
+///|
+/// maximum soil layer thickness (in blocks)
+const NOISE_MAX_SOIL_DEPTH : Int = 10
 
 ///|
 priv struct NoiseTarget {
@@ -38,6 +56,7 @@ priv struct NoiseTarget {
   frequency : Double
   octaves : Int
   amplitude : Double
+  soil_depth : Int
 }
 
 ///|
@@ -58,12 +77,13 @@ fn GameRuntime::noise_target(
   frequency : Double,
   octaves : Int,
   amplitude : Double,
+  soil_depth : Int,
 ) -> NoiseTarget? {
   self
   .crosshair_block()
   .map(point => {
     let (x, y, z) = point
-    { x, y, z, size, seed, frequency, octaves, amplitude }
+    { x, y, z, size, seed, frequency, octaves, amplitude, soil_depth }
   })
 }
 
@@ -95,7 +115,7 @@ fn noise_deltas(target : NoiseTarget) -> Array[@level.BlockDelta] {
         target.y
       }
       for wy in bottom..<top {
-        let material = if wy >= top - NOISE_SOIL_DEPTH {
+        let material = if wy >= top - target.soil_depth {
           if wy == top - 1 {
             "grass"
           } else {

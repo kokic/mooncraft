@@ -48,7 +48,10 @@ pub fn BlockRegistry::create(
     blocks_by_name[def.name] = block
     blocks_by_internal_id[internal_id] = block
   }
-  BlockRegistry::{ by_name: blocks_by_name, by_internal_id: blocks_by_internal_id }
+  BlockRegistry::{
+    by_name: blocks_by_name,
+    by_internal_id: blocks_by_internal_id,
+  }
 }
 
 ///|

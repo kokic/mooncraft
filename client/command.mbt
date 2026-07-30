@@ -84,7 +84,7 @@ fn GameRuntime::execute_command(
     ["/noise", ..] =>
       parse(
         tokens,
-        "Usage: /noise [seed : uint := random] [size : [1, \{NOISE_MAX_SIZE}] := \{NOISE_DEFAULT_SIZE}] [frequency : [\{NOISE_MIN_FREQUENCY}, \{NOISE_MAX_FREQUENCY}] := \{NOISE_DEFAULT_FREQUENCY}] [octaves : [1, \{NOISE_MAX_OCTAVES}] := \{NOISE_DEFAULT_OCTAVES}] [amplitude : (0, \{NOISE_MAX_AMPLITUDE}] := \{NOISE_DEFAULT_AMPLITUDE}]",
+        "Usage: /noise [seed : uint := random] [size : [1, \{NOISE_MAX_SIZE}] := \{NOISE_DEFAULT_SIZE}] [frequency : [\{NOISE_MIN_FREQUENCY}, \{NOISE_MAX_FREQUENCY}] := \{NOISE_DEFAULT_FREQUENCY}] [octaves : [1, \{NOISE_MAX_OCTAVES}] := \{NOISE_DEFAULT_OCTAVES}] [amplitude : (0, \{NOISE_MAX_AMPLITUDE}] := \{NOISE_DEFAULT_AMPLITUDE}] [soil_depth : [\{NOISE_MIN_SOIL_DEPTH}, \{NOISE_MAX_SOIL_DEPTH}] := \{NOISE_DEFAULT_SOIL_DEPTH}]",
         s => {
           let seed = s.take_uint(default=Some(@env.now().to_uint()))
           let size = s.take_int(
@@ -107,7 +107,16 @@ fn GameRuntime::execute_command(
             max=Some(NOISE_MAX_AMPLITUDE),
             default=Some(NOISE_DEFAULT_AMPLITUDE),
           )
-          match game.noise_target(seed, size, frequency, octaves, amplitude) {
+          let soil_depth = s.take_int(
+            min=Some(NOISE_MIN_SOIL_DEPTH),
+            max=Some(NOISE_MAX_SOIL_DEPTH),
+            default=Some(NOISE_DEFAULT_SOIL_DEPTH),
+          )
+
+          match
+            game.noise_target(
+              seed, size, frequency, octaves, amplitude, soil_depth,
+            ) {
             Some(target) => {
               let deltas = noise_deltas(target)
               if game.chunk_runtime.apply_block_deltas(deltas) {
@@ -122,7 +131,7 @@ fn GameRuntime::execute_command(
           }
         },
       )
-    
+
     // unrecognized command
     [cmd, ..] => Err("Unknown command: \{cmd}")
     [] => Err("Command cannot be empty")

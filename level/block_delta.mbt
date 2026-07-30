@@ -7,7 +7,7 @@ pub struct BlockDelta {
   id : String
 } derive(Debug, ToJson, FromJson)
 
-///
+///|
 pub fn BlockDelta::new(x : Int, y : Int, z : Int, id : String) -> BlockDelta {
   { x, y, z, id }
 }

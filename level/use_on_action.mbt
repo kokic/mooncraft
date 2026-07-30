@@ -4,14 +4,19 @@ fn resolve_block_internal_id(name : String) -> UInt? {
 }
 
 ///|
-fn block_name_matches(internal_id : UInt, selector : @item.BlockSelector) -> Bool {
+fn block_name_matches(
+  internal_id : UInt,
+  selector : @item.BlockSelector,
+) -> Bool {
   @block.lookup_by_internal_id(internal_id)
   .map(block => selector.matches(block.name))
   .unwrap_or(false)
 }
 
 ///|
-fn resolve_block_internal_id_by_selector(selector : @item.BlockSelector) -> UInt? {
+fn resolve_block_internal_id_by_selector(
+  selector : @item.BlockSelector,
+) -> UInt? {
   let mut found : UInt? = None
   for block in @block.blocks {
     if selector.matches(block.name) {
@@ -209,8 +214,8 @@ pub fn apply_use_on_action(
             let raw_id = @schema.decode_block_id(base_id)
             let internal_id = @schema.encode_variant(raw_id, placement_state)
             if can_place_block(
-                internal_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
-                place_wz,
+                internal_id, player_pos, entity_height, entity_radius, place_wx,
+                place_wy, place_wz,
               ) {
               set_block_id(
                 chunk_map, size, place_wx, place_wy, place_wz, internal_id,

@@ -68,10 +68,16 @@ fn InfiniteBlockPalette::new() -> InfiniteBlockPalette {
     coal_ore: @block.lookup_by_name("classic.coal_ore").unwrap().internal_id(),
     iron_ore: @block.lookup_by_name("classic.iron_ore").unwrap().internal_id(),
     gold_ore: @block.lookup_by_name("classic.gold_ore").unwrap().internal_id(),
-    redstone_ore: @block.lookup_by_name("classic.redstone_ore").unwrap().internal_id(),
-    diamond_ore: @block.lookup_by_name("classic.diamond_ore").unwrap().internal_id(),
+    redstone_ore: @block.lookup_by_name("classic.redstone_ore")
+    .unwrap()
+    .internal_id(),
+    diamond_ore: @block.lookup_by_name("classic.diamond_ore")
+    .unwrap()
+    .internal_id(),
     lapis_ore: @block.lookup_by_name("classic.lapis_ore").unwrap().internal_id(),
-    emerald_ore: @block.lookup_by_name("classic.emerald_ore").unwrap().internal_id(),
+    emerald_ore: @block.lookup_by_name("classic.emerald_ore")
+    .unwrap()
+    .internal_id(),
   }
 }
 

@@ -174,7 +174,9 @@ fn preclassic_should_carve_cave(
 fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
   let air = @schema.AIR_ID
   let bedrock = @block.lookup_by_name("bedrock").unwrap().internal_id()
-  let stone = @block.lookup_by_name("pre-classic.cobblestone").unwrap().internal_id()
+  let stone = @block.lookup_by_name("pre-classic.cobblestone")
+    .unwrap()
+    .internal_id()
   let grass = @block.lookup_by_name("pre-classic.grass").unwrap().internal_id()
   let dirt = @block.lookup_by_name("dirt").unwrap().internal_id()
   let sand = @block.lookup_by_name("sand").unwrap().internal_id()
@@ -217,6 +219,8 @@ fn fill_preclassic(world : World, chunk : Chunk) -> Chunk {
       }
     }
   }
-  place_oak_trees_in_chunk(world, chunk, is_grass=internal_id => internal_id == grass)
+  place_oak_trees_in_chunk(world, chunk, is_grass=internal_id => {
+    internal_id == grass
+  })
   chunk
 }

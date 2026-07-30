@@ -217,11 +217,7 @@ fn create_torch_group(
 }
 
 ///|
-pub fn variant_name(
-  base : String,
-  facing : Facing,
-  state : UInt,
-) -> String {
+pub fn variant_name(base : String, facing : Facing, state : UInt) -> String {
   match facing {
     Facing::Axis => @genus.Log::unique_name(base, state)
     Facing::Horizontal => @genus.HorizontalFacing::unique_name(base, state)

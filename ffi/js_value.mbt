@@ -2,6 +2,7 @@
 #external
 pub type JsValue
 
+///|
 #external
 pub type JsMap
 

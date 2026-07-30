@@ -246,7 +246,14 @@ pub fn ChunkRuntime::apply_block_deltas(
     }
   }
   for delta in deltas {
-    ignore(self.set_block(delta.x, delta.y, delta.z, @block.name_to_internal_id(delta.id)))
+    ignore(
+      self.set_block(
+        delta.x,
+        delta.y,
+        delta.z,
+        @block.name_to_internal_id(delta.id),
+      ),
+    )
   }
   true
 }

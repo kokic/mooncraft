@@ -29,7 +29,7 @@ fn GameRuntime::execute_command(
   let tokens = input.trim().split(" ").filter(t => !t.is_empty()).to_array()
 
   match tokens {
-    // 
+    // teleport the player to specified coordinates
     ["/tp", ..] =>
       parse(tokens, "Usage: /tp <x> <y> <z>", s => {
         let x = s.take_double()
@@ -39,7 +39,7 @@ fn GameRuntime::execute_command(
         Ok("Teleported to \{x}, \{y}, \{z}")
       })
 
-    //
+    // set the render distance
     ["/rd", ..] =>
       parse(
         tokens,
@@ -68,7 +68,7 @@ fn GameRuntime::execute_command(
           }
           match game.crosshair_block() {
             Some((wx, wy, wz)) => {
-              let deltas = game.build_deltas(build_type, wx, wy + 1, wz)
+              let deltas = game.build_deltas(build_type, wx, wy, wz)
               if game.chunk_runtime.apply_block_deltas(deltas) {
                 Ok("Built structure")
               } else {
@@ -80,7 +80,7 @@ fn GameRuntime::execute_command(
         },
       )
 
-    // 
+    // generate noise terrain at the block position pointed by the crosshair
     ["/noise", ..] =>
       parse(
         tokens,
@@ -123,7 +123,7 @@ fn GameRuntime::execute_command(
         },
       )
     
-    // 
+    // unrecognized command
     [cmd, ..] => Err("Unknown command: \{cmd}")
     [] => Err("Command cannot be empty")
   }

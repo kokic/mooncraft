@@ -12,6 +12,9 @@
       "virtual:mooncraft-level": [
         "./_build/js/release/build/level/level.d.ts"
       ],
+      "virtual:mooncraft-camera": [
+        "./_build/js/release/build/camera/camera.d.ts"
+      ],
       "virtual:mooncraft-block": [
         "./_build/js/release/build/block/block.d.ts"
       ],

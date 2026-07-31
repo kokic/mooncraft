@@ -6,6 +6,7 @@ const webRoot = resolve("web");
 const distRoot = resolve(".dist");
 
 const mooncraftModules = new Map([
+  ["virtual:mooncraft-camera", resolve("_build/js/release/build/camera/camera.js")],
   ["virtual:mooncraft-level", resolve("_build/js/release/build/level/level.js")],
   ["virtual:mooncraft-block", resolve("_build/js/release/build/block/block.js")],
   ["virtual:mooncraft-command", resolve("_build/js/release/build/command/command.js")],

@@ -191,7 +191,7 @@ fn GltfAssetBuild::parse_nodes(self : GltfAssetBuild) -> Array[GltfNode] {
   let definitions = json_array(json_field(json_object(self.root), "nodes"))
   definitions.map(definition => {
     let fields = json_object(definition)
-    let identity = @math3d.mat4_create()
+    let identity = @camera.mat4_create()
     let matrix_json = json_field(fields, "matrix")
     let matrix = if json_array(matrix_json).length() == 16 {
       Some(json_float32_array(matrix_json, 16, identity))

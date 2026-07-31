@@ -2,3 +2,5 @@ import {
   "moonbitlang/core/math",
   "kokic/mooncraft/ffi",
 }
+
+pkgtype(kind: "foreign_library")

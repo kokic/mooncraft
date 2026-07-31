@@ -8,5 +8,5 @@ import {
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/block",
   "kokic/mooncraft/entity",
-  "kokic/mooncraft/math3d",
+  "kokic/mooncraft/camera",
 }

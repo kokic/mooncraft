@@ -2,6 +2,7 @@
 pub let up_vector : Array[Double] = [0.0, 1.0, 0.0]
 
 ///|
+#export_name("mcCameraFromYawPitchInto")
 pub fn camera_from_yaw_pitch_into(
   position : Array[Double],
   direction : Array[Double],

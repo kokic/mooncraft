@@ -19,6 +19,7 @@ pub fn mat4_copy(
 }
 
 ///|
+#export_name("mcMat4Perspective")
 pub fn mat4_perspective(
   matrix : @ffi.Float32Array,
   fovy : Double,
@@ -49,6 +50,7 @@ pub fn mat4_perspective(
 }
 
 ///|
+#export_name("mcMat4Ortho")
 pub fn mat4_ortho(
   matrix : @ffi.Float32Array,
   left : Double,
@@ -82,6 +84,7 @@ pub fn mat4_ortho(
 }
 
 ///|
+#export_name("mcMat4LookAt")
 pub fn mat4_look_at(
   matrix : @ffi.Float32Array,
   eye : Array[Double],
@@ -126,6 +129,7 @@ pub fn mat4_look_at(
 }
 
 ///|
+#export_name("mcMat4Mul")
 pub fn mat4_mul(
   matrix : @ffi.Float32Array,
   left : @ffi.Float32Array,
@@ -186,6 +190,7 @@ pub fn mat4_mul(
 }
 
 ///|
+#export_name("mcMat4FromTRS")
 pub fn mat4_from_trs(
   matrix : @ffi.Float32Array,
   translation : Array[Double],

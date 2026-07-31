@@ -6,7 +6,6 @@ import {
   "kokic/mooncraft/level",
   "kokic/mooncraft/mob",
   "kokic/mooncraft/block/genus" @block_genus,
-  "kokic/mooncraft/math3d",
   "kokic/mooncraft/level/save",
   "kokic/mooncraft/chunk",
   "kokic/mooncraft/shader",

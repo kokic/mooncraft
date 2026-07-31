@@ -5,6 +5,12 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { createChatUI } from "./chat-ui.js";
 import { createPauseMenu } from "./pause-menu.js";
+import {
+  mcCameraFromYawPitchInto as cameraFromYawPitchInto,
+  mcMat4Perspective as mat4Perspective,
+  mcMat4LookAt as mat4LookAt,
+  mcMat4Mul as mat4Mul,
+} from "virtual:mooncraft-camera";
 
 const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
@@ -206,13 +212,7 @@ function renderTestChunk({
   chunkSize,
   onSaveAndQuit,
 }) {
-  const {
-    mcUpVector: UP_VECTOR,
-    mcCameraFromYawPitchInto: cameraFromYawPitchInto,
-    mcMat4Perspective: mat4Perspective,
-    mcMat4LookAt: mat4LookAt,
-    mcMat4Mul: mat4Mul,
-  } = window;
+  const { mcUpVector: UP_VECTOR } = window;
   const cameraFromYawPitch = (out, px, py, pz, yaw, pitch) => {
     cameraFromYawPitchInto(
       out.position,

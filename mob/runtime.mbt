@@ -47,7 +47,7 @@ fn mob_rotation(yaw : Double, upside_down : Bool) -> Array[Double] {
   let rotation = [0.0, 0.0, 0.0, 1.0]
   let pitch = if upside_down { @math.PI } else { 0.0 }
   // or, ignore(...)
-  let _ = @math3d.quat_from_yaw_pitch(rotation, yaw, pitch)
+  let _ = @camera.quat_from_yaw_pitch(rotation, yaw, pitch)
   rotation
 }
 

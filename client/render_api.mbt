@@ -1,23 +1,16 @@
 ///|
 /// Publish pure camera, matrix, quaternion, mesh, and GLTF rendering APIs.
 pub fn register_render_api() -> Unit {
-  @ffi.cast_global_set("mcCameraFromYawPitch", @math3d.camera_from_yaw_pitch)
-  @ffi.cast_global_set(
-    "mcCameraFromYawPitchInto", @math3d.camera_from_yaw_pitch_into,
-  )
-  @ffi.cast_global_set("mcMat4Create", @math3d.mat4_create)
-  @ffi.cast_global_set("mcMat4Copy", @math3d.mat4_copy)
-  @ffi.cast_global_set("mcMat4Perspective", @math3d.mat4_perspective)
-  @ffi.cast_global_set("mcMat4Ortho", @math3d.mat4_ortho)
-  @ffi.cast_global_set("mcMat4LookAt", @math3d.mat4_look_at)
-  @ffi.cast_global_set("mcMat4Mul", @math3d.mat4_mul)
-  @ffi.cast_global_set("mcMat4FromTRS", @math3d.mat4_from_trs)
-  // @ffi.cast_global_set("mcTransformPoint", @math3d.transform_point)
-  // @ffi.cast_global_set("mcQuatNormalize", @math3d.quat_normalize)
-  // @ffi.cast_global_set("mcQuatMul", @math3d.quat_mul)
-  // @ffi.cast_global_set("mcQuatApplyYawOffset", @math3d.quat_apply_yaw_offset)
-  // @ffi.cast_global_set("mcQuatFromYawPitch", @math3d.quat_from_yaw_pitch)
-  // @ffi.cast_global_set("mcQuatSlerp", @math3d.quat_slerp)
+  @ffi.cast_global_set("mcCameraFromYawPitch", @camera.camera_from_yaw_pitch)
+  // @ffi.cast_global_set("mcMat4Create", @camera.mat4_create)
+  // @ffi.cast_global_set("mcMat4Copy", @camera.mat4_copy)
+  @ffi.cast_global_set("mcUpVector", @camera.up_vector)
+  // @ffi.cast_global_set("mcTransformPoint", @camera.transform_point)
+  // @ffi.cast_global_set("mcQuatNormalize", @camera.quat_normalize)
+  // @ffi.cast_global_set("mcQuatMul", @camera.quat_mul)
+  // @ffi.cast_global_set("mcQuatApplyYawOffset", @camera.quat_apply_yaw_offset)
+  // @ffi.cast_global_set("mcQuatFromYawPitch", @camera.quat_from_yaw_pitch)
+  // @ffi.cast_global_set("mcQuatSlerp", @camera.quat_slerp)
 
   @ffi.cast_global_set("mcBlocks", @block.render_registry)
 

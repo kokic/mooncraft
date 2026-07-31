@@ -78,10 +78,10 @@ fn GltfRenderer::create_instance(
   asset : GltfAsset,
 ) -> Unit {
   let rotation = [0.0, 0.0, 0.0, 1.0]
-  ignore(@math3d.quat_normalize(rotation, config.rotation))
-  ignore(@math3d.quat_apply_yaw_offset(rotation, rotation, @math.PI))
-  let model = @math3d.mat4_create()
-  ignore(@math3d.mat4_from_trs(model, config.position, rotation, config.scale))
+  ignore(@camera.quat_normalize(rotation, config.rotation))
+  ignore(@camera.quat_apply_yaw_offset(rotation, rotation, @math.PI))
+  let model = @camera.mat4_create()
+  ignore(@camera.mat4_from_trs(model, config.position, rotation, config.scale))
   let instance = GltfInstance::{
     id: config.id,
     asset,
@@ -90,8 +90,8 @@ fn GltfRenderer::create_instance(
     model_rotation: rotation.copy(),
     model_scale: config.scale.copy(),
     base_model_rotation: rotation.copy(),
-    node_local: asset.nodes.map(_ => @math3d.mat4_create()),
-    node_world: asset.nodes.map(_ => @math3d.mat4_create()),
+    node_local: asset.nodes.map(_ => @camera.mat4_create()),
+    node_world: asset.nodes.map(_ => @camera.mat4_create()),
     animation_index: asset.animation_index(config.animation),
     animation_time: 0.0F,
     animation_speed: Float::from_double(config.speed),
@@ -209,14 +209,14 @@ fn GltfRenderer::collect_draw_entries(
     for node_index, node in instance.asset.nodes {
       guard node.mesh >= 0 else { continue }
       guard instance.asset.meshes.get(node.mesh) is Some(mesh) else { continue }
-      let model = @math3d.mat4_create()
+      let model = @camera.mat4_create()
       ignore(
-        @math3d.mat4_mul(model, instance.model, instance.node_world[node_index]),
+        @camera.mat4_mul(model, instance.model, instance.node_world[node_index]),
       )
       for primitive in mesh.primitives {
         let (material, texture, has_texture) = instance.material_for(primitive)
         ignore(
-          @math3d.transform_point(world_center, model, [
+          @camera.transform_point(world_center, model, [
             primitive.center_x.to_double(),
             primitive.center_y.to_double(),
             primitive.center_z.to_double(),
@@ -353,9 +353,9 @@ fn GltfRenderer::find_instance(
 
 ///|
 fn GltfInstance::refresh_model(self : GltfInstance) -> Unit {
-  ignore(@math3d.quat_normalize(self.model_rotation, self.model_rotation))
+  ignore(@camera.quat_normalize(self.model_rotation, self.model_rotation))
   ignore(
-    @math3d.mat4_from_trs(
+    @camera.mat4_from_trs(
       self.model,
       self.model_position,
       self.model_rotation,
@@ -398,7 +398,7 @@ pub fn gltf_set_rotation(
 ) -> Bool {
   guard renderer.find_instance(id) is Some(instance) else { false }
   ignore(
-    @math3d.quat_apply_yaw_offset(
+    @camera.quat_apply_yaw_offset(
       instance.model_rotation,
       [x, y, z, w],
       @math.PI,
@@ -412,7 +412,7 @@ pub fn gltf_set_rotation(
 pub fn gltf_set_yaw(renderer : GltfRenderer, id : String, yaw : Double) -> Bool {
   guard renderer.find_instance(id) is Some(instance) else { false }
   ignore(
-    @math3d.quat_apply_yaw_offset(
+    @camera.quat_apply_yaw_offset(
       instance.model_rotation,
       [0.0, 0.0, 0.0, 1.0],
       yaw + @math.PI,
@@ -459,9 +459,9 @@ fn gltf_look_at(
   let yaw = @math.atan2(dz, dx)
   let pitch = if with_pitch { @math.atan2(dy, horizontal) } else { 0.0 }
   let look = [0.0, 0.0, 0.0, 1.0]
-  ignore(@math3d.quat_from_yaw_pitch(look, yaw, pitch))
+  ignore(@camera.quat_from_yaw_pitch(look, yaw, pitch))
   ignore(
-    @math3d.quat_mul(
+    @camera.quat_mul(
       instance.model_rotation,
       look,
       instance.base_model_rotation,

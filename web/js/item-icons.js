@@ -1,3 +1,9 @@
+import {
+  mcMat4Ortho,
+  mcMat4LookAt,
+  mcMat4Mul,
+} from "virtual:mooncraft-camera";
+
 const ICON_BASE_SIZE = 32;
 const ICON_DEFAULT_CANVAS_SIZE = 256;
 const ICON_FLAT_SIZE = 20;
@@ -229,9 +235,9 @@ class ItemIconRenderer {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.textureArray);
 
     const wsize = 0.425 + Math.SQRT2 / 4;
-    window.mcMat4Ortho(this.projMatrix, -wsize, wsize, -wsize, wsize, -1, 5);
-    window.mcMat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
-    window.mcMat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
+    mcMat4Ortho(this.projMatrix, -wsize, wsize, -wsize, wsize, -1, 5);
+    mcMat4LookAt(this.viewMatrix, ICON_VIEW_EYE, ICON_VIEW_CENTER, ICON_VIEW_UP);
+    mcMat4Mul(this.mvpMatrix, this.projMatrix, this.viewMatrix);
 
     const internalId = window.mcGetInternalIdByName(item.name);
     if (!Number.isFinite(internalId)) throw new Error(`mcGetInternalIdByName failed for ${item.name}`);

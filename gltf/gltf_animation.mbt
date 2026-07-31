@@ -41,7 +41,7 @@ fn sample_animation_channel(
     let first = key * 4
     let second = next * 4
     ignore(
-      @math3d.quat_slerp(
+      @camera.quat_slerp(
         rotation,
         [values[first], values[first + 1], values[first + 2], values[first + 3]],
         [
@@ -78,8 +78,8 @@ fn GltfInstance::update_node_world(
   let world = self.node_world[node_index]
   match parent {
     Some(parent_world) =>
-      ignore(@math3d.mat4_mul(world, parent_world, self.node_local[node_index]))
-    None => ignore(@math3d.mat4_copy(world, self.node_local[node_index]))
+      ignore(@camera.mat4_mul(world, parent_world, self.node_local[node_index]))
+    None => ignore(@camera.mat4_copy(world, self.node_local[node_index]))
   }
   for child in self.asset.nodes[node_index].children {
     guard child >= 0 && child < self.asset.nodes.length() else { continue }
@@ -126,10 +126,10 @@ fn GltfInstance::update(self : GltfInstance, delta_seconds : Double) -> Unit {
   }
   for index, node in nodes {
     match node.matrix {
-      Some(matrix) => ignore(@math3d.mat4_copy(self.node_local[index], matrix))
+      Some(matrix) => ignore(@camera.mat4_copy(self.node_local[index], matrix))
       None =>
         ignore(
-          @math3d.mat4_from_trs(
+          @camera.mat4_from_trs(
             self.node_local[index],
             translations[index],
             rotations[index],

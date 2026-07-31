@@ -12,7 +12,7 @@ pub fn crosshair_block(
   // raycast_step~ : Double,
 ) -> @schema.BlockPos? {
   // let position = player.position()
-  let camera = @math3d.camera_from_yaw_pitch(
+  let camera = @camera.camera_from_yaw_pitch(
     [
       player_position[0],
       player_position[1] + player_eye_height,

@@ -26,7 +26,7 @@ pub fn build_chunk_mesh(
   let mut tint_g = 1.0F
   let mut tint_b = 1.0F
   let mut tint_a = 1.0F
-  let air_block = match registry.get_by_name("air") {
+  let air_block = match registry.get_by_name(@schema.AIR_NAME) {
     Some(block) => block
     None =>
       return MeshData::{

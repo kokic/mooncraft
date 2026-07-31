@@ -34,7 +34,9 @@ fn build_deltas(
         x,
         y,
         z,
-        @block.lookup_by_internal_id(id).map(b => b.name).unwrap_or("air"),
+        @block.lookup_by_internal_id(id)
+        .map(b => b.name)
+        .unwrap_or(@schema.AIR_NAME),
       ),
     )
   }

@@ -23,7 +23,7 @@ pub fn BlockSelector::matches(
 ///|
 test "block_selector_matches" {
   assert_true(BlockSelector::Exact("water").matches("water"))
-  assert_false(BlockSelector::Exact("water").matches("air"))
+  assert_false(BlockSelector::Exact("water").matches(@schema.AIR_NAME))
   assert_true(
     BlockSelector::AnyOf(["grass", "pre-classic.grass"]).matches("grass"),
   )

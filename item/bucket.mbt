@@ -13,7 +13,7 @@ fn bucket_use_on(
       wy=y,
       wz=z,
       expected=BlockSelector::Exact("water"),
-      neo=BlockSelector::Exact("air"),
+      neo=BlockSelector::Exact(@schema.AIR_NAME),
       require_above_air=false,
     ),
   ])

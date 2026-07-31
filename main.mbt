@@ -30,6 +30,7 @@ pub fn initialize_global_constants() -> Unit {
   @ffi.cast_global_set("mcInventoryGridX", @player.INVENTORY_GRID_X)
   @ffi.cast_global_set("mcInventoryGridY", @player.INVENTORY_GRID_Y)
   @ffi.cast_global_set("mcAirInternalId", @schema.AIR_ID)
+  @ffi.cast_global_set("mcAirName", @schema.AIR_NAME)
   @ffi.cast_global_set("mcWaterTintGridStep", 4)
   @ffi.cast_global_set("mcSpawnChunkX", @player.SPAWN_CHUNK_X)
   @ffi.cast_global_set("mcSpawnChunkZ", @player.SPAWN_CHUNK_Z)

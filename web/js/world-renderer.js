@@ -868,7 +868,7 @@ function renderTestChunk({
   const cloneUiItem = (item) => {
     if (!item || typeof item !== "object") return null;
     return {
-      name: typeof item.name === "string" ? item.name : "air",
+      name: typeof item.name === "string" ? item.name : window.mcAirName,
       kind: typeof item.kind === "string" ? item.kind : "flat",
       shape: typeof item.shape === "string" ? item.shape : "normal",
       material: typeof item.material === "string" ? item.material : "normal",

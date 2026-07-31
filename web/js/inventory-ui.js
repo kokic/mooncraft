@@ -148,7 +148,7 @@ function createInventoryUI({
 
   const resolveDisplayName = (item) => {
     const name = item?.name;
-    if (!name || name === "air") return "";
+    if (!name || name === window.mcAirName) return "";
     const lookup = window.mcGetItemDisplayName;
     if (typeof lookup === "function") {
       const value = lookup(name);

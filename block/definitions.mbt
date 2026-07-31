@@ -1,12 +1,10 @@
 ///|
-// STATUS: COMPLETE - enough blocks are registered for current terrain,
-// rendering, and interaction demos.
 // STATUS: INCOMPLETE - this is not a full Minecraft registry; many categories
 // and block behaviors are data-only or absent.
 pub let blocks : Array[Block] = [
-  // Basic
+  // Basic (id: 0)
   Block::create(
-    "air",
+    @schema.AIR_NAME,
     [],
     opacity=0,
     alpha_mode=AlphaMode::Cutout,

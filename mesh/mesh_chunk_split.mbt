@@ -33,7 +33,7 @@ pub fn build_chunk_mesh_split(
     let (u, v) = uv
     (v, 1.0F - u)
   })
-  let air_block = match registry.get_by_name("air") {
+  let air_block = match registry.get_by_name(@schema.AIR_NAME) {
     Some(block) => block
     None =>
       return MeshSplit::{

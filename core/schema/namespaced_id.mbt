@@ -22,10 +22,6 @@ pub fn decode_block_id(variant : InternalID) -> UInt {
 }
 
 ///|
-/// The id of the air block should be an invariant
-pub const AIR_ID : InternalID = 0
-
-///|
 /// A sequential numeric ID allocator.
 /// Each allocator manages an independent counter for a category (blocks, items, etc.).
 pub struct InternalIDCounter {
@@ -43,3 +39,11 @@ pub fn InternalIDCounter::allocate(self : InternalIDCounter) -> InternalID {
   self.counter = self.counter + 1
   id
 }
+
+///|
+/// The persistent string identifier of the air block should be an invariant
+pub const AIR_NAME : UniqueID = "air"
+
+///|
+/// The identifier (InternalID) of the air block should be an invariant
+pub const AIR_ID : InternalID = 0

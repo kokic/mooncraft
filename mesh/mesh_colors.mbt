@@ -54,7 +54,7 @@ pub fn build_chunk_colors_split(
       target.push(ta * alpha_scale)
     }
   }
-  let air_block = match registry.get_by_name("air") {
+  let air_block = match registry.get_by_name(@schema.AIR_NAME) {
     Some(block) => block
     None =>
       return MeshColorsSplit::{
@@ -218,7 +218,7 @@ pub fn build_chunk_colors(
   let push_color = fn(count : Int, color_scale : Float) -> Unit {
     push_color_alpha(count, color_scale, 1.0F)
   }
-  let air_block = match registry.get_by_name("air") {
+  let air_block = match registry.get_by_name(@schema.AIR_NAME) {
     Some(block) => block
     None => return []
   }

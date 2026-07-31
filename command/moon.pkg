@@ -1,0 +1,18 @@
+import {
+  "moonbitlang/core/string",
+  "moonbitlang/core/env",
+  "moonbitlang/core/math",
+  "kokic/mooncraft/core/schema",
+  "kokic/mooncraft/player",
+  "kokic/mooncraft/entity",
+  "kokic/mooncraft/util",
+  "kokic/mooncraft/biome",
+  "kokic/mooncraft/mob",
+  "kokic/mooncraft/chunk",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/level",
+  "kokic/mooncraft/generation/feature",
+  "kokic/mooncraft/generation/structure",
+}
+
+pkgtype(kind: "foreign_library")

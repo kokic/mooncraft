@@ -24,7 +24,9 @@ pub const CHUNK_Y_SIZE : Int = 1 << SHIFT_Y
 pub const CHUNK_Z_SIZE : Int = 1 << SHIFT_Z
 
 ///|
-pub fn ChunkBlockPos::from_block_pos(block_pos : BlockPos) -> ChunkBlockPos {
+pub fn ChunkBlockPos::from_block_pos(
+  block_pos : @schema.BlockPos,
+) -> ChunkBlockPos {
   ChunkBlockPos::{
     x: block_pos.x >> SHIFT_X,
     y: block_pos.y >> SHIFT_Y,

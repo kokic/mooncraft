@@ -1,0 +1,7 @@
+import {
+  "moonbitlang/core/math",
+  "moonbitlang/core/json",
+  "kokic/mooncraft/ffi",
+  "kokic/mooncraft/ffi/webgl",
+  "kokic/mooncraft/math3d",
+}

@@ -9,7 +9,7 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
     "mcTorchShapeBoxByState",
     @genus.Torch::shape_box_by_state,
   )
-  @ffi.cast_global_set("mcCollectTextureNames", @block.collect_texture_names)
+  // @ffi.cast_global_set("mcCollectTextureNames", @block.collect_texture_names)
   @ffi.cast_global_set(
     "mcCollectBlockLightInfo", @block.collect_block_light_info,
   )

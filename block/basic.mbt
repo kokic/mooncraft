@@ -124,6 +124,7 @@ pub fn Block::internal_id(
 pub let fallback_texture : String = "missing_tile"
 
 ///|
+#export_name("collectTextureNames")
 pub fn collect_texture_names() -> Array[String] {
   let seen : Map[String, Bool] = Map([])
   let out : Array[String] = [fallback_texture]

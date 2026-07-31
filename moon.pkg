@@ -8,7 +8,8 @@ import {
   "kokic/mooncraft/block/genus" @block_genus,
   "kokic/mooncraft/math3d",
   "kokic/mooncraft/level/save",
-  "kokic/mooncraft/render",
+  "kokic/mooncraft/chunk",
+  "kokic/mooncraft/shader",
   "kokic/mooncraft/player",
 }
 

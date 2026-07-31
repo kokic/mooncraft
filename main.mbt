@@ -19,13 +19,10 @@ pub fn initialize_global_constants() -> Unit {
   @ffi.cast_global_set("mcUpdateLabel", "1:10")
   @ffi.cast_global_set("mcSaveSchemaVersion", @save.SAVE_SCHEMA_VERSION)
   @ffi.cast_global_set("mcChunkSize", @level.CHUNK_X_SIZE)
-  @ffi.cast_global_set(
-    "mcRenderDistance",
-    @render.DEFAULT_CHUNK_RENDER_DISTANCE,
-  )
-  @ffi.cast_global_set("mcChunkGenPerFrame", @render.CHUNK_GENERATION_BUDGET)
-  @ffi.cast_global_set("mcMeshBuildPerFrame", @render.CHUNK_MESH_BUDGET)
-  @ffi.cast_global_set("mcChunkSectionSize", @render.CHUNK_SECTION_SIZE)
+  @ffi.cast_global_set("mcRenderDistance", @chunk.DEFAULT_CHUNK_RENDER_DISTANCE)
+  @ffi.cast_global_set("mcChunkGenPerFrame", @chunk.CHUNK_GENERATION_BUDGET)
+  @ffi.cast_global_set("mcMeshBuildPerFrame", @chunk.CHUNK_MESH_BUDGET)
+  @ffi.cast_global_set("mcChunkSectionSize", @chunk.CHUNK_SECTION_SIZE)
   @ffi.cast_global_set("mcDebugChunkGen", false)
   @ffi.cast_global_set("mcDebugSolid", false)
   @ffi.cast_global_set("mcUseFixedLight", @level.USE_FIXED_LIGHT)
@@ -43,9 +40,9 @@ pub fn initialize_global_constants() -> Unit {
   @ffi.cast_global_set("mcSpawnYaw", @player.SPAWN_YAW)
   @ffi.cast_global_set("mcSpawnPitch", @player.SPAWN_PITCH)
   @ffi.cast_global_set("mcUpVector", @math3d.up_vector)
-  @ffi.cast_global_set("mcOakLeavesVertexShader", @render.leaf_vertex_shader)
+  @ffi.cast_global_set("mcOakLeavesVertexShader", @shader.leaf_vertex_shader)
   @ffi.cast_global_set(
-    "mcOakLeavesFragmentShader", @render.leaf_fragment_shader,
+    "mcOakLeavesFragmentShader", @shader.leaf_fragment_shader,
   )
   @ffi.cast_global_set("mcOakLeavesDefaultTint", @block_genus.default_tint)
 }

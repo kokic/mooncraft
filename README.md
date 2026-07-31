@@ -69,3 +69,7 @@ Replace `Infinite` with one of:
 - If you plan to publish or commercialize this project, replace `dist/assets` resources with original or properly licensed assets.
 
 Reference: https://www.minecraft.net/eula
+
+## Acknowledgments
+
+- Zhuowei Zhang

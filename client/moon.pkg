@@ -1,12 +1,8 @@
 import {
-  "moonbitlang/core/env",
-  "moonbitlang/core/math",
-  "moonbitlang/core/string",
-  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/ffi",
-  "kokic/mooncraft/level",
   "kokic/mooncraft/block",
   "kokic/mooncraft/player",
+  "kokic/mooncraft/command",
   "kokic/mooncraft/block/genus",
   "kokic/mooncraft/util",
   "kokic/mooncraft/biome",
@@ -14,11 +10,11 @@ import {
   "kokic/mooncraft/item",
   "kokic/mooncraft/math3d",
   "kokic/mooncraft/mob",
-  "kokic/mooncraft/entity",
-  "kokic/mooncraft/render",
+  "kokic/mooncraft/gltf",
+  "kokic/mooncraft/chunk",
+  "kokic/mooncraft/ui",
+  "kokic/mooncraft/level",
   "kokic/mooncraft/level/save",
-  "kokic/mooncraft/generation/feature",
-  "kokic/mooncraft/generation/structure",
 }
 
 import {

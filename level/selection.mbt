@@ -73,7 +73,7 @@ pub fn raycast_blocks(
   origin : Array[Double],
   dir : Array[Double],
   max_dist : Double,
-  _step : Double,
+  // _step : Double,
   air_id : UInt,
   include_liquid_hit : Bool,
 ) -> RaycastResult? {

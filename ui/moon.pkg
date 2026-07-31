@@ -1,0 +1,6 @@
+import {
+  "kokic/mooncraft/core/schema",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/item",
+  "kokic/mooncraft/mesh",
+}

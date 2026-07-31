@@ -40,11 +40,13 @@ pub fn BlockRegistry::name_to_internal_id(
   self : BlockRegistry[Block],
   name : String,
 ) -> @schema.InternalID {
-  self.get_by_name(name)
+  self
+  .get_by_name(name)
   .map(block => block.internal_id())
   .unwrap_or(@schema.AIR_ID)
 }
 
+///|
 let texture_index : Map[String, Int] = {
   let names = collect_texture_names()
   let idx : Map[String, Int] = Map([])
@@ -54,6 +56,7 @@ let texture_index : Map[String, Int] = {
   idx
 }
 
+///|
 fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
   let block_by_name : Map[String, Block] = Map([])
   let block_by_id : Map[@schema.InternalID, Block] = Map([])
@@ -83,8 +86,13 @@ fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
   )
 }
 
+///|
 let registries : (BlockRegistry[Block], BlockRegistry[RenderBlock]) = build_registries()
+
+///|
 let block_registry : BlockRegistry[Block] = registries.0
+
+///|
 pub let render_registry : BlockRegistry[RenderBlock] = registries.1
 
 ///|

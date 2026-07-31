@@ -18,6 +18,27 @@ fn load_initial_save(
 }
 
 ///|
+/// Build browser UI views from the canonical player hotbar definition.
+fn collect_hotbar_items() -> Array[@ui.UiItemView] {
+  @player.hotbar_blocks.map(@ui.block_to_ui_item)
+}
+
+///|
+/// Build inventory UI views from the canonical block and item registries.
+fn collect_inventory_items() -> Array[@ui.UiItemView] {
+  [
+    ..@block.blocks
+    .filter(block => block.category != @item.None)
+    .map(@ui.block_to_ui_item),
+
+    //
+    ..@item.items
+    .filter(item => item.category != @item.None)
+    .map(@ui.item_to_ui_item),
+  ]
+}
+
+///|
 /// Create the authoritative CPU-side runtime and publish its stateful API.
 pub fn register_runtime_api(
   world : @level.World,
@@ -27,7 +48,7 @@ pub fn register_runtime_api(
   @mob.reset_entities()
   @ffi.cast_global_set("mcCollectHotbarItems", collect_hotbar_items)
   @ffi.cast_global_set("mcCollectInventoryItems", collect_inventory_items)
-  let chunk_runtime = @render.ChunkRuntime::new(
+  let chunk_runtime = @chunk.ChunkRuntime::new(
     world,
     chunk_data,
     spawn_chunk_x=@player.SPAWN_CHUNK_X,
@@ -61,9 +82,9 @@ pub fn register_runtime_api(
     @level.CHUNK_X_SIZE,
   )
   load_initial_save(game, world, save_text)
-  @ffi.cast_global_set("mcChunkRuntimeChunkMap", game.chunk_map())
+  @ffi.cast_global_set("mcChunkRuntimeChunkMap", game.chunk_runtime.chunk_map)
   @ffi.cast_global_set("mcTickGame", fn(
-    registry : @render.RenderRegistry,
+    registry : @block.RenderRegistry,
     delta : Double,
   ) {
     game.tick(registry, delta)
@@ -99,9 +120,8 @@ pub fn register_runtime_api(
     name : String,
     category : String,
   ) {
-    let slot = if name.is_empty() {
-      None
-    } else {
+    let slot = {
+      guard name.is_empty() else { None }
       Some(@player.HotbarSlot::new(name, category))
     }
     game.set_hotbar_slot(index, slot)
@@ -113,7 +133,14 @@ pub fn register_runtime_api(
     game.save_snapshot(now)
   })
   @ffi.cast_global_set("mcExecuteCommand", (input : String) => {
-    FlattenResult::from(game.execute_command(input))
+    FlattenResult::from(
+      @command.execute_command(
+        game.player_runtime,
+        game.chunk_runtime,
+        game.world,
+        input,
+      ),
+    )
   })
   @ffi.cast_global_set(
     "mcRequestZombieNavigation", @mob.request_zombie_0_navigation,

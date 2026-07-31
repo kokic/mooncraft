@@ -1,7 +1,7 @@
 import {
   "moonbitlang/core/math",
   "kokic/mooncraft/core/schema",
-  "kokic/mooncraft/render",
+  "kokic/mooncraft/gltf",
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
   "kokic/mooncraft/ffi",

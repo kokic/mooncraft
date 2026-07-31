@@ -5,11 +5,10 @@ import { resolve } from "node:path";
 const webRoot = resolve("web");
 const distRoot = resolve(".dist");
 
-const levelPath = resolve("_build/js/release/build/level/level.js");
-const runtimePath = resolve("_build/js/release/build/mooncraft.js");
 const mooncraftModules = new Map([
-  ["virtual:mooncraft-level", levelPath],
-  ["virtual:mooncraft-runtime", runtimePath],
+  ["virtual:mooncraft-level", resolve("_build/js/release/build/level/level.js")],
+  ["virtual:mooncraft-command", resolve("_build/js/release/build/command/command.js")]
+  ["virtual:mooncraft-runtime", resolve("_build/js/release/build/mooncraft.js")],
 ]);
 
 const entryPlaceholder = "<!-- mooncraft-entry -->";

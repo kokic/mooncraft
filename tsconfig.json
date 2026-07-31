@@ -6,12 +6,15 @@
     "checkJs": false,
     "noEmit": true,
     "paths": {
-      "virtual:mooncraft-runtime": [
-        "./_build/js/release/build/mooncraft.d.ts"
+      "virtual:mooncraft-command": [
+        "./_build/js/release/build/command/command.d.ts"
       ],
       "virtual:mooncraft-level": [
         "./_build/js/release/build/level/level.d.ts"
-      ]
+      ],
+      "virtual:mooncraft-runtime": [
+        "./_build/js/release/build/mooncraft.d.ts"
+      ],
     }
   },
   "include": ["web/js/**/*.js"]

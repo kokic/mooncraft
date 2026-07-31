@@ -1,7 +1,7 @@
 ///|
 priv struct MobSpawn {
   entity_spawn : @entity.EntitySpawn
-  render_config : @render.GltfEntityConfig
+  render_config : @gltf.GltfEntityConfig
 }
 
 ///|
@@ -21,7 +21,7 @@ fn resolve_spawn(request : MobSpawnRequest) -> MobSpawn {
       upside_down=request.upside_down,
       yaw=request.yaw,
     ),
-    render_config: @render.entity_config(
+    render_config: @gltf.entity_config(
       request.id,
       spec.model_url,
       texture=spec.texture_url,
@@ -51,7 +51,7 @@ pub fn restore_entities(saved_entities : Array[@entity.EntitySave]) -> Unit {
       Mob(kind) => {
         let spec = mob_spec(kind)
         pending_render_configs.push(
-          @render.entity_config(
+          @gltf.entity_config(
             entity.id,
             spec.model_url,
             texture=spec.texture_url,

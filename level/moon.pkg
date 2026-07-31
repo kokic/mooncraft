@@ -3,6 +3,7 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/string",
   "kokic/mooncraft/core/schema",
+  "kokic/mooncraft/math3d",
   "kokic/mooncraft/biome",
   "kokic/mooncraft/util",
   "kokic/mooncraft/block",

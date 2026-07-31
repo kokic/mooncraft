@@ -1,38 +1,11 @@
 ///|
-/// One world-runtime tick's complete output. The browser turns this into WebGL
-/// resource mutations and DOM/HUD updates. It never derives world state on
-/// its own.
-pub struct GameFrame {
-  chunk : @render.ChunkRenderFrame
-  player : @player.PlayerSnapshot
-  inventory : @player.PlayerInventorySnapshot
-  render_distance : Int
-}
-
-///|
-/// Owns the full CPU-side game runtime: chunk streaming/lighting, the player,
-/// and inventory. Browser code feeds it intents and executes the commands and
-/// snapshots it emits.
-priv struct GameRuntime {
-  world : @level.World
-  chunk_runtime : @render.ChunkRuntime
-  player_runtime : @player.PlayerRuntime
-  chunk_size : Int
-}
-
-///|
 fn GameRuntime::new(
   world : @level.World,
-  chunk_runtime : @render.ChunkRuntime,
+  chunk_runtime : @chunk.ChunkRuntime,
   player_runtime : @player.PlayerRuntime,
   chunk_size : Int,
 ) -> GameRuntime {
   { world, chunk_runtime, player_runtime, chunk_size }
-}
-
-///|
-fn GameRuntime::chunk_map(self : GameRuntime) -> @ffi.JsValue {
-  self.chunk_runtime.chunk_map()
 }
 
 ///|
@@ -66,7 +39,7 @@ fn GameRuntime::player_chunk_center(self : GameRuntime) -> (Int, Int) {
 /// Advance the whole runtime one frame.
 fn GameRuntime::tick(
   self : GameRuntime,
-  registry : @render.RenderRegistry,
+  registry : @block.RenderRegistry,
   delta : Double,
 ) -> GameFrame {
   let player = self.player_runtime.tick(delta)

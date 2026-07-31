@@ -940,9 +940,9 @@ function renderTestChunk({
     onSubmit: (text) => {
       if (!text.trimStart().startsWith("/")) return null;
       const executeCommand = window.mcExecuteCommand;
-      if (typeof executeCommand !== "function") {
-        return { success: false, message: "Command runtime is unavailable" };
-      }
+      // if (typeof executeCommand !== "function") {
+      //   return { success: false, message: "Command runtime is unavailable" };
+      // }
       const result = executeCommand(text);
       return {
         success: result?.success === true,

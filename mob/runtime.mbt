@@ -1,8 +1,8 @@
 ///|
-let pending_render_configs : Array[@render.GltfEntityConfig] = []
+let pending_render_configs : Array[@gltf.GltfEntityConfig] = []
 
 ///|
-fn flush_pending_render_configs(renderer : @render.GltfRenderer) -> Unit {
+fn flush_pending_render_configs(renderer : @gltf.GltfRenderer) -> Unit {
   for config in pending_render_configs {
     renderer.add_entity(config)
   }
@@ -10,10 +10,10 @@ fn flush_pending_render_configs(renderer : @render.GltfRenderer) -> Unit {
 }
 
 ///|
-fn sync_entity_snapshots(renderer : @render.GltfRenderer) -> Unit {
+fn sync_entity_snapshots(renderer : @gltf.GltfRenderer) -> Unit {
   for snapshot in entity_runtime.snapshots() {
     ignore(
-      @render.gltf_set_position(
+      @gltf.gltf_set_position(
         renderer,
         snapshot.id,
         snapshot.position.x,
@@ -24,7 +24,7 @@ fn sync_entity_snapshots(renderer : @render.GltfRenderer) -> Unit {
     if snapshot.upside_down {
       let rotation = mob_rotation(snapshot.yaw, true)
       ignore(
-        @render.gltf_set_rotation(
+        @gltf.gltf_set_rotation(
           renderer,
           snapshot.id,
           rotation[0],
@@ -34,7 +34,7 @@ fn sync_entity_snapshots(renderer : @render.GltfRenderer) -> Unit {
         ),
       )
     } else {
-      ignore(@render.gltf_set_yaw(renderer, snapshot.id, snapshot.yaw))
+      ignore(@gltf.gltf_set_yaw(renderer, snapshot.id, snapshot.yaw))
     }
   }
 }
@@ -50,7 +50,7 @@ fn mob_rotation(yaw : Double, upside_down : Bool) -> Array[Double] {
 
 ///|
 fn apply_entity_events(
-  renderer : @render.GltfRenderer,
+  renderer : @gltf.GltfRenderer,
   events : Array[@entity.EntityEvent],
 ) -> Unit {
   for event in events {
@@ -67,7 +67,7 @@ fn apply_entity_events(
 
 ///|
 fn set_mob_animation(
-  renderer : @render.GltfRenderer,
+  renderer : @gltf.GltfRenderer,
   entity_id : String,
   moving : Bool,
 ) -> Unit {
@@ -79,7 +79,7 @@ fn set_mob_animation(
       } else {
         spec.idle_animation
       }
-      ignore(@render.gltf_set_animation(renderer, entity_id, animation))
+      ignore(@gltf.gltf_set_animation(renderer, entity_id, animation))
     }
     _ => ()
   }
@@ -87,7 +87,7 @@ fn set_mob_animation(
 
 ///|
 pub fn tick_entity_runtime(
-  renderer : @render.GltfRenderer,
+  renderer : @gltf.GltfRenderer,
   delta : Double,
 ) -> Unit {
   flush_pending_render_configs(renderer)

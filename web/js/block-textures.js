@@ -1,4 +1,5 @@
 import { loadImage } from "./asset-loader.js";
+import * as Block from "virtual:mooncraft-block";
 
 const BLOCK_IMAGE_ROOT = "./assets/images/block";
 const ITEM_IMAGE_ROOT = "./assets/images/item";
@@ -11,10 +12,7 @@ function resolveTextureUrl(name) {
 }
 
 async function loadBlockTextures() {
-  const texture_names = window.mcCollectTextureNames();
-  if (!Array.isArray(texture_names)) {
-    throw new Error("mcCollectTextureNames returned non-array");
-  }
+  const texture_names = Block.collectTextureNames();
   const images = [];
   const textureIndex = new Map();
 

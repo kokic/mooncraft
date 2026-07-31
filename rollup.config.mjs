@@ -7,7 +7,8 @@ const distRoot = resolve(".dist");
 
 const mooncraftModules = new Map([
   ["virtual:mooncraft-level", resolve("_build/js/release/build/level/level.js")],
-  ["virtual:mooncraft-command", resolve("_build/js/release/build/command/command.js")]
+  ["virtual:mooncraft-block", resolve("_build/js/release/build/block.js")],
+  ["virtual:mooncraft-command", resolve("_build/js/release/build/command/command.js")],
   ["virtual:mooncraft-runtime", resolve("_build/js/release/build/mooncraft.js")],
 ]);
 

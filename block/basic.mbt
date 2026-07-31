@@ -130,28 +130,9 @@ pub fn collect_texture_names() -> Array[String] {
   let out : Array[String] = [fallback_texture]
   seen[fallback_texture] = true
   for block in blocks {
-    let faces = block.faces
-    if faces.pos_x is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.neg_x is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.pos_y is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.neg_y is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.pos_z is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.neg_z is Some(tex) && !seen.contains(tex) {
+    for face in block.faces.all() {
+      guard face is Some(tex) else { continue }
+      guard !seen.contains(tex) else { continue }
       seen[tex] = true
       out.push(tex)
     }

@@ -12,6 +12,9 @@
       "virtual:mooncraft-level": [
         "./_build/js/release/build/level/level.d.ts"
       ],
+      "virtual:mooncraft-block": [
+        "./_build/js/release/build/block/block.d.ts"
+      ],
       "virtual:mooncraft-runtime": [
         "./_build/js/release/build/mooncraft.d.ts"
       ],

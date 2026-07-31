@@ -44,8 +44,8 @@ pub fn register_runtime_api(
   world : @level.World,
   chunk_data : Array[UInt],
   save_text : String,
+  mob_runtime : @mob.MobRuntime,
 ) -> Unit {
-  @mob.reset_entities()
   @ffi.cast_global_set("mcCollectHotbarItems", collect_hotbar_items)
   @ffi.cast_global_set("mcCollectInventoryItems", collect_inventory_items)
   let chunk_runtime = @chunk.ChunkRuntime::new(
@@ -79,10 +79,76 @@ pub fn register_runtime_api(
     world,
     chunk_runtime,
     player_runtime,
+    mob_runtime,
     @level.CHUNK_X_SIZE,
   )
   load_initial_save(game, world, save_text)
-  @ffi.cast_global_set("mcChunkRuntimeChunkMap", game.chunk_runtime.chunk_map)
+  @ffi.cast_global_set("mcGetBlockId", (wx : Int, wy : Int, wz : Int) => {
+    @level.get_block_id(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      wx,
+      wy,
+      wz,
+    )
+  })
+  @ffi.cast_global_set("mcSetBlockId", (
+    wx : Int,
+    wy : Int,
+    wz : Int,
+    id : UInt,
+  ) => {
+    @level.set_block_id(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      wx,
+      wy,
+      wz,
+      id,
+    )
+  })
+  @ffi.cast_global_set("mcIsWaterAt", (wx : Int, wy : Int, wz : Int) => {
+    @level.is_water_at(game.chunk_runtime.chunk_map(), game.chunk_size, wx, wy, wz)
+  })
+  @ffi.cast_global_set("mcRaycastBlocks", (
+    origin : Array[Double],
+    dir : Array[Double],
+    max_dist : Double,
+    air_id : UInt,
+    include_liquid_hit : Bool,
+  ) => {
+    @level.raycast_blocks(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      origin,
+      dir,
+      max_dist,
+      air_id,
+      include_liquid_hit,
+    )
+  })
+  @ffi.cast_global_set("mcApplyUseAction", (action : @item.UseAction) => {
+    @level.apply_use_action(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      action,
+    )
+  })
+  @ffi.cast_global_set("mcApplyUseOnAction", (
+    action : @item.UseOnAction,
+    player_pos : Array[Double],
+    entity_height : Double,
+    entity_radius : Double,
+  ) => {
+    @level.apply_use_on_action_with_player(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      action,
+      player_pos,
+      entity_height,
+      entity_radius,
+    )
+  })
   @ffi.cast_global_set("mcTickGame", fn(
     registry : @block.RenderRegistry,
     delta : Double,
@@ -138,14 +204,30 @@ pub fn register_runtime_api(
         game.player_runtime,
         game.chunk_runtime,
         game.world,
+        mob_runtime,
         input,
       ),
     )
   })
-  @ffi.cast_global_set(
-    "mcRequestZombieNavigation", @mob.request_zombie_0_navigation,
-  )
-  @ffi.cast_global_set("mcTickEntityRuntime", @mob.tick_entity_runtime)
+  @ffi.cast_global_set("mcRequestZombieNavigation", (
+    wx : Int,
+    wy : Int,
+    wz : Int,
+  ) => {
+    mob_runtime.request_zombie_0_navigation(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      wx,
+      wy,
+      wz,
+    )
+  })
+  @ffi.cast_global_set("mcTickEntityRuntime", (
+    renderer : @gltf.GltfRenderer,
+    delta : Double,
+  ) => {
+    mob_runtime.tick(renderer, delta)
+  })
 }
 
 ///|

@@ -31,7 +31,7 @@ fn is_passable(internal_id : UInt) -> Bool {
 
 ///|
 fn is_walkable(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,

@@ -11,7 +11,7 @@ fn can_break_block(internal_id : UInt) -> Bool {
 
 ///|
 pub fn apply_use_action(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   action : @item.UseAction,
 ) -> Array[String] {

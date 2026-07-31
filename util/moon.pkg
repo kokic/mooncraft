@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/env",
   "moonbitlang/core/cmp",
   "moonbitlang/core/math",
@@ -7,5 +8,6 @@ import {
 }
 
 import {
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/test",
 } for "wbtest"

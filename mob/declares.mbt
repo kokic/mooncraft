@@ -39,6 +39,26 @@ pub struct MobSpec {
 }
 
 ///|
+/// Owns all per-world mob runtime state: entities, navigation, pathfinding,
+/// and pending render configs. Construct one instance per world.
+pub struct MobRuntime {
+  priv entity_runtime : @entity.EntityRuntime
+  priv navigation_requests : @hashmap.HashMap[String, NavigationRequest]
+  priv path_searches : @hashmap.HashMap[String, PathSearch]
+  priv pending_render_configs : Array[@gltf.GltfEntityConfig]
+}
+
+///|
+pub fn MobRuntime::new() -> MobRuntime {
+  {
+    entity_runtime: @entity.EntityRuntime::new(),
+    navigation_requests: @hashmap.HashMap([]),
+    path_searches: @hashmap.HashMap([]),
+    pending_render_configs: [],
+  }
+}
+
+///|
 pub fn mob_spec(kind : @entity.MobKind) -> MobSpec {
   match kind {
     Zombie => zombie_spec()

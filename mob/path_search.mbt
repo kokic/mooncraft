@@ -18,20 +18,20 @@ priv enum PathSearchResult {
 
 ///|
 priv struct PathSearch {
-  chunk_map : @ffi.JsValue
+  chunk_map : @hashmap.HashMap[String, Array[UInt]]
   size : Int
   goal_wx : Int
   goal_wz : Int
   open : Array[SearchOpenEntry]
-  costs : Map[String, Double]
-  parents : Map[String, String]
-  nodes : Map[String, PathNode]
+  costs : @hashmap.HashMap[String, Double]
+  parents : @hashmap.HashMap[String, String]
+  nodes : @hashmap.HashMap[String, PathNode]
   mut expanded : Int
 }
 
 ///|
 fn PathSearch::new(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   start_wx : Int,
   start_wy : Int,
@@ -49,9 +49,9 @@ fn PathSearch::new(
       priority: ((start_wx - goal_wx).abs() + (start_wz - goal_wz).abs()).to_double(),
     },
   ]
-  let costs : Map[String, Double] = Map([])
+  let costs : @hashmap.HashMap[String, Double] = @hashmap.HashMap([])
   costs[key] = 0.0
-  let nodes : Map[String, PathNode] = Map([])
+  let nodes : @hashmap.HashMap[String, PathNode] = @hashmap.HashMap([])
   nodes[key] = start
   {
     chunk_map,
@@ -60,7 +60,7 @@ fn PathSearch::new(
     goal_wz,
     open,
     costs,
-    parents: {},
+    parents: @hashmap.HashMap([]),
     nodes,
     expanded: 0,
   }

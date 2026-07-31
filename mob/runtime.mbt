@@ -1,17 +1,20 @@
 ///|
-let pending_render_configs : Array[@gltf.GltfEntityConfig] = []
-
-///|
-fn flush_pending_render_configs(renderer : @gltf.GltfRenderer) -> Unit {
-  for config in pending_render_configs {
+fn MobRuntime::flush_pending_render_configs(
+  self : MobRuntime,
+  renderer : @gltf.GltfRenderer,
+) -> Unit {
+  for config in self.pending_render_configs {
     renderer.add_entity(config)
   }
-  pending_render_configs.clear()
+  self.pending_render_configs.clear()
 }
 
 ///|
-fn sync_entity_snapshots(renderer : @gltf.GltfRenderer) -> Unit {
-  for snapshot in entity_runtime.snapshots() {
+fn MobRuntime::sync_entity_snapshots(
+  self : MobRuntime,
+  renderer : @gltf.GltfRenderer,
+) -> Unit {
+  for snapshot in self.entity_runtime.snapshots() {
     ignore(
       @gltf.gltf_set_position(
         renderer,
@@ -49,29 +52,31 @@ fn mob_rotation(yaw : Double, upside_down : Bool) -> Array[Double] {
 }
 
 ///|
-fn apply_entity_events(
+fn MobRuntime::apply_entity_events(
+  self : MobRuntime,
   renderer : @gltf.GltfRenderer,
   events : Array[@entity.EntityEvent],
 ) -> Unit {
   for event in events {
     match event {
-      MovementStarted(entity_id) => set_mob_animation(renderer, entity_id, true)
+      MovementStarted(entity_id) => self.set_mob_animation(renderer, entity_id, true)
       MovementCompleted(entity_id) =>
-        set_mob_animation(renderer, entity_id, false)
+        self.set_mob_animation(renderer, entity_id, false)
       MovementCancelled(entity_id) =>
-        set_mob_animation(renderer, entity_id, false)
+        self.set_mob_animation(renderer, entity_id, false)
       WaypointReached(_, _) => ()
     }
   }
 }
 
 ///|
-fn set_mob_animation(
+fn MobRuntime::set_mob_animation(
+  self : MobRuntime,
   renderer : @gltf.GltfRenderer,
   entity_id : String,
   moving : Bool,
 ) -> Unit {
-  match entity_runtime.kind(entity_id) {
+  match self.entity_runtime.kind(entity_id) {
     Some(Mob(kind)) => {
       let spec = mob_spec(kind)
       let animation = if moving {
@@ -86,13 +91,14 @@ fn set_mob_animation(
 }
 
 ///|
-pub fn tick_entity_runtime(
+pub fn MobRuntime::tick(
+  self : MobRuntime,
   renderer : @gltf.GltfRenderer,
   delta : Double,
 ) -> Unit {
-  flush_pending_render_configs(renderer)
-  let events = tick_ai()
-  events.append(entity_runtime.tick(delta))
-  apply_entity_events(renderer, events)
-  sync_entity_snapshots(renderer)
+  self.flush_pending_render_configs(renderer)
+  let events = self.tick_ai()
+  events.append(self.entity_runtime.tick(delta))
+  self.apply_entity_events(renderer, events)
+  self.sync_entity_snapshots(renderer)
 }

@@ -85,8 +85,11 @@ fn default_demo_requests(world : @level.World) -> Array[MobSpawnRequest] {
 }
 
 ///|
-pub fn install_default_demo(world : @level.World) -> Unit {
+pub fn MobRuntime::install_default_demo(
+  self : MobRuntime,
+  world : @level.World,
+) -> Unit {
   for request in default_demo_requests(world) {
-    ignore(spawn(request))
+    ignore(self.spawn(request))
   }
 }

@@ -10,7 +10,7 @@ pub struct PlayerSnapshot {
 
 ///|
 pub struct PlayerRuntime {
-  chunk_map : @ffi.JsValue
+  chunk_map : @hashmap.HashMap[String, Array[UInt]]
   chunk_size : Int
   world_min_y : Int
   inventory : PlayerInventoryRuntime
@@ -32,7 +32,7 @@ fn idle_move_input() -> MoveInput {
 
 ///|
 pub fn PlayerRuntime::new(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   chunk_size : Int,
   world_min_y : Int,
   inventory : PlayerInventoryRuntime,

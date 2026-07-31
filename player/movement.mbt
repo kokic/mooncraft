@@ -50,7 +50,7 @@ fn intersects(
 
 ///|
 fn get_block_boxes_at(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -76,7 +76,7 @@ fn get_block_boxes_at(
 
 ///|
 fn is_player_in_water(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   px : Double,
   py : Double,
@@ -104,7 +104,7 @@ fn is_player_in_water(
 
 ///|
 fn move_axis(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   pos : Array[Double],
   axis : Int,
@@ -254,7 +254,7 @@ fn move_axis(
 ///|
 /// Move the player with collision resolution for solid blocks.
 pub fn move_player(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   position : Array[Double],
   yaw : Double,

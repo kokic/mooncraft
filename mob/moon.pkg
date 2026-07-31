@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/math",
   "kokic/mooncraft/core/schema",
   "kokic/mooncraft/gltf",

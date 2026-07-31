@@ -3,9 +3,10 @@ fn GameRuntime::new(
   world : @level.World,
   chunk_runtime : @chunk.ChunkRuntime,
   player_runtime : @player.PlayerRuntime,
+  mob_runtime : @mob.MobRuntime,
   chunk_size : Int,
 ) -> GameRuntime {
-  { world, chunk_runtime, player_runtime, chunk_size }
+  { world, chunk_runtime, player_runtime, mob_runtime, chunk_size }
 }
 
 ///|
@@ -21,7 +22,7 @@ fn GameRuntime::save_snapshot(self : GameRuntime, saved_at : Double) -> String {
     self.player_runtime.pitch(),
     self.player_runtime.inventory_snapshot(),
     self.chunk_runtime.block_deltas(),
-    @mob.save_entities(),
+    self.mob_runtime.save_entities(),
   ).encode()
 }
 
@@ -149,5 +150,5 @@ fn GameRuntime::load_save(
   for delta in payload.block_deltas() {
     self.chunk_runtime.load_block_delta(delta.x, delta.y, delta.z, delta.id)
   }
-  @mob.restore_entities(payload.entities())
+  self.mob_runtime.restore_entities(payload.entities())
 }

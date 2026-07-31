@@ -17,7 +17,7 @@ test "player inventory runtime normalizes all intents" {
 test "player runtime consumes look intent and ticks movement" {
   let inventory = PlayerInventoryRuntime::new(game_mode="spectator")
   let runtime = PlayerRuntime::new(
-    @ffi.new_map(),
+    @hashmap.HashMap([]),
     16,
     0,
     inventory,

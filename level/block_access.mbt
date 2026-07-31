@@ -1,20 +1,18 @@
 ///|
-/// Get chunk data from a JS Map by chunk key.
-/// Returns None when the chunk is missing or the value is null/undefined.
-pub fn get_chunk_data(chunk_map : @ffi.JsValue, key : String) -> Array[UInt]? {
-  let value = @ffi.object_get(chunk_map, key)
-  if value.is_undefined() || value.is_null() {
-    None
-  } else {
-    Some(value.cast_to())
-  }
+/// Get chunk data from the chunk map by chunk key.
+/// Returns None when the chunk is missing.
+pub fn get_chunk_data(
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
+  key : String,
+) -> Array[UInt]? {
+  chunk_map.get(key)
 }
 
 ///|
 /// Read the block internal_id at world coordinates (wx, wy, wz).
 /// Returns None if the chunk is missing or coordinates are out of bounds.
 pub fn get_block_id(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -42,7 +40,7 @@ pub fn get_block_id(
 
 ///|
 pub fn is_water_at(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -58,7 +56,7 @@ pub fn is_water_at(
 /// Update the block internal_id at world coordinates (wx, wy, wz).
 /// Returns the list of chunk keys that need mesh rebuilds (self + neighbors).
 pub fn set_block_id(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -87,7 +85,7 @@ pub fn set_block_id(
           let keys : Array[String] = [key]
           let push_neighbor = fn(nx : Int, ny : Int, nz : Int) -> Unit {
             let nkey = chunk_key_by_chunk_xyz(nx, ny, nz)
-            if @ffi.object_has(chunk_map, nkey) {
+            if chunk_map.contains(nkey) {
               keys.push(nkey)
             }
           }
@@ -111,7 +109,7 @@ pub fn set_block_id(
 /// Build padded block data for one chunk (size+2)^3.
 /// Border voxels are sampled from neighbor chunks; missing chunks use `air_id`.
 pub fn build_chunk_data_padded(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   cx : Int,
   cy : Int,
@@ -120,8 +118,8 @@ pub fn build_chunk_data_padded(
 ) -> Array[UInt] {
   let pad = size + 2
   let out = Array::make(pad * pad * pad, air_id)
-  let chunk_cache : Map[String, Array[UInt]] = Map([])
-  let missing_cache : Map[String, Bool] = Map([])
+  let chunk_cache : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
+  let missing_cache : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
   let resolve_chunk = fn(key : String) -> Array[UInt]? {
     if chunk_cache.contains(key) {
       Some(chunk_cache[key])

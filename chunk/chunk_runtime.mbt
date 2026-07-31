@@ -26,10 +26,9 @@ pub const VERTICAL_MESH_RADIUS : Int = 48
 
 ///|
 /// Owns all CPU-side chunk streaming, lighting, and mesh invalidation state.
-/// `chunk_map` is an opaque browser map used only as a zero-copy data bridge.
 pub struct ChunkRuntime {
   world : @level.World
-  chunk_map : @ffi.JsValue
+  chunk_map : @hashmap.HashMap[String, Array[UInt]]
   chunk_size : Int
   chunk_min_y : Int
   chunk_max_y : Int
@@ -39,23 +38,23 @@ pub struct ChunkRuntime {
   generation_budget : Int
   generation_work_budget : Int
   mesh_budget : Int
-  loaded_columns : Map[String, Bool]
-  mut desired_columns : Map[String, Bool]
+  loaded_columns : @hashmap.HashMap[String, Bool]
+  mut desired_columns : @hashmap.HashMap[String, Bool]
   mut desired_center_x : Int
   mut desired_center_z : Int
   mut has_desired_center : Bool
-  queued_columns : Map[String, Bool]
+  queued_columns : @hashmap.HashMap[String, Bool]
   mut column_queue : Array[String]
   mut queue_head : Int
   mut active_infinite_column : @level.InfiniteChunkColumnGeneration?
   mut mesh_min_y : Int
   mut mesh_max_y : Int
-  dirty_sections : Map[String, ChunkSection]
-  rendered_sections : Map[String, ChunkSection]
-  mut dirty_lights : Map[String, Bool]
-  lights : Map[String, Bytes]
+  dirty_sections : @hashmap.HashMap[String, ChunkSection]
+  rendered_sections : @hashmap.HashMap[String, ChunkSection]
+  mut dirty_lights : @hashmap.HashMap[String, Bool]
+  lights : @hashmap.HashMap[String, Bytes]
   fixed_section_light : Bytes
-  block_deltas : Map[String, @level.BlockDelta]
+  block_deltas : @hashmap.HashMap[String, @level.BlockDelta]
 }
 
 ///|
@@ -99,11 +98,11 @@ pub fn ChunkRuntime::new(
   } else {
     chunk_size
   }
-  let chunk_map = @ffi.new_map()
+  let chunk_map : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
   let chunk_min_y = @util.floor_div(world.min_y(), chunk_size)
   let chunk_max_y = @util.floor_div(world.max_y(), chunk_size)
-  let loaded_columns : Map[String, Bool] = Map([])
-  let dirty_lights : Map[String, Bool] = Map([])
+  let loaded_columns : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
+  let dirty_lights : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
   let initial_column : Array[@level.Chunk] = if world.world_type()
     is @level.WorldType::Infinite {
     world.generate_chunk_column(spawn_chunk_x, spawn_chunk_z)
@@ -120,7 +119,7 @@ pub fn ChunkRuntime::new(
     } else {
       world.generate_chunk(spawn_chunk_x, cy, spawn_chunk_z).tile_map
     }
-    @ffi.map_set_value(chunk_map, key, data)
+    chunk_map[key] = data
     dirty_lights[key] = true
   }
   loaded_columns[@level.chunk_column_key_by_chunk_xz(
@@ -154,27 +153,27 @@ pub fn ChunkRuntime::new(
       mesh_budget
     },
     loaded_columns,
-    desired_columns: {},
+    desired_columns: @hashmap.HashMap([]),
     desired_center_x: 0,
     desired_center_z: 0,
     has_desired_center: false,
-    queued_columns: {},
+    queued_columns: @hashmap.HashMap([]),
     column_queue: [],
     queue_head: 0,
     active_infinite_column: None,
     mesh_min_y: world.min_y(),
     mesh_max_y: world.max_y(),
-    dirty_sections: {},
-    rendered_sections: {},
+    dirty_sections: @hashmap.HashMap([]),
+    rendered_sections: @hashmap.HashMap([]),
     dirty_lights,
-    lights: {},
+    lights: @hashmap.HashMap([]),
     fixed_section_light: Bytes::make(
       normalized_section_size *
       normalized_section_size *
       normalized_section_size,
       15,
     ),
-    block_deltas: {},
+    block_deltas: @hashmap.HashMap([]),
   }
   runtime.mark_column_chunks_dirty(spawn_chunk_x, spawn_chunk_z)
   runtime
@@ -201,7 +200,7 @@ pub fn ChunkRuntime::set_render_distance(
 }
 
 ///|
-pub fn ChunkRuntime::chunk_map(self : ChunkRuntime) -> @ffi.JsValue {
+pub fn ChunkRuntime::chunk_map(self : ChunkRuntime) -> @hashmap.HashMap[String, Array[UInt]] {
   self.chunk_map
 }
 
@@ -294,7 +293,7 @@ fn ChunkRuntime::refresh_desired(
   self.has_desired_center = true
   self.desired_center_x = center_x
   self.desired_center_z = center_z
-  self.desired_columns = {}
+  self.desired_columns = @hashmap.HashMap([])
   for
     key in collect_render_column_keys(center_x, center_z, self.render_distance) {
     self.desired_columns[key] = true
@@ -330,7 +329,7 @@ fn ChunkRuntime::publish_generated_column(
     let chunk_key = chunk.chunk_key()
     let data = chunk.tile_map
     self.apply_saved_block_deltas(chunk_key, data)
-    @ffi.map_set_value(self.chunk_map, chunk_key, data)
+    self.chunk_map[chunk_key] = data
     self.mark_chunk_sections_dirty(chunk_key)
     self.dirty_lights[chunk_key] = true
     generated.push(chunk_key)
@@ -500,7 +499,7 @@ fn ChunkRuntime::evict_undesired(self : ChunkRuntime) -> Array[String] {
       self.remove_chunk_sections(chunk_key)
       self.dirty_lights.remove(chunk_key)
       self.lights.remove(chunk_key)
-      ignore(@ffi.map_delete(self.chunk_map, chunk_key))
+      ignore(self.chunk_map.remove(chunk_key))
       evicted.push(chunk_key)
     }
   }
@@ -527,7 +526,7 @@ fn ChunkRuntime::remove_chunk_sections(
 fn ChunkRuntime::refresh_lights(self : ChunkRuntime) -> Array[String] {
   guard self.dirty_lights.length() > 0 else { return [] }
   if @level.USE_FIXED_LIGHT {
-    self.dirty_lights = {}
+    self.dirty_lights = @hashmap.HashMap([])
     return []
   }
   let keys : Array[String] = []
@@ -556,7 +555,7 @@ fn ChunkRuntime::refresh_lights(self : ChunkRuntime) -> Array[String] {
     self.lights[key] = light
     updated.push(key)
   }
-  self.dirty_lights = {}
+  self.dirty_lights = @hashmap.HashMap([])
   updated
 }
 
@@ -844,11 +843,11 @@ fn ChunkRuntime::build_recolor_commands(
   relit_chunks : Array[String],
   mesh_updates : Array[ChunkMeshCommand],
 ) -> Array[ChunkRecolorCommand] {
-  let relit : Map[String, Bool] = Map([])
+  let relit : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
   for key in relit_chunks {
     relit[key] = true
   }
-  let rebuilt : Map[String, Bool] = Map([])
+  let rebuilt : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
   for command in mesh_updates {
     rebuilt[section_key(command.chunk_key, command.x, command.y, command.z)] = true
   }

@@ -15,7 +15,7 @@ pub struct RaycastResult {
 
 ///|
 fn get_block_at(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -37,7 +37,7 @@ fn clamp_click_offset(v : Double) -> Float {
 
 ///|
 pub fn find_surface_y(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   chunk_min_y : Int,
   chunk_max_y : Int,
@@ -68,7 +68,7 @@ pub fn find_surface_y(
 
 ///|
 pub fn raycast_blocks(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   origin : Array[Double],
   dir : Array[Double],

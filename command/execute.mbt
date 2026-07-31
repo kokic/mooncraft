@@ -3,6 +3,7 @@ pub fn execute_command(
   player : @player.PlayerRuntime,
   chunk : @chunk.ChunkRuntime,
   world : @level.World,
+  mob_runtime : @mob.MobRuntime,
   input : String,
 ) -> Result[String, String] {
   let tokens = input.trim().split(" ").filter(t => !t.is_empty()).to_array()
@@ -39,7 +40,7 @@ pub fn execute_command(
         chunk_size=chunk.chunk_size,
         chunk_map=chunk.chunk_map(),
       )
-      summon_command(tokens, position~, yaw=player.yaw())
+      summon_command(mob_runtime, tokens, position~, yaw=player.yaw())
     }
     // generate a multi-block structure at the block position pointed by the crosshair
     ["/build", ..] =>

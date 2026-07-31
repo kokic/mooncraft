@@ -35,22 +35,25 @@ fn resolve_spawn(request : MobSpawnRequest) -> MobSpawn {
 }
 
 ///|
-pub fn spawn(request : MobSpawnRequest) -> Bool {
+pub fn MobRuntime::spawn(self : MobRuntime, request : MobSpawnRequest) -> Bool {
   let resolved = resolve_spawn(request)
-  guard entity_runtime.spawn(resolved.entity_spawn) else { false }
-  pending_render_configs.push(resolved.render_config)
+  guard self.entity_runtime.spawn(resolved.entity_spawn) else { false }
+  self.pending_render_configs.push(resolved.render_config)
   true
 }
 
 ///|
-pub fn restore_entities(saved_entities : Array[@entity.EntitySave]) -> Unit {
-  reset_entities()
-  entity_runtime.restore_entities(saved_entities)
+pub fn MobRuntime::restore_entities(
+  self : MobRuntime,
+  saved_entities : Array[@entity.EntitySave],
+) -> Unit {
+  self.reset()
+  self.entity_runtime.restore_entities(saved_entities)
   for entity in saved_entities {
     match entity.kind {
       Mob(kind) => {
         let spec = mob_spec(kind)
-        pending_render_configs.push(
+        self.pending_render_configs.push(
           @gltf.entity_config(
             entity.id,
             spec.model_url,

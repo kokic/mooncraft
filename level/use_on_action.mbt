@@ -33,7 +33,7 @@ fn resolve_block_internal_id_by_selector(
 
 ///|
 fn is_air_at(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -46,7 +46,7 @@ fn is_air_at(
 
 ///|
 fn can_replace_at(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   wx : Int,
   wy : Int,
@@ -134,7 +134,7 @@ fn can_place_block(
 
 ///|
 pub fn apply_use_on_action(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   action : @item.UseOnAction,
   player_pos? : Array[Double] = [],
@@ -231,7 +231,7 @@ pub fn apply_use_on_action(
 
 ///|
 pub fn apply_use_on_action_with_player(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   action : @item.UseOnAction,
   player_pos : Array[Double],

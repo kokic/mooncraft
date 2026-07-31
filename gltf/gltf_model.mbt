@@ -83,8 +83,8 @@ struct GltfInstance {
   animation_speed : Float
   animation_looped : Bool
   mut default_texture : @webgl.WebGLTexture?
-  texture_by_index : Map[Int, @webgl.WebGLTexture]
-  texture_by_name : Map[String, @webgl.WebGLTexture]
+  texture_by_index : @hashmap.HashMap[Int, @webgl.WebGLTexture]
+  texture_by_name : @hashmap.HashMap[String, @webgl.WebGLTexture]
 }
 
 ///|
@@ -92,7 +92,7 @@ pub struct GltfRenderer {
   gl : @webgl.WebGLRenderingContext
   program : GltfProgramInfo
   white_texture : @webgl.WebGLTexture
-  assets : Map[String, GltfAssetSlot]
-  textures : Map[String, GltfTextureSlot]
+  assets : @hashmap.HashMap[String, GltfAssetSlot]
+  textures : @hashmap.HashMap[String, GltfTextureSlot]
   instances : Array[GltfInstance]
 }

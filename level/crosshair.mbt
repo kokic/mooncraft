@@ -2,7 +2,7 @@
 pub fn crosshair_block(
   // game : @client.GameRuntime,
   // player : PlayerRuntime,
-  chunk_map~ : @ffi.JsValue,
+  chunk_map~ : @hashmap.HashMap[String, Array[UInt]],
   chunk_size~ : Int,
   player_position~ : Array[Double],
   player_eye_height~ : Double,

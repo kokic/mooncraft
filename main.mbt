@@ -59,8 +59,9 @@ pub fn launch_game(
   let world_type = @level.world_type_from_name(world_type_name)
   let world = @level.World::new(seed~, world_type~, height~)
   let initial_chunk = world.generate_chunk(0, 0, 0)
-  initialize_client(world, initial_chunk.tile_map, save_text)
-  @mob.install_default_demo(world)
+  let mob_runtime = @mob.MobRuntime::new()
+  initialize_client(world, initial_chunk.tile_map, save_text, mob_runtime)
+  mob_runtime.install_default_demo(world)
 }
 
 ///|
@@ -70,16 +71,10 @@ fn initialize_client(
   world : @level.World,
   chunk_data : Array[UInt],
   save_text : String,
+  mob_runtime : @mob.MobRuntime,
 ) -> Unit {
-  // Publish world-dependent configuration (overrides the early defaults).
-  // (unused)
-  // @ffi.cast_global_set("mcWorldSeed", world.seed())
-  // @ffi.cast_global_set("mcWorldType", world.world_type_name())
-  // @ffi.cast_global_set("mcWorldMinY", world.min_y())
-  // @ffi.cast_global_set("mcWorldMaxY", world.max_y())
-
   // Register the browser API by domain boundary. Each `mc*` name has exactly one owner in the client package.
   @client.register_render_api()
   @client.register_gameplay_api(world)
-  @client.register_runtime_api(world, chunk_data, save_text)
+  @client.register_runtime_api(world, chunk_data, save_text, mob_runtime)
 }

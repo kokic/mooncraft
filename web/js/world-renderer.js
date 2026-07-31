@@ -47,14 +47,14 @@ function createProgram(gl, vertexSource, fragmentSource) {
   return program;
 }
 
-function getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, fallbackId) {
-  const value = window.mcGetBlockId(chunkDatas, size, wx, wy, wz);
+function getBlockIdAtOrDefault(wx, wy, wz, fallbackId) {
+  const value = window.mcGetBlockId(wx, wy, wz);
   const num = Number(value);
   return Number.isFinite(num) ? num : fallbackId;
 }
 
-function setBlockIdAt(chunkDatas, size, wx, wy, wz, id) {
-  const value = window.mcSetBlockId(chunkDatas, size, wx, wy, wz, id);
+function setBlockIdAt(wx, wy, wz, id) {
+  const value = window.mcSetBlockId(wx, wy, wz, id);
   if (!Array.isArray(value)) {
     throw new Error("mcSetBlockId returned non-array");
   }
@@ -347,10 +347,6 @@ function renderTestChunk({
     throw new Error("Save and quit callback is unavailable");
   }
   const size = chunkSize ?? 16;
-  const chunkDatas = window.mcChunkRuntimeChunkMap;
-  if (!(chunkDatas instanceof Map)) {
-    throw new Error("MoonBit chunk runtime did not provide its chunk map");
-  }
   const chunkMeshes = new Map();
   const rawAirLongId = Number(window.mcAirInternalId ?? 0);
   const airLongId = Number.isFinite(rawAirLongId) ? rawAirLongId : 0;
@@ -747,7 +743,7 @@ function renderTestChunk({
   gl.uniform1f(leafDebugSolid, window.mcDebugSolid ? 1.0 : 0.0);
 
   const getBlockId = (wx, wy, wz) =>
-    getBlockIdAtOrDefault(chunkDatas, size, wx, wy, wz, airLongId);
+    getBlockIdAtOrDefault(wx, wy, wz, airLongId);
   const player = createPlayerController({ canvas });
   let currentGameFrame = {
     player: player.state,
@@ -1178,7 +1174,7 @@ function renderTestChunk({
   let biomeHudCached = "Unknown";
 
   const setBlock = (wx, wy, wz, id) => {
-    const keys = setBlockIdAt(chunkDatas, size, wx, wy, wz, id);
+    const keys = setBlockIdAt(wx, wy, wz, id);
     if (!Array.isArray(keys) || keys.length === 0) return false;
     markEditedVoxelSections(wx, wy, wz, keys);
     return true;
@@ -1186,12 +1182,9 @@ function renderTestChunk({
 
   const raycastBlocks = (origin, dir, maxDist = 10, step = 0.05, includeLiquidHit = false) => {
     const res = window.mcRaycastBlocks(
-      chunkDatas,
-      size,
       origin,
       dir,
       maxDist,
-      step,
       airLongId,
       includeLiquidHit,
     );
@@ -1244,7 +1237,7 @@ function renderTestChunk({
       const applyUse = window.mcApplyUseAction;
       if (typeof useItem === "function" && typeof applyUse === "function") {
         const action = useItem(selectedItem?.name ?? "", category, hit.block);
-        const keys = applyUse(chunkDatas, size, action);
+        const keys = applyUse(action);
         if (Array.isArray(keys)) {
           markEditedVoxelSections(hit.block[0], hit.block[1], hit.block[2], keys);
         }
@@ -1256,7 +1249,6 @@ function renderTestChunk({
         const emptyHit = raycastBlocks(raycastCamera.position, raycastCamera.direction, 10, 0.05, false);
         if (emptyHit && typeof window.mcRequestZombieNavigation === "function") {
           window.mcRequestZombieNavigation(
-            chunkDatas, size,
             emptyHit.block[0], emptyHit.block[1], emptyHit.block[2],
           );
         }
@@ -1282,8 +1274,6 @@ function renderTestChunk({
       if (typeof useItemOn === "function" && typeof applyUseOn === "function") {
         const action = useItemOn(selectedItem.name, category, hit.block, hit.prev, hit.click);
         const keys = applyUseOn(
-          chunkDatas,
-          size,
           action,
           player.state.position,
           player.state.entityHeight ?? 0,
@@ -1373,8 +1363,6 @@ function renderTestChunk({
     const isWaterAt = window.mcIsWaterAt;
     const cameraUnderwater = typeof isWaterAt === "function" &&
       isWaterAt(
-        chunkDatas,
-        size,
         Math.floor(camera.position[0]),
         Math.floor(camera.position[1]),
         Math.floor(camera.position[2]),
@@ -1597,7 +1585,6 @@ function renderTestChunk({
       `| C: ${cx},${cz} ` +
       `| Biome: ${biomeHudCached} ` +
       `| RD: ${renderDistance} ` +
-      `| Loaded: ${chunkDatas.size} ` +
       `| Chunks: ${chunkMeshes.size} ` +
       `| Visible: ${visibleMeshes.length} ${UPDATE_LABEL}\nBuild with MoonBit`;
     animationFrame = requestAnimationFrame(draw);

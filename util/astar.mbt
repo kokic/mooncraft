@@ -49,8 +49,8 @@ fn[Node, Key] best_open_index(open : Array[AStarOpenEntry[Node, Key]]) -> Int? {
 ///|
 fn[Node, Key : Eq + Hash] reconstruct_path(
   goal_key : Key,
-  nodes_by_key : Map[Key, Node],
-  came_from : Map[Key, Key],
+  nodes_by_key : @hashmap.HashMap[Key, Node],
+  came_from : @hashmap.HashMap[Key, Key],
   total_cost : Double,
 ) -> AStarPath[Node] {
   let path = Array::new()
@@ -82,9 +82,9 @@ pub fn[Node, Key : Eq + Hash] astar(
 ) -> AStarPath[Node]? {
   let start_key = key(start)
   let open = Array::new()
-  let g_score : Map[Key, Double] = Map([])
-  let came_from : Map[Key, Key] = Map([])
-  let nodes_by_key : Map[Key, Node] = Map([])
+  let g_score : @hashmap.HashMap[Key, Double] = @hashmap.HashMap([])
+  let came_from : @hashmap.HashMap[Key, Key] = @hashmap.HashMap([])
+  let nodes_by_key : @hashmap.HashMap[Key, Node] = @hashmap.HashMap([])
   g_score[start_key] = 0.0
   nodes_by_key[start_key] = start
   open.push(AStarOpenEntry::{

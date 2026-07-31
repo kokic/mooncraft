@@ -29,8 +29,8 @@ fn clamp_light(value : Int) -> Int {
 }
 
 ///|
-fn build_light_lookup() -> Map[Int, (Int, Int)] {
-  let lookup : Map[Int, (Int, Int)] = Map([])
+fn build_light_lookup() -> @hashmap.HashMap[Int, (Int, Int)] {
+  let lookup : @hashmap.HashMap[Int, (Int, Int)] = @hashmap.HashMap([])
   for entry in @block.collect_block_light_info() {
     if entry.length() >= 3 {
       lookup[entry[0]] = (entry[1], entry[2])
@@ -43,7 +43,7 @@ fn build_light_lookup() -> Map[Int, (Int, Int)] {
 /// Build per-chunk light maps (max of skylight and torchlight) for the
 /// specified chunk keys.
 pub fn build_world_light(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   chunk_keys : Array[String],
   _world_min_y : Int,
@@ -64,7 +64,7 @@ pub fn build_world_light(
   let lookup = build_light_lookup()
   let coords_all : Array[(String, Int, Int, Int)] = []
   let coords_loaded : Array[(String, Int, Int, Int)] = []
-  let chunk_data_by_key : Map[String, Array[UInt]] = Map([])
+  let chunk_data_by_key : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
   let mut min_cx = 0
   let mut min_cz = 0
   let mut max_cx = 0

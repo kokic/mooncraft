@@ -1,6 +1,6 @@
 ///|
 fn summon_command(
-  // game : @client.GameRuntime,
+  mob_runtime : @mob.MobRuntime,
   tokens : Array[StringView],
   position~ : @schema.BlockPos?,
   yaw~ : Double,
@@ -30,7 +30,7 @@ fn summon_command(
     })
     match target {
       Some((x, y, z, yaw)) =>
-        if @mob.spawn(
+        if mob_runtime.spawn(
             @mob.MobSpawnRequest::new(
               @env.now().to_string(),
               kind,

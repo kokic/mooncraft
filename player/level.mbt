@@ -10,7 +10,7 @@ pub const DEFAULT_RAYCAST_STEP : Double = 0.05
 ///|
 pub fn PlayerRuntime::crosshair_block(
   player : PlayerRuntime,
-  chunk_map~ : @ffi.JsValue,
+  chunk_map~ : @hashmap.HashMap[String, Array[UInt]],
   chunk_size~ : Int,
   // player_position~ : Array[Double],
   player_eye_height? : Double = PLAYER_EYE_HEIGHT,

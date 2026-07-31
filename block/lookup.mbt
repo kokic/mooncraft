@@ -7,14 +7,14 @@ pub struct RenderBlock {
 
 ///|
 pub struct BlockRegistry[V] {
-  by_name : Map[String, V]
-  by_internal_id : Map[@schema.InternalID, V]
+  by_name : @hashmap.HashMap[String, V]
+  by_internal_id : @hashmap.HashMap[@schema.InternalID, V]
 }
 
 ///|
 pub fn[V] BlockRegistry::from_maps(
-  by_name : Map[String, V],
-  by_internal_id : Map[@schema.InternalID, V],
+  by_name : @hashmap.HashMap[String, V],
+  by_internal_id : @hashmap.HashMap[@schema.InternalID, V],
 ) -> BlockRegistry[V] {
   { by_name, by_internal_id }
 }
@@ -47,9 +47,9 @@ pub fn BlockRegistry::name_to_internal_id(
 }
 
 ///|
-let texture_index : Map[String, Int] = {
+let texture_index : @hashmap.HashMap[String, Int] = {
   let names = collect_texture_names()
-  let idx : Map[String, Int] = Map([])
+  let idx : @hashmap.HashMap[String, Int] = @hashmap.HashMap([])
   for i in 0..<names.length() {
     idx[names[i]] = i
   }
@@ -58,10 +58,10 @@ let texture_index : Map[String, Int] = {
 
 ///|
 fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
-  let block_by_name : Map[String, Block] = Map([])
-  let block_by_id : Map[@schema.InternalID, Block] = Map([])
-  let render_by_name : Map[String, RenderBlock] = Map([])
-  let render_by_id : Map[@schema.InternalID, RenderBlock] = Map([])
+  let block_by_name : @hashmap.HashMap[String, Block] = @hashmap.HashMap([])
+  let block_by_id : @hashmap.HashMap[@schema.InternalID, Block] = @hashmap.HashMap([])
+  let render_by_name : @hashmap.HashMap[String, RenderBlock] = @hashmap.HashMap([])
+  let render_by_id : @hashmap.HashMap[@schema.InternalID, RenderBlock] = @hashmap.HashMap([])
   for def in blocks {
     block_by_name[def.name] = def
     block_by_id[def.internal_id()] = def

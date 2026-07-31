@@ -11,11 +11,12 @@ pub struct GameFrame {
 
 ///|
 /// Owns the full CPU-side game runtime: chunk streaming/lighting, the player,
-/// and inventory. Browser code feeds it intents and executes the commands and
-/// snapshots it emits.
+/// inventory, and mobs. Browser code feeds it intents and executes the
+/// commands and snapshots it emits.
 pub struct GameRuntime {
   world : @level.World
   chunk_runtime : @chunk.ChunkRuntime
   player_runtime : @player.PlayerRuntime
+  mob_runtime : @mob.MobRuntime
   chunk_size : Int
 }

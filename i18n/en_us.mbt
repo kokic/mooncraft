@@ -1,10 +1,10 @@
 ///|
-pub let item_display_names : Map[String, String] = {
-  "grass": "Grass Block",
-  "sandstone_carved": "Chiseled Sandstone",
-  "sandstone_smooth": "Smooth Sandstone",
-  "tnt": "TNT",
-}
+pub let item_display_names : @hashmap.HashMap[String, String] = @hashmap.HashMap([
+  ("grass", "Grass Block"),
+  ("sandstone_carved", "Chiseled Sandstone"),
+  ("sandstone_smooth", "Smooth Sandstone"),
+  ("tnt", "TNT"),
+])
 
 ///|
 fn capitalize_first(s : String) -> String {

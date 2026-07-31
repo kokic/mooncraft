@@ -32,7 +32,7 @@ pub const SPAWN_PITCH : Double = -0.12
 
 ///|
 pub fn compute_spawn_position(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   chunk_min_y : Int,
   chunk_max_y : Int,

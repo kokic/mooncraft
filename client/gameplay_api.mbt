@@ -15,15 +15,6 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
   @ffi.cast_global_set("mcGetInternalIdByName", @block.name_to_internal_id)
   @ffi.cast_global_set("mcBlockIsSelectable", @block.Block::is_selectable)
   @ffi.cast_global_set("mcCanPlaceBlock", @player.can_place_block)
-  @ffi.cast_global_set("mcRaycastBlocks", @level.raycast_blocks)
-  @ffi.cast_global_set("mcGetBlockId", @level.get_block_id)
-  @ffi.cast_global_set("mcIsWaterAt", @level.is_water_at)
-  @ffi.cast_global_set("mcSetBlockId", @level.set_block_id)
-  @ffi.cast_global_set("mcBuildChunkDataPadded", @level.build_chunk_data_padded)
-  @ffi.cast_global_set(
-    "mcApplyUseOnAction", @level.apply_use_on_action_with_player,
-  )
-  @ffi.cast_global_set("mcApplyUseAction", @level.apply_use_action)
   @ffi.cast_global_set("mcGetBlockShapeDesc", @block.get_shape_desc)
   @ffi.cast_global_set("mcGetBlockOutlineDesc", @block.get_outline_desc)
   @ffi.cast_global_set("mcComputePlacementState", (

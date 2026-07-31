@@ -97,8 +97,8 @@ fn GltfRenderer::create_instance(
     animation_speed: Float::from_double(config.speed),
     animation_looped: config.looped,
     default_texture: None,
-    texture_by_index: {},
-    texture_by_name: {},
+    texture_by_index: @hashmap.HashMap([]),
+    texture_by_name: @hashmap.HashMap([]),
   }
   self.instances.push(instance)
   instance.update(0.0)
@@ -128,8 +128,8 @@ pub fn create_gltf_renderer(
     gl,
     program: create_gltf_program(gl, GLTF_VS_SOURCE, GLTF_FS_SOURCE),
     white_texture: create_white_texture(gl),
-    assets: {},
-    textures: {},
+    assets: @hashmap.HashMap([]),
+    textures: @hashmap.HashMap([]),
     instances: [],
   }
   for config in configs {

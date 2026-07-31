@@ -84,23 +84,13 @@ fn noise_deltas(target : NoiseTarget) -> Array[@level.BlockDelta] {
         0.5,
       )
       let height_offset = (fbm_val * target.amplitude).to_int()
-      let bottom = if height_offset >= 0 {
-        target.position.y
-      } else {
-        target.position.y + height_offset
-      }
-      let top = if height_offset >= 0 {
-        target.position.y + height_offset
-      } else {
-        target.position.y
-      }
+      let top = target.position.y.max(target.position.y + height_offset)
+      let bottom = target.position.y.min(target.position.y + height_offset)
       for wy in bottom..<top {
-        let material = if wy >= top - target.soil_depth {
-          if wy == top - 1 {
-            "grass"
-          } else {
-            "dirt"
-          }
+        let material = if wy == top - 1 {
+          "grass"
+        } else if wy >= top - target.soil_depth {
+          "dirt"
         } else {
           "stone"
         }

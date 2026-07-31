@@ -1,18 +1,3 @@
-///|
-fn clamp_int(token : StringView, min : Int, max : Int) -> Int raise {
-  let v = @string.parse_int(token)
-  guard v >= min && v <= max else { fail("parse error") }
-  v
-}
-
-///|
-fn clamp_double(token : StringView, min : Double, max : Double) -> Double raise {
-  let v = @string.parse_double(token)
-  guard v >= min && v <= max else { fail("parse error") }
-  v
-}
-
-// ── ParseScope ──
 
 ///|
 priv struct ParseScope {
@@ -31,17 +16,17 @@ fn ParseScope::take_string(
   default? : String? = None,
 ) -> String raise {
   guard self.pos < self.tokens.length() else {
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   if self.tokens[self.pos] == "~" {
     self.pos = self.pos + 1
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
-  let v = self.tokens[self.pos].to_owned()
+  let value = self.tokens[self.pos].to_owned()
   self.pos = self.pos + 1
-  v
+  value
 }
 
 ///|
@@ -52,22 +37,17 @@ fn ParseScope::take_double(
   default? : Double? = None,
 ) -> Double raise {
   guard self.pos < self.tokens.length() else {
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   if self.tokens[self.pos] == "~" {
     self.pos = self.pos + 1
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   let token = self.tokens[self.pos]
   self.pos = self.pos + 1
-
-  if min is Some(min) && max is Some(max) {
-    clamp_double(token, min, max)
-  } else {
-    @string.parse_double(token)
-  }
+  @schema.query_double(token, min, max)
 }
 
 ///|
@@ -78,41 +58,38 @@ fn ParseScope::take_int(
   default? : Int? = None,
 ) -> Int raise {
   guard self.pos < self.tokens.length() else {
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   if self.tokens[self.pos] == "~" {
     self.pos = self.pos + 1
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   let token = self.tokens[self.pos]
   self.pos = self.pos + 1
-
-  if min is Some(min) && max is Some(max) {
-    clamp_int(token, min, max)
-  } else {
-    @string.parse_int(token)
-  }
+  @schema.query_int(token, min, max)
 }
 
 ///|
 fn ParseScope::take_uint(
   self : ParseScope,
+  min? : UInt? = None,
+  max? : UInt? = None,
   default? : UInt? = None,
 ) -> UInt raise {
   guard self.pos < self.tokens.length() else {
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   if self.tokens[self.pos] == "~" {
     self.pos = self.pos + 1
-    guard default is Some(v) else { fail("parse error") }
-    return v
+    guard default is Some(value) else { fail("parse error") }
+    return value
   }
   let token = self.tokens[self.pos]
   self.pos = self.pos + 1
-  @string.parse_uint(token)
+  @schema.query_uint(token, min, max)
 }
 
 ///|

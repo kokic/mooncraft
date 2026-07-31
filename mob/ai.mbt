@@ -75,9 +75,8 @@ fn start_path_search(
   request : NavigationRequest,
 ) -> Array[@entity.EntityEvent] {
   let events = []
-  match entity_runtime.cancel_movement(entity_id) {
-    Some(event) => events.push(event)
-    None => ()
+  if entity_runtime.cancel_movement(entity_id) is Some(event) {
+    events.push(event)
   }
   path_searches.remove(entity_id)
   guard entity_runtime.position(entity_id) is Some(position) else { events }

@@ -63,6 +63,7 @@ pub fn mob_spec(kind : @entity.MobKind) -> MobSpec {
   match kind {
     Zombie => zombie_spec()
     Rabbit => rabbit_spec()
+    Moonbit => moonbit_spec()
     Snowman => snowman_spec()
   }
 }

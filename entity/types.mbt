@@ -19,6 +19,7 @@ pub(all) enum MobKind {
   Zombie
   Rabbit
   Snowman
+  Moonbit
 } derive(Debug, ToJson, FromJson)
 
 ///|
@@ -26,6 +27,7 @@ pub fn MobKind::from_name(name : StringView) -> MobKind? {
   match name {
     "zombie" => Some(Zombie)
     "rabbit" => Some(Rabbit)
+    "moonbit" => Some(Moonbit)
     "snowman" => Some(Snowman)
     _ => None
   }

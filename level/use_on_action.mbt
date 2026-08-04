@@ -194,7 +194,8 @@ pub fn apply_use_on_action(
       place_wy~,
       place_wz~,
       name~,
-      require_air~
+      require_air~,
+      click~
     ) =>
       if require_air &&
         !can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) {
@@ -210,6 +211,7 @@ pub fn apply_use_on_action(
               block,
               prev,
               player_pos~,
+              click~,
             )
             let raw_id = @schema.decode_block_id(base_id)
             let internal_id = @schema.encode_variant(raw_id, placement_state)

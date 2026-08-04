@@ -173,6 +173,23 @@ pub let blocks : Array[Block] = [
     luminance=14,
   ),
 
+  // Slabs: half blocks reusing their parent block's textures. State 0 is the
+  // bottom half (canonical item variant), state 1 the top half.
+  ..create_slab_group("stone_slab", ["stone"]),
+  ..create_slab_group("deepslate_slab", ["stone"]),
+  ..create_slab_group("oak_slab", ["classic/oak_planks"]),
+  ..create_slab_group("cobblestone_slab", ["cobblestone"]),
+  ..create_slab_group("brick_slab", ["bricks"]),
+  ..create_slab_group("sandstone_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_normal",
+  ]),
+  ..create_slab_group("smooth_sandstone_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_smooth",
+  ]),
+  ..create_slab_group("cut_sandstone_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_carved",
+  ]),
+
   // glTF model block (demo): geometry is baked from ./assets/models/zombie.gltf
   // into the chunk mesh. "zombie" packs at its native 64x32 resolution in the
   // arbitrary-resolution texture atlas.
@@ -290,6 +307,34 @@ fn create_facing_group(
       ]
     Facing::None => [create_facing(base, 0, faces, facing, id, shape~)]
   }
+}
+
+///|
+fn create_slab(
+  base : String,
+  state : UInt,
+  faces : FixedArray[String],
+  id : BlockId,
+  category? : @item.Category = @item.Block,
+) -> Block {
+  Block::unsafe_create_with_specified_id(
+    @genus.Slab::unique_name(base, state),
+    occlusion_cull=false,
+    state~,
+    shape=Shape::Slab,
+    category~,
+    faces,
+    id,
+  )
+}
+
+///|
+fn create_slab_group(base : String, faces : FixedArray[String]) -> Array[Block] {
+  let id = alloc_block_id()
+  [
+    create_slab(base, 0, faces, id),
+    create_slab(base, 1, faces, id, category=@item.None),
+  ]
 }
 
 ///|

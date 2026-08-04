@@ -60,7 +60,8 @@ pub enum UseOnAction {
     place_wy~ : Int,
     place_wz~ : Int,
     name~ : @schema.UniqueID,
-    require_air~ : Bool
+    require_air~ : Bool,
+    click~ : (Float, Float, Float)
   )
   Batch(Array[UseOnAction])
 }

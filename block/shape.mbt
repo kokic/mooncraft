@@ -3,6 +3,7 @@ pub enum Shape {
   Air
   Cube
   GrassPath
+  Slab
   Liquid
   Cactus
   Torch
@@ -20,7 +21,13 @@ pub(all) enum RaycastMode {
 }
 
 ///|
-pub type PlacementState = (UInt, Array[Int], Array[Int], Array[Double]) -> UInt
+pub type PlacementState = (
+  UInt,
+  Array[Int],
+  Array[Int],
+  Array[Double],
+  (Float, Float, Float),
+) -> UInt
 
 ///|
 /// All behavior a block family contributes outside of its registry metadata.
@@ -51,6 +58,7 @@ fn default_placement_state(
   _block : Array[Int],
   _prev : Array[Int],
   _player_pos : Array[Double],
+  _click : (Float, Float, Float),
 ) -> UInt {
   state
 }
@@ -61,6 +69,7 @@ fn torch_placement_state(
   block : Array[Int],
   prev : Array[Int],
   _player_pos : Array[Double],
+  _click : (Float, Float, Float),
 ) -> UInt {
   @genus.Torch::torch_state_from_placement(block, prev)
 }
@@ -71,6 +80,7 @@ fn axis_placement_state(
   block : Array[Int],
   prev : Array[Int],
   _player_pos : Array[Double],
+  _click : (Float, Float, Float),
 ) -> UInt {
   @genus.Log::log_state_from_placement(block, prev)
 }
@@ -81,6 +91,7 @@ fn horizontal_placement_state(
   _block : Array[Int],
   prev : Array[Int],
   player_pos : Array[Double],
+  _click : (Float, Float, Float),
 ) -> UInt {
   if prev.length() >= 3 {
     @genus.HorizontalFacing::state_from_player(player_pos, prev[0], prev[2])
@@ -95,6 +106,7 @@ fn six_placement_state(
   block : Array[Int],
   prev : Array[Int],
   _player_pos : Array[Double],
+  _click : (Float, Float, Float),
 ) -> UInt {
   @genus.SixFacing::state_from_hit(block, prev)
 }
@@ -122,6 +134,22 @@ fn cactus_boxes(_state : UInt) -> Array[@shape.Box] {
       max: [@genus.CACTUS_MAX, 1.0F, @genus.CACTUS_MAX],
     },
   ]
+}
+
+///|
+fn slab_boxes(state : UInt) -> Array[@shape.Box] {
+  [@genus.Slab::box(state)]
+}
+
+///|
+fn slab_placement_state(
+  _state : UInt,
+  block : Array[Int],
+  prev : Array[Int],
+  _player_pos : Array[Double],
+  click : (Float, Float, Float),
+) -> UInt {
+  @genus.Slab::state_from_placement(block, prev, click)
 }
 
 ///|
@@ -177,6 +205,17 @@ let cactus_profile : BlockProfile = {
   selectable: true,
   raycast_mode: RaycastMode::Bounds,
   placement_state: default_placement_state,
+}
+
+///|
+let slab_profile : BlockProfile = {
+  model: @genus.slab_model,
+  collision_boxes: slab_boxes,
+  raycast_boxes: slab_boxes,
+  outline_boxes: slab_boxes,
+  selectable: true,
+  raycast_mode: RaycastMode::Bounds,
+  placement_state: slab_placement_state,
 }
 
 ///|
@@ -253,6 +292,7 @@ fn profile_by_block(block : Block) -> BlockProfile {
   match block.shape {
     Shape::Air => air_profile
     Shape::GrassPath => grass_path_profile
+    Shape::Slab => slab_profile
     Shape::Liquid => liquid_profile
     Shape::Cactus => cactus_profile
     Shape::Torch => torch_profile(@genus.torch_model)

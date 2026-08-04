@@ -26,13 +26,14 @@ For each visible face of each block:
 ### glTF Block Models
 
 Blocks with `Shape::Gltf` are baked into the chunk mesh at build time instead of
-drawn per instance (route A). `load_block_gltf_model` asynchronously parses the
-model, applies node world transforms, and normalizes the geometry into a unit
-block cell; the mesh builder then merges those triangles into the same
-`positions/uvs/layers/colors` buffers as procedural faces, with per-triangle
-dominant-axis shading, block light, and material base color folded into the
-vertex color. The block's `faces` entry selects the atlas layer the model's UVs
-sample from. The demo "zombie" block is baked from `./assets/models/zombie.gltf`.
+drawn per instance (route A). The block package declares a `block_gltf_specs`
+list (block name, model URL, fit flag); `@gltf.load_block_gltf_models` parses
+each model, applies node world transforms, and normalizes geometry. The mesh
+builder then merges those triangles into the same `positions/uvs/layers/colors`
+buffers as procedural faces, with per-triangle dominant-axis shading, block
+light, and material base color folded into the vertex color. The block's
+`faces` entry selects the atlas tile the model's UVs sample from. The demo
+"zombie" block is baked from `./assets/models/zombie.gltf`.
 
 ### Section Mesh Commands
 
@@ -43,6 +44,12 @@ Recolor commands update only vertex color buffers without rebuilding geometry �
 ## Block Registry
 
 Created once from block texture name lists and atlas indices. Resolves `RenderBlock` (block definition + per-face texture layer indices) by name or long ID. Used by the mesh builder to look up block properties during face construction.
+
+Block textures are packed into a single 2D atlas at arbitrary per-tile resolution
+(16×16 standard tiles, larger tiles such as the 64×32 zombie skin coexist).
+The mesh builder keeps emitting tile-space UVs plus the tile index; the JS
+renderer converts them to absolute atlas UVs at upload time, so the GPU samples
+the packed atlas with a plain 2D `texture()`.
 
 ## Camera
 

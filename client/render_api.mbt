@@ -21,7 +21,9 @@ pub fn register_render_api() -> Unit {
   @ffi.cast_global_set("mcParseGlb", @gltf.parse_glb)
   @ffi.cast_global_set("mcReadAccessorValues", @gltf.read_accessor_values)
   @ffi.cast_global_set("mcReadIndices", @gltf.read_indices)
-  @ffi.cast_global_set("mcLoadBlockGltf", @gltf.load_block_gltf_model)
+  @ffi.cast_global_set("mcLoadBlockGltfModels", (on_done : (String) -> Unit) => {
+    @gltf.load_block_gltf_models(@block.block_gltf_specs(), on_done)
+  })
   @ffi.cast_global_set("mcCreateGltfProgram", @gltf.create_gltf_program)
   @ffi.cast_global_set("mcGltfVsSource", @gltf.GLTF_VS_SOURCE)
   @ffi.cast_global_set("mcGltfFsSource", @gltf.GLTF_FS_SOURCE)

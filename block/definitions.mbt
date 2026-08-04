@@ -174,10 +174,11 @@ pub let blocks : Array[Block] = [
   ),
 
   // glTF model block (demo): geometry is baked from ./assets/models/zombie.gltf
-  // into the chunk mesh; the material temporarily reuses the white wool tile.
+  // into the chunk mesh. "zombie" packs at its native 64x32 resolution in the
+  // arbitrary-resolution texture atlas.
   Block::create(
     "zombie",
-    ["white_wool"],
+    ["zombie"],
     shape=Shape::Gltf,
     occlusion_cull=false,
     opacity=0,

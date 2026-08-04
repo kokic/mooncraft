@@ -7,16 +7,13 @@ pub let leaf_vertex_shader : String =
   #| in vec3 aPosition;
   #| in vec4 aColor;
   #| in vec2 aUv;
-  #| in float aLayer;
   #| uniform mat4 uMvp;
   #| uniform vec3 uCameraPosition;
   #| out vec4 vColor;
   #| out float vFogDistance;
   #| out vec2 vUv;
-  #| out float vLayer;
   #| void main() {
   #|   vUv = aUv;
-  #|   vLayer = aLayer;
   #|   vColor = aColor;
   #|   vec4 pos = vec4(aPosition, 1.0);
   #|   vFogDistance = distance(aPosition, uCameraPosition);
@@ -29,12 +26,10 @@ pub let leaf_vertex_shader : String =
 pub let leaf_fragment_shader : String =
   #| #version 300 es
   #| precision highp float;
-  #| precision highp sampler2DArray;
   #| in vec2 vUv;
-  #| in float vLayer;
   #| in float vFogDistance;
   #| in vec4 vColor;
-  #| uniform sampler2DArray uTex;
+  #| uniform sampler2D uTex;
   #| uniform vec3 uLeafTint;
   #| uniform float uDebugSolid;
   #| uniform vec3 uFogColor;
@@ -46,7 +41,7 @@ pub let leaf_fragment_shader : String =
   #|     outColor = vec4(1.0, 0.2, 0.2, 1.0);
   #|     return;
   #|   }
-  #|   vec4 color = texture(uTex, vec3(vUv, vLayer));
+  #|   vec4 color = texture(uTex, vUv);
   #|   if (color.a * vColor.a <= 0.3) {
   #|     discard;
   #|   }

@@ -5,6 +5,7 @@ import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { createChatUI } from "./chat-ui.js";
 import { createPauseMenu } from "./pause-menu.js";
+import { createBlockAtlasTexture } from "./block-textures.js";
 import {
   mcCameraFromYawPitchInto as cameraFromYawPitchInto,
   mcMat4Perspective as mat4Perspective,
@@ -135,47 +136,6 @@ function createOutlineBuffer(gl, bounds = { min: [0, 0, 0], max: [1, 1, 1] }, pa
   return { buffer, count: lines.length / 3 };
 }
 
-function createTextureArray(gl, textures) {
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  gl.texImage3D(
-    gl.TEXTURE_2D_ARRAY,
-    0,
-    gl.RGBA,
-    textures.singleWidth,
-    textures.singleHeight,
-    textures.layerCount,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    null,
-  );
-
-  textures.images.forEach((img, layer) => {
-    gl.texSubImage3D(
-      gl.TEXTURE_2D_ARRAY,
-      0,
-      0,
-      0,
-      layer,
-      textures.singleWidth,
-      textures.singleHeight,
-      1,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      img,
-    );
-  });
-
-  gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
-  return tex;
-}
-
 function normalizeChunkData(data, fallback = null) {
   if (!data) return fallback;
   if (Array.isArray(data)) return data;
@@ -239,17 +199,14 @@ function renderTestChunk({
     in vec3 aPosition;
     in vec4 aColor;
     in vec2 aUv;
-    in float aLayer;
     uniform mat4 uMvp;
     uniform vec3 uCameraPosition;
     out vec4 vColor;
     out float vFogDistance;
     out vec2 vUv;
-    out float vLayer;
     out vec2 vWorldXZ;
     void main() {
       vUv = aUv;
-      vLayer = aLayer;
       vColor = aColor;
       vWorldXZ = aPosition.xz;
       vec4 pos = vec4(aPosition, 1.0);
@@ -260,12 +217,10 @@ function renderTestChunk({
 
   const fragmentSource = `#version 300 es
     precision highp float;
-    precision highp sampler2DArray;
     in vec2 vUv;
-    in float vLayer;
     in float vFogDistance;
     in vec4 vColor;
-    uniform sampler2DArray uTex;
+    uniform sampler2D uTex;
     uniform float uDebugSolid;
     uniform vec3 uFogColor;
     uniform float uFogNear;
@@ -276,7 +231,7 @@ function renderTestChunk({
         outColor = vec4(1.0, 0.2, 0.2, 1.0);
         return;
       }
-      vec4 color = texture(uTex, vec3(vUv, vLayer));
+      vec4 color = texture(uTex, vUv);
       if (color.a * vColor.a <= 0.3) {
         discard;
       }
@@ -288,13 +243,11 @@ function renderTestChunk({
 
   const waterFragmentSource = `#version 300 es
     precision highp float;
-    precision highp sampler2DArray;
     in vec2 vUv;
-    in float vLayer;
     in float vFogDistance;
     in vec4 vColor;
     in vec2 vWorldXZ;
-    uniform sampler2DArray uTex;
+    uniform sampler2D uTex;
     uniform sampler2D uWaterTintTex;
     uniform vec3 uFogColor;
     uniform float uFogNear;
@@ -305,7 +258,7 @@ function renderTestChunk({
     uniform float uUnderwater;
     out vec4 outColor;
     void main() {
-      vec4 color = texture(uTex, vec3(vUv, vLayer));
+      vec4 color = texture(uTex, vUv);
       if (color.a <= 0.01) {
         discard;
       }
@@ -362,7 +315,6 @@ function renderTestChunk({
     if (buffers.positionBuffer) gl.deleteBuffer(buffers.positionBuffer);
     if (buffers.colorBuffer) gl.deleteBuffer(buffers.colorBuffer);
     if (buffers.uvBuffer) gl.deleteBuffer(buffers.uvBuffer);
-    if (buffers.layerBuffer) gl.deleteBuffer(buffers.layerBuffer);
   };
   const deleteChunkMesh = (mesh) => {
     if (!mesh) return;
@@ -404,21 +356,26 @@ function renderTestChunk({
         positionBuffer: null,
         colorBuffer: null,
         uvBuffer: null,
-        layerBuffer: null,
       };
+    }
+    // Convert tile-space UVs + tile index into absolute atlas UVs so the GPU
+    // can sample the packed 2D atlas directly with a plain texture().
+    const atlasUvs = new Float32Array(uvs.length);
+    const rectByIndex = textures.rectByIndex;
+    for (let i = 0; i < layers.length; i += 1) {
+      const rect = rectByIndex[layers[i]];
+      atlasUvs[i * 2] = rect.u0 + uvs[i * 2] * (rect.u1 - rect.u0);
+      atlasUvs[i * 2 + 1] = rect.v0 + uvs[i * 2 + 1] * (rect.v1 - rect.v0);
     }
     const positionBuffer = gl.createBuffer();
     const uvBuffer = gl.createBuffer();
-    const layerBuffer = gl.createBuffer();
     const colorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, layerBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, layers, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, atlasUvs, gl.STATIC_DRAW);
     return {
       count: mesh.count,
       vaoWorld: null,
@@ -427,7 +384,6 @@ function renderTestChunk({
       positionBuffer,
       colorBuffer,
       uvBuffer,
-      layerBuffer,
     };
   };
   const getOrCreateChunkMesh = (key) => {
@@ -490,7 +446,7 @@ function renderTestChunk({
       uploadColors(section.translucent, colors.translucent);
   };
 
-  const textureArray = createTextureArray(gl, textures);
+  const blockAtlas = createBlockAtlasTexture(gl, textures);
   const gltfEntityRenderer = window.mcCreateGltfRenderer(
     gl,
     Array.isArray(window.mcGltfEntities) ? window.mcGltfEntities : [],
@@ -623,7 +579,6 @@ function renderTestChunk({
   const aPosition = gl.getAttribLocation(program, "aPosition");
   const aColor = gl.getAttribLocation(program, "aColor");
   const aUv = gl.getAttribLocation(program, "aUv");
-  const aLayer = gl.getAttribLocation(program, "aLayer");
   const uMvp = gl.getUniformLocation(program, "uMvp");
   const uCameraPosition = gl.getUniformLocation(program, "uCameraPosition");
   const uTex = gl.getUniformLocation(program, "uTex");
@@ -634,7 +589,6 @@ function renderTestChunk({
   const waterPosition = gl.getAttribLocation(waterProgram, "aPosition");
   const waterColor = gl.getAttribLocation(waterProgram, "aColor");
   const waterUv = gl.getAttribLocation(waterProgram, "aUv");
-  const waterLayerAttrib = gl.getAttribLocation(waterProgram, "aLayer");
   const waterMvp = gl.getUniformLocation(waterProgram, "uMvp");
   const waterCameraPosition = gl.getUniformLocation(waterProgram, "uCameraPosition");
   const waterTex = gl.getUniformLocation(waterProgram, "uTex");
@@ -649,7 +603,6 @@ function renderTestChunk({
   const leafPosition = gl.getAttribLocation(leafProgram, "aPosition");
   const leafColor = gl.getAttribLocation(leafProgram, "aColor");
   const leafUv = gl.getAttribLocation(leafProgram, "aUv");
-  const leafLayer = gl.getAttribLocation(leafProgram, "aLayer");
   const leafMvp = gl.getUniformLocation(leafProgram, "uMvp");
   const leafCameraPosition = gl.getUniformLocation(leafProgram, "uCameraPosition");
   const leafTex = gl.getUniformLocation(leafProgram, "uTex");
@@ -678,9 +631,6 @@ function renderTestChunk({
     gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.uvBuffer);
     gl.enableVertexAttribArray(aUv);
     gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.layerBuffer);
-    gl.enableVertexAttribArray(aLayer);
-    gl.vertexAttribPointer(aLayer, 1, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     meshPart.vaoWorld = vao;
     return vao;
@@ -699,9 +649,6 @@ function renderTestChunk({
     gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.uvBuffer);
     gl.enableVertexAttribArray(waterUv);
     gl.vertexAttribPointer(waterUv, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.layerBuffer);
-    gl.enableVertexAttribArray(waterLayerAttrib);
-    gl.vertexAttribPointer(waterLayerAttrib, 1, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     meshPart.vaoWater = vao;
     return vao;
@@ -720,9 +667,6 @@ function renderTestChunk({
     gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.uvBuffer);
     gl.enableVertexAttribArray(leafUv);
     gl.vertexAttribPointer(leafUv, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, meshPart.layerBuffer);
-    gl.enableVertexAttribArray(leafLayer);
-    gl.vertexAttribPointer(leafLayer, 1, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     meshPart.vaoLeaf = vao;
     return vao;
@@ -1332,7 +1276,7 @@ function renderTestChunk({
     gl.frontFace(gl.CW);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, textureArray);
+    gl.bindTexture(gl.TEXTURE_2D, blockAtlas);
     if (waterTintTexture) {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
@@ -1614,7 +1558,7 @@ function renderTestChunk({
       }
       outlineCache.clear();
       gl.deleteBuffer(outlineCube.buffer);
-      gl.deleteTexture(textureArray);
+      gl.deleteTexture(blockAtlas);
       if (waterTintTexture) gl.deleteTexture(waterTintTexture);
       gl.deleteProgram(program);
       gl.deleteProgram(waterProgram);

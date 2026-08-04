@@ -30,9 +30,26 @@ pub struct GltfBakedModel {
 }
 
 ///|
+/// Declarative spec mapping a block name to the glTF model used for its shape.
+pub struct BlockGltfSpec {
+  name : String
+  url : String
+  fit_in_block : Bool
+}
+
+///|
+pub fn block_gltf_spec(
+  name : String,
+  url : String,
+  fit_in_block : Bool,
+) -> BlockGltfSpec {
+  { name, url, fit_in_block }
+}
+
+///|
 /// Block model registry: the mesh builder looks up baked geometry by block name.
-let block_gltf_models : @hashmap.HashMap[String, GltfBakedModel] =
-  @hashmap.HashMap([])
+let block_gltf_models : @hashmap.HashMap[String, GltfBakedModel] = @hashmap.HashMap([],
+)
 
 ///|
 pub fn block_gltf_model(name : String) -> GltfBakedModel? {
@@ -45,19 +62,55 @@ fn register_block_gltf_model(name : String, model : GltfBakedModel) -> Unit {
 }
 
 ///|
-/// Asynchronously fetch, parse, and bake a glTF model for use as a block shape.
-/// `on_done` receives an empty string on success or an error message on failure.
-pub fn load_block_gltf_model(
-  name : String,
-  url : String,
-  fit_in_block : Bool,
+/// Asynchronously fetch, parse, and bake one glTF model for use as a block
+/// shape. `on_done` receives an empty string on success or an error message.
+fn load_block_gltf_spec(
+  spec : BlockGltfSpec,
   on_done : (String) -> Unit,
 ) -> Unit {
   fetch_array_buffer(
-    absolute_asset_url(url),
-    buffer => decode_block_gltf(name, url, buffer, fit_in_block, on_done),
-    message => on_done("failed to fetch \{url}: \{message}"),
+    absolute_asset_url(spec.url),
+    buffer => {
+      decode_block_gltf(spec.name, spec.url, buffer, spec.fit_in_block, on_done)
+    },
+    message => on_done("failed to fetch \{spec.url}: \{message}"),
   )
+}
+
+///|
+/// Load every declared block glTF model in parallel and invoke `on_done` once
+/// all complete: an empty string on success or the first error message.
+pub fn load_block_gltf_models(
+  specs : Array[BlockGltfSpec],
+  on_done : (String) -> Unit,
+) -> Unit {
+  if specs.length() == 0 {
+    on_done("")
+    return
+  }
+  let state = BlockGltfLoadState::{
+    remaining: specs.length(),
+    error: "",
+    on_done,
+  }
+  for spec in specs {
+    load_block_gltf_spec(spec, message => {
+      if state.error == "" && message != "" {
+        state.error = message
+      }
+      state.remaining -= 1
+      if state.remaining == 0 {
+        (state.on_done)(state.error)
+      }
+    })
+  }
+}
+
+///|
+priv struct BlockGltfLoadState {
+  mut remaining : Int
+  mut error : String
+  on_done : (String) -> Unit
 }
 
 ///|
@@ -84,11 +137,10 @@ fn decode_block_gltf(
         glb_bin,
         buffers => {
           match bake_gltf_model(root, buffers, fit_in_block) {
-            Some(model) =>
-              {
-                register_block_gltf_model(name, model)
-                on_done("")
-              }
+            Some(model) => {
+              register_block_gltf_model(name, model)
+              on_done("")
+            }
             None => on_done("no drawable triangles in \{url}")
           }
         },
@@ -122,9 +174,14 @@ fn bake_mesh_primitives(
   let definitions = json_array(json_field(json_object(root), "meshes"))
   guard definitions.get(mesh_index) is Some(mesh_json) else { [] }
   let primitives : Array[GltfBakePrimitive] = []
-  for primitive_json in json_array(json_field(json_object(mesh_json), "primitives")) {
+  for
+    primitive_json in json_array(
+      json_field(json_object(mesh_json), "primitives"),
+    ) {
     let primitive = json_object(primitive_json)
-    guard json_int(json_field(primitive, "mode"), fallback=4) == 4 else { continue }
+    guard json_int(json_field(primitive, "mode"), fallback=4) == 4 else {
+      continue
+    }
     let attributes = json_object(json_field(primitive, "attributes"))
     let position_index = json_int(
       json_field(attributes, "POSITION"),
@@ -142,14 +199,12 @@ fn bake_mesh_primitives(
       buffers,
       json_int(json_field(primitive, "indices"), fallback=-1),
     ).unwrap_or(@ffi.Float32Array::new(0))
-    primitives.push(
-      GltfBakePrimitive::{
-        positions,
-        uvs,
-        indices,
-        material_index: json_int(json_field(primitive, "material")),
-      },
-    )
+    primitives.push(GltfBakePrimitive::{
+      positions,
+      uvs,
+      indices,
+      material_index: json_int(json_field(primitive, "material")),
+    })
   }
   primitives
 }
@@ -196,12 +251,10 @@ fn triangle_shade(
     } else {
       @util.face_shade_scale(1, 0, 0)
     }
+  } else if ny < 0.0 {
+    @util.face_shade_scale(0, -1, 0)
   } else {
-    if ny < 0.0 {
-      @util.face_shade_scale(0, -1, 0)
-    } else {
-      @util.face_shade_scale(0, 1, 0)
-    }
+    @util.face_shade_scale(0, 1, 0)
   }
 }
 
@@ -234,13 +287,22 @@ fn bake_triangles(
       }
     }
     let p0 = transform_vertex(
-      world, positions[v[0] * 3], positions[v[0] * 3 + 1], positions[v[0] * 3 + 2],
+      world,
+      positions[v[0] * 3],
+      positions[v[0] * 3 + 1],
+      positions[v[0] * 3 + 2],
     )
     let p1 = transform_vertex(
-      world, positions[v[1] * 3], positions[v[1] * 3 + 1], positions[v[1] * 3 + 2],
+      world,
+      positions[v[1] * 3],
+      positions[v[1] * 3 + 1],
+      positions[v[1] * 3 + 2],
     )
     let p2 = transform_vertex(
-      world, positions[v[2] * 3], positions[v[2] * 3 + 1], positions[v[2] * 3 + 2],
+      world,
+      positions[v[2] * 3],
+      positions[v[2] * 3 + 1],
+      positions[v[2] * 3 + 2],
     )
     let shade = triangle_shade(p0, p1, p2)
     for k in 0..<3 {
@@ -276,14 +338,12 @@ fn bake_triangles(
       }
     }
   }
-  out.push(
-    GltfBakePrimitiveRaw::{
-      positions: out_positions,
-      uvs: out_uvs,
-      shades: out_shades,
-      meta,
-    },
-  )
+  out.push(GltfBakePrimitiveRaw::{
+    positions: out_positions,
+    uvs: out_uvs,
+    shades: out_shades,
+    meta,
+  })
 }
 
 ///|
@@ -298,7 +358,10 @@ fn compute_node_worlds(
       None =>
         ignore(
           @camera.mat4_from_trs(
-            matrix, node.translation, node.rotation, node.scale,
+            matrix,
+            node.translation,
+            node.rotation,
+            node.scale,
           ),
         )
     }
@@ -457,9 +520,7 @@ fn bake_gltf_model(
   } else {
     (1.0F, [0.0F, 0.0F, 0.0F])
   }
-  Some(
-    GltfBakedModel::{
-      primitives: raw.map(entry => finalize_primitive(entry, scale, offset)),
-    },
-  )
+  Some(GltfBakedModel::{
+    primitives: raw.map(entry => finalize_primitive(entry, scale, offset)),
+  })
 }

@@ -3,6 +3,7 @@ import {
   mcMat4LookAt,
   mcMat4Mul,
 } from "virtual:mooncraft-camera";
+import { createBlockAtlasTexture } from "./block-textures.js";
 
 const ICON_BASE_SIZE = 32;
 const ICON_DEFAULT_CANVAS_SIZE = 256;
@@ -60,47 +61,6 @@ function createProgram(gl, vertexSource, fragmentSource) {
   return program;
 }
 
-function createTextureArray(gl, textures) {
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  gl.texImage3D(
-    gl.TEXTURE_2D_ARRAY,
-    0,
-    gl.RGBA,
-    textures.singleWidth,
-    textures.singleHeight,
-    textures.layerCount,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    null,
-  );
-
-  textures.images.forEach((img, layer) => {
-    gl.texSubImage3D(
-      gl.TEXTURE_2D_ARRAY,
-      0,
-      0,
-      0,
-      layer,
-      textures.singleWidth,
-      textures.singleHeight,
-      1,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      img,
-    );
-  });
-
-  gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
-  return tex;
-}
-
 class ItemIconRenderer {
   constructor() {
     this.canvas = document.createElement("canvas");
@@ -138,13 +98,12 @@ class ItemIconRenderer {
     const fragmentSource = `#version 300 es
       precision highp int;
       precision highp float;
-      precision highp sampler2DArray;
-      uniform sampler2DArray blockTex;
+      uniform sampler2D blockTex;
       in vec4 vColor;
       in vec3 vTextureCoord;
       out vec4 fragmentColor;
       void main(void){
-        vec4 smpColor = texture(blockTex, vTextureCoord);
+        vec4 smpColor = texture(blockTex, vTextureCoord.xy);
         if (smpColor.a == 0.0) discard;
         fragmentColor = vColor * smpColor;
       }`;
@@ -166,7 +125,6 @@ class ItemIconRenderer {
     this.leafPosition = null;
     this.leafColor = null;
     this.leafUv = null;
-    this.leafLayer = null;
     this.leafMvp = null;
     this.leafView = null;
     this.leafTex = null;
@@ -180,7 +138,6 @@ class ItemIconRenderer {
       this.leafPosition = this.gl.getAttribLocation(this.leafProgram, "aPosition");
       this.leafColor = this.gl.getAttribLocation(this.leafProgram, "aColor");
       this.leafUv = this.gl.getAttribLocation(this.leafProgram, "aUv");
-      this.leafLayer = this.gl.getAttribLocation(this.leafProgram, "aLayer");
       this.leafMvp = this.gl.getUniformLocation(this.leafProgram, "uMvp");
       this.leafView = this.gl.getUniformLocation(this.leafProgram, "uView");
       this.leafTex = this.gl.getUniformLocation(this.leafProgram, "uTex");
@@ -194,7 +151,6 @@ class ItemIconRenderer {
     this.normalBuffer = this.gl.createBuffer();
     this.colorBuffer = this.gl.createBuffer();
     this.uvBuffer = this.gl.createBuffer();
-    this.layerBuffer = this.gl.createBuffer();
     this.textureArray = null;
     this.texturesRef = null;
     this.projMatrix = new Float32Array(16);
@@ -214,7 +170,7 @@ class ItemIconRenderer {
     if (this.textureArray) {
       this.gl.deleteTexture(this.textureArray);
     }
-    this.textureArray = createTextureArray(this.gl, textures);
+    this.textureArray = createBlockAtlasTexture(this.gl, textures);
   }
 
   resize(width, height) {
@@ -232,7 +188,7 @@ class ItemIconRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.textureArray);
+    gl.bindTexture(gl.TEXTURE_2D, this.textureArray);
 
     const wsize = 0.425 + Math.SQRT2 / 4;
     mcMat4Ortho(this.projMatrix, -wsize, wsize, -wsize, wsize, -1, 5);
@@ -256,11 +212,19 @@ class ItemIconRenderer {
       normals4[j + 2] = normals[i + 2];
       normals4[j + 3] = 0;
     }
+    // Convert tile-space UVs + tile index into absolute atlas UVs.
+    const atlasUvs = new Float32Array(uvs.length);
+    const rectByIndex = textures.rectByIndex;
+    for (let i = 0; i < layers.length; i += 1) {
+      const rect = rectByIndex[layers[i]];
+      atlasUvs[i * 2] = rect.u0 + uvs[i * 2] * (rect.u1 - rect.u0);
+      atlasUvs[i * 2 + 1] = rect.v0 + uvs[i * 2 + 1] * (rect.v1 - rect.v0);
+    }
     const texcoords = new Float32Array(layers.length * 3);
     for (let i = 0; i < layers.length; i += 1) {
-      texcoords[i * 3] = uvs[i * 2];
-      texcoords[i * 3 + 1] = uvs[i * 2 + 1];
-      texcoords[i * 3 + 2] = layers[i];
+      texcoords[i * 3] = atlasUvs[i * 2];
+      texcoords[i * 3 + 1] = atlasUvs[i * 2 + 1];
+      texcoords[i * 3 + 2] = 0;
     }
 
     const useLeaf = item.material === "tinted_leaf";
@@ -320,13 +284,9 @@ class ItemIconRenderer {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
     if (useLeaf) {
-      gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, atlasUvs, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(this.leafUv);
       gl.vertexAttribPointer(this.leafUv, 2, gl.FLOAT, false, 0, 0);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.layerBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, layers, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(this.leafLayer);
-      gl.vertexAttribPointer(this.leafLayer, 1, gl.FLOAT, false, 0, 0);
     } else {
       gl.bufferData(gl.ARRAY_BUFFER, texcoords, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(this.aTex);

@@ -49,11 +49,25 @@ function launchRequest(slot) {
   };
 }
 
+function loadBlockGltf(name, url, fitInBlock) {
+  return new Promise((resolve, reject) => {
+    if (typeof window.mcLoadBlockGltf !== "function") {
+      reject(new Error("mcLoadBlockGltf is unavailable"));
+      return;
+    }
+    window.mcLoadBlockGltf(name, url, fitInBlock, (message) => {
+      if (message === "") resolve();
+      else reject(new Error(message));
+    });
+  });
+}
+
 async function bootstrap(slot) {
   const launch = launchRequest(slot);
   launchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
   const textures = await loadBlockTextures();
   window.mcTextures = textures;
+  await loadBlockGltf("zombie", "./assets/models/zombie.gltf", false);
   const chunkSize = window.mcChunkSize;
   const saveWriter = createSaveWriter(slot.id);
   let session = null;

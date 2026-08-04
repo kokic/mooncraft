@@ -8,6 +8,8 @@ pub enum Shape {
   Torch
   RedstoneTorch
   RedstoneTorchClassic
+  /// Render shape whose geometry comes from a baked glTF model.
+  Gltf
 }
 
 ///|
@@ -191,6 +193,37 @@ fn torch_profile(model : @shape.Model) -> BlockProfile {
 }
 
 ///|
+/// Boxes derived from the baked glTF model's per-primitive bounds so collision,
+/// raycast, and outline match the actual geometry. Falls back to a full cube
+/// while the model is still loading.
+fn gltf_model_boxes(name : String, state : UInt) -> Array[@shape.Box] {
+  match @gltf.block_gltf_model(name) {
+    None => full_cube_boxes(state)
+    Some(model) =>
+      model.primitives.map(primitive => @shape.Box::{
+        min: [primitive.min_x, primitive.min_y, primitive.min_z],
+        max: [primitive.max_x, primitive.max_y, primitive.max_z],
+      })
+  }
+}
+
+///|
+/// Block whose render geometry is a baked glTF model. Collision and raycast
+/// boxes follow the model's own extents; only the render model differs from
+/// the procedural shapes.
+fn gltf_profile(name : String) -> BlockProfile {
+  {
+    model: @genus.default_model,
+    collision_boxes: fn(state : UInt) { gltf_model_boxes(name, state) },
+    raycast_boxes: fn(state : UInt) { gltf_model_boxes(name, state) },
+    outline_boxes: fn(state : UInt) { gltf_model_boxes(name, state) },
+    selectable: true,
+    raycast_mode: RaycastMode::Bounds,
+    placement_state: default_placement_state,
+  }
+}
+
+///|
 fn facing_profile(block : Block) -> BlockProfile {
   match block.facing {
     Facing::Axis =>
@@ -227,6 +260,7 @@ fn profile_by_block(block : Block) -> BlockProfile {
     Shape::RedstoneTorchClassic =>
       torch_profile(@genus.redstone_torch_classic_model)
     Shape::Cube => facing_profile(block)
+    Shape::Gltf => gltf_profile(block.name)
   }
 }
 

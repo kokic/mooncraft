@@ -320,6 +320,28 @@ pub fn build_chunk_mesh_split(
         if render_block.block.shape is @block.Shape::Air {
           continue
         }
+        if render_block.block.shape is @block.Shape::Gltf {
+          guard @gltf.block_gltf_model(render_block.block.name) is Some(model) else {
+            continue
+          }
+          let light = get_light(x, y, z)
+          let light_scale = @util.light_level_scale(light)
+          let (positions_ref, uvs_ref, layers_ref, colors_ref) =
+            select_arrays(render_block)
+          emit_gltf_block_into(
+            model,
+            Float::from_int(x),
+            Float::from_int(y),
+            Float::from_int(z),
+            Float::from_int(render_block.faces.pos_x),
+            light_scale,
+            positions_ref,
+            uvs_ref,
+            layers_ref,
+            colors_ref,
+          )
+          continue
+        }
         let model = @block.model_by_block(render_block.block)
         let render_info = @shape.FaceSource::{
           faces: render_block.faces,

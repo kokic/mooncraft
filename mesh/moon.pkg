@@ -2,5 +2,6 @@ import {
   "kokic/mooncraft/core/schema",
   "kokic/mooncraft/block",
   "kokic/mooncraft/block/shape",
+  "kokic/mooncraft/gltf",
   "kokic/mooncraft/util",
 }

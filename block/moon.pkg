@@ -3,6 +3,7 @@ import {
   "kokic/mooncraft/core/schema",
   "kokic/mooncraft/item",
   "kokic/mooncraft/util",
+  "kokic/mooncraft/gltf",
   "kokic/mooncraft/block/genus",
   "kokic/mooncraft/block/shape",
 }

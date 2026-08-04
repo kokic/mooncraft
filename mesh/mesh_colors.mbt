@@ -108,6 +108,15 @@ pub fn build_chunk_colors_split(
         } else {
           colors
         }
+        if render_block.block.shape is @block.Shape::Gltf {
+          guard @gltf.block_gltf_model(render_block.block.name) is Some(model) else {
+            continue
+          }
+          let light = get_light(x, y, z)
+          let light_scale = @util.light_level_scale(light)
+          emit_gltf_colors_into(model, light_scale, target)
+          continue
+        }
         let tint = render_block.block.material.tint()
         let push_color_alpha = fn(
           count : Int,

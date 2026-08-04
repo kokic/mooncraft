@@ -5,4 +5,5 @@ import {
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/ffi/webgl",
   "kokic/mooncraft/camera",
+  "kokic/mooncraft/util",
 }

@@ -4,7 +4,6 @@ priv struct GltfAssetBuild {
   url : String
   root : Json
   buffers : Array[@ffi.ArrayBuffer?]
-  mut remaining : Int
 }
 
 ///|
@@ -80,45 +79,33 @@ fn GltfRenderer::load_asset_buffers(
   root : Json,
   glb_bin : @ffi.ArrayBuffer?,
 ) -> Unit {
-  let fields = json_object(root)
-  let definitions = json_array(json_field(fields, "buffers"))
-  let buffers : Array[@ffi.ArrayBuffer?] = definitions.map(_ => None)
-  let build = GltfAssetBuild::{
-    renderer: self,
+  load_gltf_buffers(
     url,
     root,
-    buffers,
-    remaining: definitions.length(),
-  }
-  if definitions.length() == 0 {
-    build.complete()
-    return
-  }
-  for index, definition in definitions {
-    let buffer_fields = json_object(definition)
-    let uri = json_string(json_field(buffer_fields, "uri"))
-    if uri.length() == 0 {
-      match glb_bin {
-        Some(buffer) => build.accept_buffer(index, buffer)
-        None =>
-          self.fail_asset(url, "buffer {index} has no URI or GLB BIN chunk")
+    glb_bin,
+    buffers => {
+      let build = GltfAssetBuild::{
+        renderer: self,
+        url,
+        root,
+        buffers,
       }
-    } else if is_data_uri(uri) {
-      build.accept_buffer(index, decode_data_uri(uri))
-    } else {
-      let resolved = resolve_asset_url(url, uri)
-      fetch_array_buffer(
-        resolved,
-        buffer => build.accept_buffer(index, buffer),
-        message => self.fail_asset(url, message),
-      )
-    }
-  }
+      build.complete()
+    },
+    message => self.fail_asset(url, message),
+  )
 }
 
 ///|
-fn GltfAssetBuild::accept_buffer(
-  self : GltfAssetBuild,
+priv struct GltfBufferLoad {
+  buffers : Array[@ffi.ArrayBuffer?]
+  mut remaining : Int
+  on_ready : (Array[@ffi.ArrayBuffer?]) -> Unit
+}
+
+///|
+fn GltfBufferLoad::accept(
+  self : GltfBufferLoad,
   index : Int,
   buffer : @ffi.ArrayBuffer,
 ) -> Unit {
@@ -126,25 +113,67 @@ fn GltfAssetBuild::accept_buffer(
   self.buffers[index] = Some(buffer)
   self.remaining -= 1
   if self.remaining == 0 {
-    self.complete()
+    (self.on_ready)(self.buffers)
   }
 }
 
 ///|
-fn GltfAssetBuild::read_accessor(
-  self : GltfAssetBuild,
+/// Fetch every referenced glTF buffer (GLB BIN chunk, data URI, or external)
+/// and invoke `on_ready` once all are available.
+fn load_gltf_buffers(
+  url : String,
+  root : Json,
+  glb_bin : @ffi.ArrayBuffer?,
+  on_ready : (Array[@ffi.ArrayBuffer?]) -> Unit,
+  on_error : (String) -> Unit,
+) -> Unit {
+  let fields = json_object(root)
+  let definitions = json_array(json_field(fields, "buffers"))
+  let load = GltfBufferLoad::{
+    buffers: definitions.map(_ => None),
+    remaining: definitions.length(),
+    on_ready,
+  }
+  if definitions.length() == 0 {
+    on_ready(load.buffers)
+    return
+  }
+  for index, definition in definitions {
+    let buffer_fields = json_object(definition)
+    let uri = json_string(json_field(buffer_fields, "uri"))
+    if uri.length() == 0 {
+      match glb_bin {
+        Some(buffer) => load.accept(index, buffer)
+        None => on_error("buffer \{index} has no URI or GLB BIN chunk")
+      }
+    } else if is_data_uri(uri) {
+      load.accept(index, decode_data_uri(uri))
+    } else {
+      let resolved = resolve_asset_url(url, uri)
+      fetch_array_buffer(
+        resolved,
+        buffer => load.accept(index, buffer),
+        message => on_error(message),
+      )
+    }
+  }
+}
+
+///|
+fn read_accessor_from(
+  root : Json,
+  buffers : Array[@ffi.ArrayBuffer?],
   accessor_index : Int,
 ) -> @ffi.Float32Array? {
-  let root = json_object(self.root)
-  let accessors = json_array(json_field(root, "accessors"))
+  let accessors = json_array(json_field(json_object(root), "accessors"))
   guard accessors.get(accessor_index) is Some(accessor_json) else { None }
   let accessor = json_object(accessor_json)
   let view_index = json_int(json_field(accessor, "bufferView"), fallback=-1)
-  let views = json_array(json_field(root, "bufferViews"))
+  let views = json_array(json_field(json_object(root), "bufferViews"))
   guard views.get(view_index) is Some(view_json) else { None }
   let view = json_object(view_json)
   let buffer_index = json_int(json_field(view, "buffer"), fallback=-1)
-  guard self.buffers.get(buffer_index) is Some(Some(buffer)) else { None }
+  guard buffers.get(buffer_index) is Some(Some(buffer)) else { None }
   let offset = json_int(json_field(view, "byteOffset")) +
     json_int(json_field(accessor, "byteOffset"))
   let stride = json_int(json_field(view, "byteStride"))
@@ -159,20 +188,20 @@ fn GltfAssetBuild::read_accessor(
 }
 
 ///|
-fn GltfAssetBuild::read_indices(
-  self : GltfAssetBuild,
+fn read_indices_from(
+  root : Json,
+  buffers : Array[@ffi.ArrayBuffer?],
   accessor_index : Int,
 ) -> @ffi.Float32Array? {
-  let root = json_object(self.root)
-  let accessors = json_array(json_field(root, "accessors"))
+  let accessors = json_array(json_field(json_object(root), "accessors"))
   guard accessors.get(accessor_index) is Some(accessor_json) else { None }
   let accessor = json_object(accessor_json)
   let view_index = json_int(json_field(accessor, "bufferView"), fallback=-1)
-  let views = json_array(json_field(root, "bufferViews"))
+  let views = json_array(json_field(json_object(root), "bufferViews"))
   guard views.get(view_index) is Some(view_json) else { None }
   let view = json_object(view_json)
   let buffer_index = json_int(json_field(view, "buffer"), fallback=-1)
-  guard self.buffers.get(buffer_index) is Some(Some(buffer)) else { None }
+  guard buffers.get(buffer_index) is Some(Some(buffer)) else { None }
   let offset = json_int(json_field(view, "byteOffset")) +
     json_int(json_field(accessor, "byteOffset"))
   Some(
@@ -187,8 +216,29 @@ fn GltfAssetBuild::read_indices(
 }
 
 ///|
+fn GltfAssetBuild::read_accessor(
+  self : GltfAssetBuild,
+  accessor_index : Int,
+) -> @ffi.Float32Array? {
+  read_accessor_from(self.root, self.buffers, accessor_index)
+}
+
+///|
+fn GltfAssetBuild::read_indices(
+  self : GltfAssetBuild,
+  accessor_index : Int,
+) -> @ffi.Float32Array? {
+  read_indices_from(self.root, self.buffers, accessor_index)
+}
+
+///|
 fn GltfAssetBuild::parse_nodes(self : GltfAssetBuild) -> Array[GltfNode] {
-  let definitions = json_array(json_field(json_object(self.root), "nodes"))
+  parse_nodes(self.root)
+}
+
+///|
+fn parse_nodes(root : Json) -> Array[GltfNode] {
+  let definitions = json_array(json_field(json_object(root), "nodes"))
   definitions.map(definition => {
     let fields = json_object(definition)
     let identity = @camera.mat4_create()
@@ -214,46 +264,26 @@ fn GltfAssetBuild::parse_nodes(self : GltfAssetBuild) -> Array[GltfNode] {
 }
 
 ///|
-fn GltfAssetBuild::parse_materials(
-  self : GltfAssetBuild,
-) -> Array[GltfMaterial] {
-  let definitions = json_array(json_field(json_object(self.root), "materials"))
-  let materials = definitions.map(definition => {
-    let fields = json_object(definition)
-    let pbr = json_object(json_field(fields, "pbrMetallicRoughness"))
-    let factor = json_double_array(json_field(pbr, "baseColorFactor"), 4, [
-      1.0, 1.0, 1.0, 1.0,
-    ])
-    let texture_info = json_object(json_field(pbr, "baseColorTexture"))
-    let name = match json_field(fields, "name") {
-      String(value) => Some(value)
-      _ => None
-    }
-    GltfMaterial::{
-      name,
-      texture_index: json_int(json_field(texture_info, "index"), fallback=-1),
-      texture: self.renderer.white_texture,
-      has_texture: false,
-      factor_r: Float::from_double(factor[0]),
-      factor_g: Float::from_double(factor[1]),
-      factor_b: Float::from_double(factor[2]),
-      factor_a: Float::from_double(factor[3]),
-      alpha_mode: json_string(
-        json_field(fields, "alphaMode"),
-        fallback="OPAQUE",
-      ),
-      alpha_cutoff: Float::from_double(
-        json_double(json_field(fields, "alphaCutoff"), fallback=0.5),
-      ),
-      double_sided: json_bool(json_field(fields, "doubleSided")),
-    }
-  })
-  if materials.length() == 0 {
-    materials.push(GltfMaterial::{
+priv struct GltfMaterialMeta {
+  name : String?
+  texture_index : Int
+  factor_r : Float
+  factor_g : Float
+  factor_b : Float
+  factor_a : Float
+  alpha_mode : String
+  alpha_cutoff : Float
+  double_sided : Bool
+}
+
+///|
+/// Shared material metadata extraction (base color factor, alpha mode, etc.).
+fn parse_material_meta(root : Json, index : Int) -> GltfMaterialMeta {
+  let definitions = json_array(json_field(json_object(root), "materials"))
+  guard definitions.get(index) is Some(definition) else {
+    return GltfMaterialMeta::{
       name: None,
       texture_index: -1,
-      texture: self.renderer.white_texture,
-      has_texture: false,
       factor_r: 1.0F,
       factor_g: 1.0F,
       factor_b: 1.0F,
@@ -261,6 +291,71 @@ fn GltfAssetBuild::parse_materials(
       alpha_mode: "OPAQUE",
       alpha_cutoff: 0.5F,
       double_sided: false,
+    }
+  }
+  let fields = json_object(definition)
+  let pbr = json_object(json_field(fields, "pbrMetallicRoughness"))
+  let factor = json_double_array(json_field(pbr, "baseColorFactor"), 4, [
+    1.0, 1.0, 1.0, 1.0,
+  ])
+  let texture_info = json_object(json_field(pbr, "baseColorTexture"))
+  let name = match json_field(fields, "name") {
+    String(value) => Some(value)
+    _ => None
+  }
+  GltfMaterialMeta::{
+    name,
+    texture_index: json_int(json_field(texture_info, "index"), fallback=-1),
+    factor_r: Float::from_double(factor[0]),
+    factor_g: Float::from_double(factor[1]),
+    factor_b: Float::from_double(factor[2]),
+    factor_a: Float::from_double(factor[3]),
+    alpha_mode: json_string(json_field(fields, "alphaMode"), fallback="OPAQUE"),
+    alpha_cutoff: Float::from_double(
+      json_double(json_field(fields, "alphaCutoff"), fallback=0.5),
+    ),
+    double_sided: json_bool(json_field(fields, "doubleSided")),
+  }
+}
+
+///|
+fn GltfAssetBuild::parse_materials(
+  self : GltfAssetBuild,
+) -> Array[GltfMaterial] {
+  let definitions = json_array(json_field(json_object(self.root), "materials"))
+  let materials : Array[GltfMaterial] = []
+  for index in 0..<definitions.length() {
+    let meta = parse_material_meta(self.root, index)
+    materials.push(
+      GltfMaterial::{
+        name: meta.name,
+        texture_index: meta.texture_index,
+        texture: self.renderer.white_texture,
+        has_texture: false,
+        factor_r: meta.factor_r,
+        factor_g: meta.factor_g,
+        factor_b: meta.factor_b,
+        factor_a: meta.factor_a,
+        alpha_mode: meta.alpha_mode,
+        alpha_cutoff: meta.alpha_cutoff,
+        double_sided: meta.double_sided,
+      },
+    )
+  }
+  if materials.length() == 0 {
+    let meta = parse_material_meta(self.root, 0)
+    materials.push(GltfMaterial::{
+      name: meta.name,
+      texture_index: meta.texture_index,
+      texture: self.renderer.white_texture,
+      has_texture: false,
+      factor_r: meta.factor_r,
+      factor_g: meta.factor_g,
+      factor_b: meta.factor_b,
+      factor_a: meta.factor_a,
+      alpha_mode: meta.alpha_mode,
+      alpha_cutoff: meta.alpha_cutoff,
+      double_sided: meta.double_sided,
     })
   }
   materials
@@ -368,9 +463,14 @@ fn GltfAssetBuild::parse_animations(
 
 ///|
 fn GltfAssetBuild::parse_roots(self : GltfAssetBuild) -> Array[Int] {
-  let root = json_object(self.root)
-  let scenes = json_array(json_field(root, "scenes"))
-  let scene_index = json_int(json_field(root, "scene"))
+  parse_roots(self.root)
+}
+
+///|
+fn parse_roots(root : Json) -> Array[Int] {
+  let root_json = json_object(root)
+  let scenes = json_array(json_field(root_json, "scenes"))
+  let scene_index = json_int(json_field(root_json, "scene"))
   guard scenes.get(scene_index) is Some(scene_json) else { [] }
   json_int_array(json_field(json_object(scene_json), "nodes"))
 }

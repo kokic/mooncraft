@@ -172,6 +172,17 @@ pub let blocks : Array[Block] = [
     Shape::Torch,
     luminance=14,
   ),
+
+  // glTF model block (demo): geometry is baked from ./assets/models/zombie.gltf
+  // into the chunk mesh; the material temporarily reuses the white wool tile.
+  Block::create(
+    "zombie",
+    ["white_wool"],
+    shape=Shape::Gltf,
+    occlusion_cull=false,
+    opacity=0,
+    alpha_mode=AlphaMode::Cutout,
+  ),
 ]
 
 ///|

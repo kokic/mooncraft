@@ -23,6 +23,17 @@ For each visible face of each block:
 3. Per-vertex color = `face_shade * light_scale * material_tint`
 4. For water blocks, the top face Y is lowered to 15/16 of a block
 
+### glTF Block Models
+
+Blocks with `Shape::Gltf` are baked into the chunk mesh at build time instead of
+drawn per instance (route A). `load_block_gltf_model` asynchronously parses the
+model, applies node world transforms, and normalizes the geometry into a unit
+block cell; the mesh builder then merges those triangles into the same
+`positions/uvs/layers/colors` buffers as procedural faces, with per-triangle
+dominant-axis shading, block light, and material base color folded into the
+vertex color. The block's `faces` entry selects the atlas layer the model's UVs
+sample from. The demo "zombie" block is baked from `./assets/models/zombie.gltf`.
+
 ### Section Mesh Commands
 
 Each `ChunkRenderFrame` contains up to `mesh_budget` (8) section mesh commands per tick. Each command packages: center position, padded block data (with neighbor context), light data, and the four-pass mesh output. The JS renderer creates or updates WebGL buffers for each section independently.

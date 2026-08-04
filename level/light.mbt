@@ -64,7 +64,8 @@ pub fn build_world_light(
   let lookup = build_light_lookup()
   let coords_all : Array[(String, Int, Int, Int)] = []
   let coords_loaded : Array[(String, Int, Int, Int)] = []
-  let chunk_data_by_key : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
+  let chunk_data_by_key : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([],
+  )
   let mut min_cx = 0
   let mut min_cz = 0
   let mut max_cx = 0

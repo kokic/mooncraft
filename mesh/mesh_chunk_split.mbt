@@ -326,8 +326,9 @@ pub fn build_chunk_mesh_split(
           }
           let light = get_light(x, y, z)
           let light_scale = @util.light_level_scale(light)
-          let (positions_ref, uvs_ref, layers_ref, colors_ref) =
-            select_arrays(render_block)
+          let (positions_ref, uvs_ref, layers_ref, colors_ref) = select_arrays(
+            render_block,
+          )
           emit_gltf_block_into(
             model,
             Float::from_int(x),

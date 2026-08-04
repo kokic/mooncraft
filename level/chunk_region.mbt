@@ -12,7 +12,8 @@ pub struct ChunkRegion {
 }
 
 ///|
-let pending_block_placements : @hashmap.HashMap[String, Array[BlockPlacement]] = @hashmap.HashMap([])
+let pending_block_placements : @hashmap.HashMap[String, Array[BlockPlacement]] = @hashmap.HashMap([],
+)
 
 ///|
 pub fn ChunkRegion::new(chunk : Chunk) -> ChunkRegion {

@@ -92,12 +92,7 @@ pub fn register_runtime_api(
       wz,
     )
   })
-  @ffi.cast_global_set("mcSetBlockId", (
-    wx : Int,
-    wy : Int,
-    wz : Int,
-    id : UInt,
-  ) => {
+  @ffi.cast_global_set("mcSetBlockId", (wx : Int, wy : Int, wz : Int, id : UInt) => {
     @level.set_block_id(
       game.chunk_runtime.chunk_map(),
       game.chunk_size,
@@ -108,7 +103,13 @@ pub fn register_runtime_api(
     )
   })
   @ffi.cast_global_set("mcIsWaterAt", (wx : Int, wy : Int, wz : Int) => {
-    @level.is_water_at(game.chunk_runtime.chunk_map(), game.chunk_size, wx, wy, wz)
+    @level.is_water_at(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      wx,
+      wy,
+      wz,
+    )
   })
   @ffi.cast_global_set("mcRaycastBlocks", (
     origin : Array[Double],
@@ -225,9 +226,7 @@ pub fn register_runtime_api(
   @ffi.cast_global_set("mcTickEntityRuntime", (
     renderer : @gltf.GltfRenderer,
     delta : Double,
-  ) => {
-    mob_runtime.tick(renderer, delta)
-  })
+  ) => mob_runtime.tick(renderer, delta))
 }
 
 ///|

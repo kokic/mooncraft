@@ -84,12 +84,7 @@ fn GltfRenderer::load_asset_buffers(
     root,
     glb_bin,
     buffers => {
-      let build = GltfAssetBuild::{
-        renderer: self,
-        url,
-        root,
-        buffers,
-      }
+      let build = GltfAssetBuild::{ renderer: self, url, root, buffers }
       build.complete()
     },
     message => self.fail_asset(url, message),
@@ -150,11 +145,9 @@ fn load_gltf_buffers(
       load.accept(index, decode_data_uri(uri))
     } else {
       let resolved = resolve_asset_url(url, uri)
-      fetch_array_buffer(
-        resolved,
-        buffer => load.accept(index, buffer),
-        message => on_error(message),
-      )
+      fetch_array_buffer(resolved, buffer => load.accept(index, buffer), message => {
+        on_error(message)
+      })
     }
   }
 }
@@ -326,21 +319,19 @@ fn GltfAssetBuild::parse_materials(
   let materials : Array[GltfMaterial] = []
   for index in 0..<definitions.length() {
     let meta = parse_material_meta(self.root, index)
-    materials.push(
-      GltfMaterial::{
-        name: meta.name,
-        texture_index: meta.texture_index,
-        texture: self.renderer.white_texture,
-        has_texture: false,
-        factor_r: meta.factor_r,
-        factor_g: meta.factor_g,
-        factor_b: meta.factor_b,
-        factor_a: meta.factor_a,
-        alpha_mode: meta.alpha_mode,
-        alpha_cutoff: meta.alpha_cutoff,
-        double_sided: meta.double_sided,
-      },
-    )
+    materials.push(GltfMaterial::{
+      name: meta.name,
+      texture_index: meta.texture_index,
+      texture: self.renderer.white_texture,
+      has_texture: false,
+      factor_r: meta.factor_r,
+      factor_g: meta.factor_g,
+      factor_b: meta.factor_b,
+      factor_a: meta.factor_a,
+      alpha_mode: meta.alpha_mode,
+      alpha_cutoff: meta.alpha_cutoff,
+      double_sided: meta.double_sided,
+    })
   }
   if materials.length() == 0 {
     let meta = parse_material_meta(self.root, 0)

@@ -59,9 +59,12 @@ let texture_index : @hashmap.HashMap[String, Int] = {
 ///|
 fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
   let block_by_name : @hashmap.HashMap[String, Block] = @hashmap.HashMap([])
-  let block_by_id : @hashmap.HashMap[@schema.InternalID, Block] = @hashmap.HashMap([])
-  let render_by_name : @hashmap.HashMap[String, RenderBlock] = @hashmap.HashMap([])
-  let render_by_id : @hashmap.HashMap[@schema.InternalID, RenderBlock] = @hashmap.HashMap([])
+  let block_by_id : @hashmap.HashMap[@schema.InternalID, Block] = @hashmap.HashMap([],
+  )
+  let render_by_name : @hashmap.HashMap[String, RenderBlock] = @hashmap.HashMap([],
+  )
+  let render_by_id : @hashmap.HashMap[@schema.InternalID, RenderBlock] = @hashmap.HashMap([],
+  )
   for def in blocks {
     block_by_name[def.name] = def
     block_by_id[def.internal_id()] = def

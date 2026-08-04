@@ -200,7 +200,9 @@ pub fn ChunkRuntime::set_render_distance(
 }
 
 ///|
-pub fn ChunkRuntime::chunk_map(self : ChunkRuntime) -> @hashmap.HashMap[String, Array[UInt]] {
+pub fn ChunkRuntime::chunk_map(
+  self : ChunkRuntime,
+) -> @hashmap.HashMap[String, Array[UInt]] {
   self.chunk_map
 }
 
@@ -441,7 +443,9 @@ fn ChunkRuntime::record_block_delta(
   z : Int,
   id : UInt,
 ) -> Unit {
-  let name = @block.lookup_by_internal_id(id).map(b => b.name).unwrap_or(@schema.AIR_NAME)
+  let name = @block.lookup_by_internal_id(id)
+    .map(b => b.name)
+    .unwrap_or(@schema.AIR_NAME)
   self.block_deltas["\{x},\{y},\{z}"] = @level.BlockDelta::new(x, y, z, name)
 }
 

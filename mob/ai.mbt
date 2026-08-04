@@ -10,7 +10,9 @@ priv struct NavigationRequest {
 }
 
 ///|
-pub fn MobRuntime::save_entities(self : MobRuntime) -> Array[@entity.EntitySave] {
+pub fn MobRuntime::save_entities(
+  self : MobRuntime,
+) -> Array[@entity.EntitySave] {
   self.entity_runtime.save_entities()
 }
 
@@ -47,7 +49,12 @@ fn MobRuntime::request_navigation(
   target_wx : Int,
   target_wz : Int,
 ) -> Unit {
-  self.navigation_requests[entity_id] = { chunk_map, size, target_wx, target_wz }
+  self.navigation_requests[entity_id] = {
+    chunk_map,
+    size,
+    target_wx,
+    target_wz,
+  }
 }
 
 ///|
@@ -73,7 +80,9 @@ fn MobRuntime::start_path_search(
     events.push(event)
   }
   self.path_searches.remove(entity_id)
-  guard self.entity_runtime.position(entity_id) is Some(position) else { events }
+  guard self.entity_runtime.position(entity_id) is Some(position) else {
+    events
+  }
   let start_wx = position.x.floor().to_int()
   let start_wz = position.z.floor().to_int()
   let start_wy = find_standable_y(
@@ -96,7 +105,9 @@ fn MobRuntime::start_path_search(
 }
 
 ///|
-fn MobRuntime::start_pending_path_searches(self : MobRuntime) -> Array[@entity.EntityEvent] {
+fn MobRuntime::start_pending_path_searches(
+  self : MobRuntime,
+) -> Array[@entity.EntityEvent] {
   let events = []
   let requests = self.navigation_requests
     .keys()

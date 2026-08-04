@@ -23,6 +23,7 @@ pub fn query_int(
     @string.parse_int(token)
   }
 }
+
 ///|
 pub fn clamp_uint(
   token : StringView,

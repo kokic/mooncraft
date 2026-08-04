@@ -59,7 +59,8 @@ fn MobRuntime::apply_entity_events(
 ) -> Unit {
   for event in events {
     match event {
-      MovementStarted(entity_id) => self.set_mob_animation(renderer, entity_id, true)
+      MovementStarted(entity_id) =>
+        self.set_mob_animation(renderer, entity_id, true)
       MovementCompleted(entity_id) =>
         self.set_mob_animation(renderer, entity_id, false)
       MovementCancelled(entity_id) =>

@@ -1,4 +1,3 @@
-
 ///|
 priv struct ParseScope {
   tokens : Array[StringView]

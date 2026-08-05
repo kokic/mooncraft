@@ -190,6 +190,22 @@ pub let blocks : Array[Block] = [
     "sandstone_top", "sandstone_bottom", "sandstone_carved",
   ]),
 
+  // Vertical slabs: half blocks split along X or Z instead of Y.
+  ..create_vertical_slab_group("stone_vertical_slab", ["stone"]),
+  ..create_vertical_slab_group("deepslate_vertical_slab", ["stone"]),
+  ..create_vertical_slab_group("oak_vertical_slab", ["classic/oak_planks"]),
+  ..create_vertical_slab_group("cobblestone_vertical_slab", ["cobblestone"]),
+  ..create_vertical_slab_group("brick_vertical_slab", ["bricks"]),
+  ..create_vertical_slab_group("sandstone_vertical_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_normal",
+  ]),
+  ..create_vertical_slab_group("smooth_sandstone_vertical_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_smooth",
+  ]),
+  ..create_vertical_slab_group("cut_sandstone_vertical_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_carved",
+  ]),
+
   // glTF model block (demo): geometry is baked from ./assets/models/zombie.gltf
   // into the chunk mesh. "zombie" packs at its native 64x32 resolution in the
   // arbitrary-resolution texture atlas.
@@ -334,6 +350,39 @@ fn create_slab_group(base : String, faces : FixedArray[String]) -> Array[Block] 
   [
     create_slab(base, 0, faces, id),
     create_slab(base, 1, faces, id, category=@item.None),
+  ]
+}
+
+///|
+fn create_vertical_slab(
+  base : String,
+  state : UInt,
+  faces : FixedArray[String],
+  id : BlockId,
+  category? : @item.Category = @item.Block,
+) -> Block {
+  Block::unsafe_create_with_specified_id(
+    @genus.VerticalSlab::unique_name(base, state),
+    occlusion_cull=false,
+    state~,
+    shape=Shape::VerticalSlab,
+    category~,
+    faces,
+    id,
+  )
+}
+
+///|
+fn create_vertical_slab_group(
+  base : String,
+  faces : FixedArray[String],
+) -> Array[Block] {
+  let id = alloc_block_id()
+  [
+    create_vertical_slab(base, 0, faces, id),
+    create_vertical_slab(base, 1, faces, id, category=@item.None),
+    create_vertical_slab(base, 2, faces, id, category=@item.None),
+    create_vertical_slab(base, 3, faces, id, category=@item.None),
   ]
 }
 

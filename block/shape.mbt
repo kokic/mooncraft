@@ -4,6 +4,7 @@ pub enum Shape {
   Cube
   GrassPath
   Slab
+  VerticalSlab
   Liquid
   Cactus
   Torch
@@ -153,6 +154,22 @@ fn slab_placement_state(
 }
 
 ///|
+fn vertical_slab_boxes(state : UInt) -> Array[@shape.Box] {
+  [@genus.VerticalSlab::box(state)]
+}
+
+///|
+fn vertical_slab_placement_state(
+  _state : UInt,
+  block : Array[Int],
+  prev : Array[Int],
+  _player_pos : Array[Double],
+  click : (Float, Float, Float),
+) -> UInt {
+  @genus.VerticalSlab::state_from_placement(block, prev, click)
+}
+
+///|
 let air_profile : BlockProfile = {
   model: @genus.default_model,
   collision_boxes: no_boxes,
@@ -216,6 +233,17 @@ let slab_profile : BlockProfile = {
   selectable: true,
   raycast_mode: RaycastMode::Bounds,
   placement_state: slab_placement_state,
+}
+
+///|
+let vertical_slab_profile : BlockProfile = {
+  model: @genus.vertical_slab_model,
+  collision_boxes: vertical_slab_boxes,
+  raycast_boxes: vertical_slab_boxes,
+  outline_boxes: vertical_slab_boxes,
+  selectable: true,
+  raycast_mode: RaycastMode::Bounds,
+  placement_state: vertical_slab_placement_state,
 }
 
 ///|
@@ -293,6 +321,7 @@ fn profile_by_block(block : Block) -> BlockProfile {
     Shape::Air => air_profile
     Shape::GrassPath => grass_path_profile
     Shape::Slab => slab_profile
+    Shape::VerticalSlab => vertical_slab_profile
     Shape::Liquid => liquid_profile
     Shape::Cactus => cactus_profile
     Shape::Torch => torch_profile(@genus.torch_model)

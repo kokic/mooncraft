@@ -132,3 +132,76 @@ test "slab raycast respects the half height" {
     true,
   )
 }
+
+///|
+test "vertical slab outline uses the half by state" {
+  let slab = lookup_by_name("stone_vertical_slab").unwrap()
+  let x_neg = get_outline_desc(slab.internal_id()).unwrap().boxes[0]
+  @test.assert_eq(x_neg.min[0], 0.0F)
+  @test.assert_eq(x_neg.max[0], @genus.VERTICAL_SLAB_MAX)
+  let x_pos = lookup_by_name("stone_vertical_slab:x_pos").unwrap()
+  let x_pos_box = get_outline_desc(x_pos.internal_id()).unwrap().boxes[0]
+  @test.assert_eq(x_pos_box.min[0], @genus.VERTICAL_SLAB_MAX)
+  @test.assert_eq(x_pos_box.max[0], 1.0F)
+  let z_neg = lookup_by_name("stone_vertical_slab:z_neg").unwrap()
+  let z_neg_box = get_outline_desc(z_neg.internal_id()).unwrap().boxes[0]
+  @test.assert_eq(z_neg_box.min[2], 0.0F)
+  @test.assert_eq(z_neg_box.max[2], @genus.VERTICAL_SLAB_MAX)
+}
+
+///|
+test "vertical slab placement picks the half from the hit face" {
+  let stone_vslab = lookup_by_name("stone_vertical_slab").unwrap().internal_id()
+  // Clicking +X face places the slab in the -X half, and so on.
+  @test.assert_eq(
+    compute_placement_state(stone_vslab, [0, 1, 0], [1, 1, 0]),
+    0U,
+  )
+  @test.assert_eq(
+    compute_placement_state(stone_vslab, [1, 1, 0], [0, 1, 0]),
+    1U,
+  )
+  @test.assert_eq(
+    compute_placement_state(stone_vslab, [0, 1, 0], [0, 1, 1]),
+    2U,
+  )
+  @test.assert_eq(
+    compute_placement_state(stone_vslab, [0, 1, 1], [0, 1, 0]),
+    3U,
+  )
+  // Top/bottom placements fall back to the click quadrant.
+  @test.assert_eq(
+    compute_placement_state(
+      stone_vslab,
+      [0, 1, 0],
+      [0, 2, 0],
+      click=(0.8, 1.0, 0.2),
+    ),
+    1U,
+  )
+  @test.assert_eq(
+    compute_placement_state(
+      stone_vslab,
+      [0, 1, 0],
+      [0, 2, 0],
+      click=(0.2, 1.0, 0.8),
+    ),
+    2U,
+  )
+}
+
+///|
+test "vertical slab narrow faces crop the texture to the half" {
+  // -X half: the top face keeps the -X strip (v = x on PosY).
+  let (_, v0, _, v1) = @genus.VerticalSlab::uv_rect(0U, @shape.FaceName::PosY)
+  @test.assert_eq(v0, 0.0F)
+  @test.assert_eq(v1, @genus.VERTICAL_SLAB_MAX)
+  // +X half shows the opposite strip.
+  let (_, v0p, _, v1p) = @genus.VerticalSlab::uv_rect(1U, @shape.FaceName::PosY)
+  @test.assert_eq(v0p, @genus.VERTICAL_SLAB_MAX)
+  @test.assert_eq(v1p, 1.0F)
+  // The full-height faces perpendicular to the thickness stay full.
+  let (u0, _, u1, _) = @genus.VerticalSlab::uv_rect(0U, @shape.FaceName::NegX)
+  @test.assert_eq(u0, 0.0F)
+  @test.assert_eq(u1, 1.0F)
+}

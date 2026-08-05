@@ -4,9 +4,11 @@ import * as Block from "virtual:mooncraft-block";
 const BLOCK_IMAGE_ROOT = "./assets/images/block";
 const ITEM_IMAGE_ROOT = "./assets/images/item";
 
-// Shelf gap between packed tiles (keeps sampling from bleeding across tiles
-// when mipmapping/anisotropic filtering is enabled later).
-const ATLAS_GAP = 2;
+// Width of the self-edge border padded around each packed tile. The border is
+// filled with the tile's own edge texels so that a seam sampling at the tile
+// boundary picks the tile's edge color instead of a neighbor tile or a
+// transparent gap (which the block shader would discard, leaving a white line).
+const ATLAS_PAD = 2;
 
 function resolveTextureUrl(name) {
   if (typeof name === "string" && name.startsWith("item/")) {
@@ -26,19 +28,20 @@ async function loadBlockTextures() {
     images.push(img);
   }
 
-  const { canvas, atlasWidth, atlasHeight, rects } = packTiles(images);
+  // Pack edge-padded tiles so tiles are adjacent (no transparent gap).
+  const padded = images.map(padTile);
+  const { canvas, atlasWidth, atlasHeight, rects } = packTiles(padded);
 
-  // Per-tile normalized rects in `textureIndex` order. NEAREST sampling keeps
-  // the full tile visible; the shelf gap between tiles prevents bleeding into
-  // a neighbor tile at the atlas boundary.
+  // Per-tile normalized content rects in `textureIndex` order (inset by the
+  // self-edge border).
   const rectByIndex = [];
   for (let i = 0; i < images.length; i += 1) {
     const r = rects[i];
     rectByIndex.push({
-      u0: r.x / atlasWidth,
-      v0: r.y / atlasHeight,
-      u1: (r.x + r.w) / atlasWidth,
-      v1: (r.y + r.h) / atlasHeight,
+      u0: (r.x + ATLAS_PAD) / atlasWidth,
+      v0: (r.y + ATLAS_PAD) / atlasHeight,
+      u1: (r.x + r.w - ATLAS_PAD) / atlasWidth,
+      v1: (r.y + r.h - ATLAS_PAD) / atlasHeight,
     });
   }
 
@@ -49,6 +52,21 @@ async function loadBlockTextures() {
     rectByIndex,
   };
   return result;
+}
+
+function padTile(img) {
+  const w = img.width;
+  const h = img.height;
+  const canvas = document.createElement("canvas");
+  canvas.width = w + ATLAS_PAD * 2;
+  canvas.height = h + ATLAS_PAD * 2;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  // Nearest upscale fills the border with the image's edge texels; the exact
+  // draw on top restores the content area.
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, ATLAS_PAD, ATLAS_PAD);
+  return canvas;
 }
 
 function packTiles(images) {
@@ -67,20 +85,20 @@ function packTiles(images) {
   }
 
   const rects = new Array(images.length);
-  let x = ATLAS_GAP;
-  let y = ATLAS_GAP;
+  let x = 0;
+  let y = 0;
   let rowH = 0;
   for (const t of tiles) {
-    if (x + t.w + ATLAS_GAP > atlasWidth) {
-      x = ATLAS_GAP;
-      y += rowH + ATLAS_GAP;
+    if (x + t.w > atlasWidth) {
+      x = 0;
+      y += rowH;
       rowH = 0;
     }
     rects[t.index] = { x, y, w: t.w, h: t.h };
-    x += t.w + ATLAS_GAP;
+    x += t.w;
     rowH = Math.max(rowH, t.h);
   }
-  const atlasHeight = y + rowH + ATLAS_GAP;
+  const atlasHeight = y + rowH;
 
   const canvas = document.createElement("canvas");
   canvas.width = atlasWidth;

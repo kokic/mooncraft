@@ -56,3 +56,9 @@ fn flat_layer_internal_ids(flat_layer_blocks : Array[String]) -> Array[UInt] {
   }
   ids
 }
+
+///|
+/// World Y of the top solid layer (grass) for the default flat world.
+pub fn flat_surface_height() -> Int {
+  default_flat_layer_blocks.length() - 1
+}

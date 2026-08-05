@@ -472,15 +472,20 @@ fn surface_height_with_params(
 }
 
 ///|
+/// The Y of the top solid block at a world column, matching that world type's
+/// actual generation instead of the Infinite noise pipeline.
 pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
-  let sample = if world.kind is WorldType::Infinite {
-    world.terrain_noise.sample_climate(wx, wz)
-  } else {
-    @biome.sample(world.noise, wx, wz)
+  match world.kind {
+    WorldType::Flat => flat_surface_height()
+    WorldType::PreClassic => preclassic_surface_height(world, wx, wz)
+    WorldType::Finite => finite_terrain_column(world, wx, wz).surface
+    WorldType::Infinite => {
+      let sample = world.terrain_noise.sample_climate(wx, wz)
+      let biome = @biome.biome_from_sample(sample)
+      let surface_biome = surface_biome_from_column(world, sample, biome)
+      surface_height_with_params(world, wx, wz, sample, surface_biome)
+    }
   }
-  let biome = @biome.biome_from_sample(sample)
-  let surface_biome = surface_biome_from_column(world, sample, biome)
-  surface_height_with_params(world, wx, wz, sample, surface_biome)
 }
 
 ///|

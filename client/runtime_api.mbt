@@ -227,6 +227,7 @@ pub fn register_runtime_api(
     renderer : @gltf.GltfRenderer,
     delta : Double,
   ) => mob_runtime.tick(renderer, delta))
+  register_designer_api(game)
 }
 
 ///|

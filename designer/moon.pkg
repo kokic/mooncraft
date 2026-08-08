@@ -1,2 +1,9 @@
 import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "kokic/mooncraft/block",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

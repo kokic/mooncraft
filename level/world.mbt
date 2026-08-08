@@ -479,6 +479,7 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
     WorldType::Flat => flat_surface_height()
     WorldType::PreClassic => preclassic_surface_height(world, wx, wz)
     WorldType::Finite => finite_terrain_column(world, wx, wz).surface
+    WorldType::Design => design_surface_height()
     WorldType::Infinite => {
       let sample = world.terrain_noise.sample_climate(wx, wz)
       let biome = @biome.biome_from_sample(sample)
@@ -587,6 +588,7 @@ pub fn World::min_y(self : World) -> Int {
   match self.kind {
     WorldType::Finite => FINITE_MIN_Y
     WorldType::PreClassic => PRECLASSIC_MIN_Y
+    WorldType::Design => DESIGN_MIN_Y
     _ => WORLD_MIN_Y
   }
 }
@@ -597,6 +599,7 @@ pub fn World::max_y(self : World) -> Int {
     WorldType::Infinite => WORLD_MIN_Y + self.infinite_height - 1
     WorldType::Finite => FINITE_MAX_Y
     WorldType::PreClassic => PRECLASSIC_MAX_Y
+    WorldType::Design => DESIGN_MAX_Y
     _ => WORLD_MAX_Y
   }
 }
@@ -634,6 +637,12 @@ pub fn World::generate_chunk(
     WorldType::Finite =>
       if is_chunk_in_finite_world(chunk_x, chunk_y, chunk_z) {
         fill_finite(world, chunk)
+      } else {
+        fill_air(chunk)
+      }
+    WorldType::Design =>
+      if is_chunk_in_design_world(chunk_x, chunk_y, chunk_z) {
+        fill_design(world, chunk)
       } else {
         fill_air(chunk)
       }

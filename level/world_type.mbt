@@ -4,6 +4,7 @@ pub(all) enum WorldType {
   Infinite
   PreClassic
   Finite
+  Design
 }
 
 ///|
@@ -13,6 +14,7 @@ pub fn world_type_name(kind : WorldType) -> String {
     WorldType::Infinite => "Infinite"
     WorldType::PreClassic => "PreClassic"
     WorldType::Finite => "Finite"
+    WorldType::Design => "Design"
   }
 }
 
@@ -26,6 +28,7 @@ pub fn world_type_from_name(
     "Infinite" => WorldType::Infinite
     "PreClassic" => WorldType::PreClassic
     "Finite" => WorldType::Finite
+    "Design" => WorldType::Design
     _ => fallback
   }
 }
@@ -33,7 +36,7 @@ pub fn world_type_from_name(
 ///|
 #export_name("getWorldTypeNames")
 pub fn get_world_type_names() -> FixedArray[String] {
-  ["Flat", "Infinite", "PreClassic", "Finite"]
+  ["Flat", "Infinite", "PreClassic", "Finite", "Design"]
 }
 
 ///|

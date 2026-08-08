@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/hashmap",
   "kokic/mooncraft/ffi",
   "kokic/mooncraft/block",
   "kokic/mooncraft/player",
@@ -15,6 +16,8 @@ import {
   "kokic/mooncraft/ui",
   "kokic/mooncraft/level",
   "kokic/mooncraft/level/save",
+  "kokic/mooncraft/designer",
+  "kokic/mooncraft/core/schema",
 }
 
 import {

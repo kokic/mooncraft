@@ -22,6 +22,12 @@ pub fn decode_block_id(variant : InternalID) -> UInt {
 }
 
 ///|
+/// Extract the state component from a variant InternalID.
+pub fn decode_state(variant : InternalID) -> UInt {
+  variant % 256
+}
+
+///|
 /// A sequential numeric ID allocator.
 /// Each allocator manages an independent counter for a category (blocks, items, etc.).
 pub struct InternalIDCounter {

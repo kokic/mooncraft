@@ -135,7 +135,7 @@ function createChatUI({
     return true;
   };
 
-  const submit = () => {
+  const submit = async () => {
     const text = input.value;
     if (text.length === 0) {
       setOpen(false);
@@ -144,7 +144,7 @@ function createChatUI({
     addMessage(text);
     let result = null;
     try {
-      result = typeof onSubmit === "function" ? onSubmit(text) : null;
+      result = await (typeof onSubmit === "function" ? onSubmit(text) : null);
     } catch (error) {
       console.error("[chat] submit failed", error);
       result = { success: false, message: "Unable to submit chat message" };

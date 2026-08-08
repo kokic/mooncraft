@@ -4,6 +4,7 @@ import {
 import { createHotbarUI } from "./hotbar-ui.js";
 import { createInventoryUI } from "./inventory-ui.js";
 import { createChatUI } from "./chat-ui.js";
+import { createBlueprintFs } from "./blueprint-fs.js";
 import { createPauseMenu } from "./pause-menu.js";
 import { createBlockAtlasTexture } from "./block-textures.js";
 import {
@@ -170,6 +171,7 @@ function renderTestChunk({
   blockRegistry,
   textures,
   chunkSize,
+  designer = false,
   onSaveAndQuit,
 }) {
   const { mcUpVector: UP_VECTOR } = window;
@@ -879,6 +881,8 @@ function renderTestChunk({
     },
     onSubmit: (text) => {
       if (!text.trimStart().startsWith("/")) return null;
+      const handled = blueprintFs.handleCommand(text);
+      if (handled) return handled;
       const executeCommand = window.mcExecuteCommand;
       // if (typeof executeCommand !== "function") {
       //   return { success: false, message: "Command runtime is unavailable" };
@@ -890,6 +894,33 @@ function renderTestChunk({
           ? result.message
           : "Command did not return a result",
       };
+    },
+  });
+  const blueprintFs = createBlueprintFs({
+    getPlacementTarget: () => {
+      cameraFromYawPitch(
+        raycastCamera,
+        player.state.position[0],
+        player.state.position[1] + 1.65,
+        player.state.position[2],
+        player.state.yaw,
+        player.state.pitch,
+      );
+      const hit = raycastBlocks(raycastCamera.position, raycastCamera.direction, 8);
+      if (!hit) return null;
+      const prev = hit.prev;
+      return prev ? Array.from(prev).map(Number) : null;
+    },
+    notifyBlocksChanged: () => {
+      if (typeof window.mcMarkChunkBlockChanged !== "function") return;
+      const step = Number(window.mcChunkSectionSize) || 8;
+      for (let x = -64; x <= 63; x += step) {
+        for (let y = -64; y <= 63; y += step) {
+          for (let z = -64; z <= 63; z += step) {
+            window.mcMarkChunkBlockChanged(x, y, z);
+          }
+        }
+      }
     },
   });
   const uiItemsByName = new Map();
@@ -1073,6 +1104,7 @@ function renderTestChunk({
   setInventoryOpen(initialInventory?.inventory_open === true, true);
   const pauseMenu = createPauseMenu({
     parent: document.body,
+    designer,
     onOpen: () => {
       player.applyIntent(false);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
@@ -1085,6 +1117,9 @@ function renderTestChunk({
       canvas.requestPointerLock();
     },
     onSaveAndQuit: () => {
+      if (designer) {
+        return onSaveAndQuit();
+      }
       const encodeSave = window.mcEncodeGameSave;
       if (typeof encodeSave !== "function") {
         throw new Error("MoonBit game save encoder is unavailable");

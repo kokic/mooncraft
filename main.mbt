@@ -31,6 +31,12 @@ pub fn initialize_global_constants() -> Unit {
   @ffi.cast_global_set("mcInventoryGridY", @player.INVENTORY_GRID_Y)
   @ffi.cast_global_set("mcAirInternalId", @schema.AIR_ID)
   @ffi.cast_global_set("mcAirName", @schema.AIR_NAME)
+  @ffi.cast_global_set("mcDesignWorldMinX", -@level.DESIGN_WORLD_X_SIZE / 2)
+  @ffi.cast_global_set("mcDesignWorldMaxX", @level.DESIGN_WORLD_X_SIZE / 2 - 1)
+  @ffi.cast_global_set("mcDesignWorldMinY", @level.DESIGN_MIN_Y)
+  @ffi.cast_global_set("mcDesignWorldMaxY", @level.DESIGN_MAX_Y)
+  @ffi.cast_global_set("mcDesignWorldMinZ", -@level.DESIGN_WORLD_Z_SIZE / 2)
+  @ffi.cast_global_set("mcDesignWorldMaxZ", @level.DESIGN_WORLD_Z_SIZE / 2 - 1)
   @ffi.cast_global_set("mcWaterTintGridStep", 4)
   @ffi.cast_global_set("mcSpawnChunkX", @player.SPAWN_CHUNK_X)
   @ffi.cast_global_set("mcSpawnChunkZ", @player.SPAWN_CHUNK_Z)
@@ -56,12 +62,33 @@ pub fn launch_game(
   height : Int,
   save_text : String,
 ) -> Unit {
+  launch_world(seed, world_type_name, height, save_text, false)
+}
+
+///|
+/// Launch the developer-only Design world: an empty canvas with no demo
+/// entities and no save-slot integration. Blueprints are the only persistence.
+#export_name("launchDesigner")
+pub fn launch_designer() -> Unit {
+  launch_world(0U, "Design", 0, "", true)
+}
+
+///|
+fn launch_world(
+  seed : UInt,
+  world_type_name : String,
+  height : Int,
+  save_text : String,
+  designer : Bool,
+) -> Unit {
   let world_type = @level.world_type_from_name(world_type_name)
   let world = @level.World::new(seed~, world_type~, height~)
   let initial_chunk = world.generate_chunk(0, 0, 0)
   let mob_runtime = @mob.MobRuntime::new()
-  initialize_client(world, initial_chunk.tile_map, save_text, mob_runtime)
-  mob_runtime.install_default_demo(world)
+  initialize_client(world, initial_chunk.tile_map, save_text, mob_runtime, designer)
+  if !designer {
+    mob_runtime.install_default_demo(world)
+  }
 }
 
 ///|
@@ -72,9 +99,10 @@ fn initialize_client(
   chunk_data : Array[UInt],
   save_text : String,
   mob_runtime : @mob.MobRuntime,
+  designer : Bool,
 ) -> Unit {
   // Register the browser API by domain boundary. Each `mc*` name has exactly one owner in the client package.
   @client.register_render_api()
   @client.register_gameplay_api(world)
-  @client.register_runtime_api(world, chunk_data, save_text, mob_runtime)
+  @client.register_runtime_api(world, chunk_data, save_text, mob_runtime, designer)
 }

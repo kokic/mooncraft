@@ -78,6 +78,7 @@ function createPauseMenu({
   onOpen,
   onResume,
   onSaveAndQuit,
+  designer = false,
 } = {}) {
   ensurePauseMenuStyles();
 
@@ -104,7 +105,7 @@ function createPauseMenu({
   const saveQuitButton = document.createElement("button");
   saveQuitButton.className = "mc-pause-action mc-pause-save-quit";
   saveQuitButton.type = "button";
-  saveQuitButton.textContent = "Save and Quit";
+  saveQuitButton.textContent = designer ? "Exit Designer" : "Save and Quit";
   actions.append(resumeButton, saveQuitButton);
   panel.appendChild(actions);
 
@@ -122,7 +123,11 @@ function createPauseMenu({
     host.hidden = !open;
     resumeButton.disabled = saving;
     saveQuitButton.disabled = saving;
-    saveQuitButton.textContent = saving ? "Saving..." : "Save and Quit";
+    saveQuitButton.textContent = saving
+      ? "Saving..."
+      : designer
+        ? "Exit Designer"
+        : "Save and Quit";
   };
 
   const setOpen = (next) => {

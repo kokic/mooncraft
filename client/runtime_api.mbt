@@ -45,6 +45,7 @@ pub fn register_runtime_api(
   chunk_data : Array[UInt],
   save_text : String,
   mob_runtime : @mob.MobRuntime,
+  designer : Bool,
 ) -> Unit {
   @ffi.cast_global_set("mcCollectHotbarItems", collect_hotbar_items)
   @ffi.cast_global_set("mcCollectInventoryItems", collect_inventory_items)
@@ -196,9 +197,11 @@ pub fn register_runtime_api(
   @ffi.cast_global_set("mcSetPlayerInventoryOpen", (open : Bool) => {
     game.set_inventory_open(open)
   })
-  @ffi.cast_global_set("mcEncodeGameSave", (now : Double) => {
-    game.save_snapshot(now)
-  })
+  if !designer {
+    @ffi.cast_global_set("mcEncodeGameSave", (now : Double) => {
+      game.save_snapshot(now)
+    })
+  }
   @ffi.cast_global_set("mcExecuteCommand", (input : String) => {
     FlattenResult::from(
       @command.execute_command(

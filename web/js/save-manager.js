@@ -388,6 +388,19 @@ async function createSaveMenu({ onOpen }) {
       const worldType = isValidWorldType(worldTypeSelect.value)
         ? worldTypeSelect.value
         : defaultWorldTypeName();
+      if (worldType === "Design") {
+        // The Design world is a developer canvas: it never occupies a save
+        // slot or writes a payload. Blueprints are its only persistence.
+        onOpen({
+          id: null,
+          name: "Design",
+          createdAt: 0,
+          newWorldType: "Design",
+          newWorldHeight: null,
+          payload: null,
+        });
+        return;
+      }
       void createSaveSlot(
         `World ${slots.length + 1}`,
         worldType,

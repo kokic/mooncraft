@@ -2,7 +2,7 @@ import { loadBlockTextures } from "./block-textures.js";
 import { renderTestChunk } from "./world-renderer.js";
 import { createSaveMenu } from "./save-manager.js";
 import { createSaveWriter, parseSavePayload } from "./save-store.js";
-import { initializeGlobalConstants, launchGame } from "virtual:mooncraft-runtime";
+import { initializeGlobalConstants, launchGame, launchDesigner } from "virtual:mooncraft-runtime";
 import { getWorldTypeNames } from "virtual:mooncraft-level";
 
 initializeGlobalConstants();
@@ -64,18 +64,30 @@ function loadBlockGltfModels() {
 
 async function bootstrap(slot) {
   const launch = launchRequest(slot);
-  launchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
+  const isDesigner = launch.worldType === "Design";
+  if (isDesigner) {
+    launchDesigner();
+  } else {
+    launchGame(launch.seed, launch.worldType, launch.height, launch.saveText);
+  }
   const textures = await loadBlockTextures();
   window.mcTextures = textures;
   await loadBlockGltfModels();
   const chunkSize = window.mcChunkSize;
-  const saveWriter = createSaveWriter(slot.id);
+  const saveWriter = isDesigner ? null : createSaveWriter(slot.id);
   let session = null;
   session = renderTestChunk({
     blockRegistry: window.mcBlocks,
     textures,
     chunkSize,
+    designer: isDesigner,
     onSaveAndQuit: async (payload) => {
+      if (isDesigner) {
+        const menu = await createSaveMenuNode();
+        session.dispose();
+        document.body.appendChild(menu);
+        return;
+      }
       await saveWriter.enqueue(payload);
       const menu = await createSaveMenuNode();
       session.dispose();

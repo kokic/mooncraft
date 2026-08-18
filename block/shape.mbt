@@ -1,4 +1,6 @@
+
 ///|
+#warnings("-unused_constructor")
 pub enum Shape {
   Air
   Cube

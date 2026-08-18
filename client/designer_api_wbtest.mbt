@@ -29,6 +29,7 @@ test "capture extracts placed blocks above the grass floor" {
   ignore(@level.set_block_id(map, @level.CHUNK_X_SIZE, 0, 0, 0, stone_id))
   ignore(@level.set_block_id(map, @level.CHUNK_X_SIZE, 0, 1, 0, water_id))
   let bp = capture_design_world(
+    "design",
     map,
     @level.CHUNK_X_SIZE,
     -1,
@@ -57,6 +58,7 @@ test "capture decodes block state into palette suffix" {
     .internal_id(state=1)
   ignore(@level.set_block_id(map, @level.CHUNK_X_SIZE, 0, 1, 0, log_id))
   let bp = capture_design_world(
+    "log",
     map,
     @level.CHUNK_X_SIZE,
     0,
@@ -106,6 +108,7 @@ test "capture trims surrounding air and keeps ground-free bounds" {
   let stone_id = @block.lookup_by_name("stone").unwrap().internal_id()
   ignore(@level.set_block_id(map, @level.CHUNK_X_SIZE, 4, 1, 4, stone_id))
   let bp = capture_design_world(
+    "trim",
     map,
     @level.CHUNK_X_SIZE,
     -8,

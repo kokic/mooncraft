@@ -62,7 +62,7 @@ function createBlueprintFs({ getPlacementTarget, notifyBlocksChanged }) {
     };
   }
 
-  async function saveBlueprint() {
+  async function saveBlueprint(name) {
     if (!isSupported()) {
       return { success: false, message: "File System Access API is unavailable" };
     }
@@ -73,14 +73,14 @@ function createBlueprintFs({ getPlacementTarget, notifyBlocksChanged }) {
     if (bounds.some((v) => !Number.isFinite(v))) {
       return { success: false, message: "Design world bounds are unavailable" };
     }
-    const text = globalThis.mcExportBlueprint(...bounds);
+    const text = globalThis.mcExportBlueprint(name, ...bounds);
     if (typeof text !== "string" || text.length === 0) {
       return { success: false, message: "Design canvas is empty" };
     }
     let handle = fileHandle;
     if (!handle) {
       handle = await globalThis.showSaveFilePicker({
-        suggestedName: "blueprint.json",
+        suggestedName: `${name || "blueprint"}.json`,
         types: [{ description: "Blueprint JSON", accept: { "application/json": [".json"] } }],
       });
     }
@@ -101,7 +101,10 @@ function createBlueprintFs({ getPlacementTarget, notifyBlocksChanged }) {
       return openBlueprint(trimmed.slice("/open ".length).trim());
     }
     if (trimmed === "/save") {
-      return saveBlueprint();
+      return saveBlueprint("");
+    }
+    if (trimmed.startsWith("/save ")) {
+      return saveBlueprint(trimmed.slice("/save ".length).trim());
     }
     return null;
   }

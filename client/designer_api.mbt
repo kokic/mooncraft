@@ -3,6 +3,7 @@
 /// excluded from the result (the design canvas ground). Air cells become `-1`;
 /// the bounding box is trimmed and the anchor set to the region minimum corner.
 pub fn capture_design_world(
+  name : String,
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   min_x : Int,
@@ -60,7 +61,7 @@ pub fn capture_design_world(
     }
   }
   let bp = @designer.Blueprint::new(
-    "design",
+    name,
     [width, height, depth],
     [0, 0, 0],
     palette=palette,
@@ -122,6 +123,7 @@ pub fn reset_design_world(
 /// Publish the browser-side blueprint authoring API for the design world.
 pub fn register_designer_api(game : GameRuntime) -> Unit {
   @ffi.cast_global_set("mcExportBlueprint", (
+    name : String,
     x0 : Int,
     y0 : Int,
     z0 : Int,
@@ -130,6 +132,7 @@ pub fn register_designer_api(game : GameRuntime) -> Unit {
     z1 : Int,
   ) => {
     capture_design_world(
+      name,
       game.chunk_runtime.chunk_map(),
       game.chunk_size,
       x0,

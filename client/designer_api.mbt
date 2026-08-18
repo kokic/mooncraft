@@ -1,4 +1,48 @@
 ///|
+/// The palette label ("name" or "name:state") of the block at (wx, wy, wz),
+/// or `None` for air, missing, or unregistered blocks.
+fn block_label_at(
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
+  size : Int,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> String? {
+  guard @level.get_block_id(chunk_map, size, wx, wy, wz) is Some(v) else {
+    None
+  }
+  guard v != @schema.AIR_ID else { None }
+  guard @block.lookup_by_internal_id(@schema.decode_block_id(v) * 256)
+    is Some(base) else {
+    None
+  }
+  let state = @schema.decode_state(v)
+  if state == 0U {
+    Some(base.name)
+  } else {
+    Some("\{base.name}:\{state}")
+  }
+}
+
+///|
+/// The palette index for `label`, inserting it when first seen.
+fn palette_index_for(
+  palette_idx : @hashmap.HashMap[String, Int],
+  palette : Array[String],
+  label : String,
+) -> Int {
+  match palette_idx.get(label) {
+    Some(i) => i
+    None => {
+      let i = palette.length()
+      palette.push(label)
+      palette_idx[label] = i
+      i
+    }
+  }
+}
+
+///|
 /// Capture a world region into a blueprint. `floor_y` marks a layer that is
 /// excluded from the result (the design canvas ground). Air cells become `-1`;
 /// the bounding box is trimmed and the anchor set to the region minimum corner.
@@ -21,42 +65,17 @@ pub fn capture_design_world(
   let palette : Array[String] = []
   let entries = Array::make(width * height * depth, -1)
   for wy in min_y..<=max_y {
+    guard wy != floor_y else { continue }
     for wz in min_z..<=max_z {
       for wx in min_x..<=max_x {
-        if wy == floor_y {
-          continue
-        }
         let lx = wx - min_x
         let ly = wy - min_y
         let lz = wz - min_z
         let linear = (ly * depth + lz) * width + lx
-        let id = @level.get_block_id(chunk_map, size, wx, wy, wz)
-        match id {
-          None => ()
-          Some(v) if v == @schema.AIR_ID => ()
-          Some(v) =>
-            match @block.lookup_by_internal_id(@schema.decode_block_id(v) * 256) {
-              None => ()
-              Some(base) => {
-                let state = @schema.decode_state(v)
-                let label = if state == 0U {
-                  base.name
-                } else {
-                  "\{base.name}:\{state}"
-                }
-                let idx = match palette_idx.get(label) {
-                  Some(i) => i
-                  None => {
-                    let i = palette.length()
-                    palette.push(label)
-                    palette_idx[label] = i
-                    i
-                  }
-                }
-                entries[linear] = idx
-              }
-            }
+        guard block_label_at(chunk_map, size, wx, wy, wz) is Some(label) else {
+          continue
         }
+        entries[linear] = palette_index_for(palette_idx, palette, label)
       }
     }
   }
@@ -64,7 +83,7 @@ pub fn capture_design_world(
     name,
     [width, height, depth],
     [0, 0, 0],
-    palette=palette,
+    palette~,
   )
   for i in 0..<entries.length() {
     if entries[i] >= 0 {
@@ -106,14 +125,10 @@ pub fn reset_design_world(
   let half_x = @level.DESIGN_WORLD_X_SIZE / 2
   let half_z = @level.DESIGN_WORLD_Z_SIZE / 2
   for wy in @level.DESIGN_MIN_Y..<=@level.DESIGN_MAX_Y {
-    if wy == @level.DESIGN_MIN_Y {
-      continue
-    }
+    guard wy != @level.DESIGN_MIN_Y else { continue }
     for wz in -half_z..<half_z {
       for wx in -half_x..<half_x {
-        ignore(
-          @level.set_block_id(chunk_map, size, wx, wy, wz, @schema.AIR_ID),
-        )
+        ignore(@level.set_block_id(chunk_map, size, wx, wy, wz, @schema.AIR_ID))
       }
     }
   }
@@ -150,18 +165,15 @@ pub fn register_designer_api(game : GameRuntime) -> Unit {
     wy : Int,
     wz : Int,
   ) => {
-    match
-      load_blueprint_into_world(
-        game.chunk_runtime.chunk_map(),
-        game.chunk_size,
-        text,
-        wx,
-        wy,
-        wz,
-      ) {
-      Ok(_) => true
-      Err(_) => false
-    }
+    load_blueprint_into_world(
+      game.chunk_runtime.chunk_map(),
+      game.chunk_size,
+      text,
+      wx,
+      wy,
+      wz,
+    )
+    is Ok(_)
   })
   @ffi.cast_global_set("mcResetDesignWorld", () => {
     reset_design_world(game.chunk_runtime.chunk_map(), game.chunk_size)

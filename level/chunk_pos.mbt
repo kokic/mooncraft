@@ -58,18 +58,17 @@ pub fn chunk_key_by_block_xyz(
 }
 
 ///|
+fn parse_int_or_zero(sv : StringView) -> Int {
+  try @string.parse_int(sv) catch {
+    _ => 0
+  } noraise {
+    v => v
+  }
+}
+
+///|
 pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
-  let parts : Array[StringView] = []
-  for part in chunk_key.split(",") {
-    parts.push(part)
-  }
-  let parse_int_or_zero = fn(sv : StringView) -> Int {
-    try @string.parse_int(sv) catch {
-      _ => 0
-    } noraise {
-      v => v
-    }
-  }
+  let parts = chunk_key.split(",").to_array()
   guard parts.length() == 3 else { (0, 0, 0) }
   (
     parse_int_or_zero(parts[0]),
@@ -80,17 +79,7 @@ pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
 
 ///|
 pub fn chunk_xz_by_chunk_column_key(column_key : String) -> (Int, Int) {
-  let parts : Array[StringView] = []
-  for part in column_key.split(",") {
-    parts.push(part)
-  }
-  let parse_int_or_zero = fn(sv : StringView) -> Int {
-    try @string.parse_int(sv) catch {
-      _ => 0
-    } noraise {
-      v => v
-    }
-  }
+  let parts = column_key.split(",").to_array()
   guard parts.length() == 2 else { (0, 0) }
   (parse_int_or_zero(parts[0]), parse_int_or_zero(parts[1]))
 }

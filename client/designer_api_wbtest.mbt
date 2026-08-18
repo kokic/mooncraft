@@ -1,9 +1,6 @@
 ///|
 fn design_chunk_map() -> @hashmap.HashMap[String, Array[UInt]] {
-  let world = @level.World::new(
-    seed=1U,
-    world_type=@level.WorldType::Design,
-  )
+  let world = @level.World::new(seed=1U, world_type=@level.WorldType::Design)
   let map : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
   let min_y = world.min_y()
   let max_y = world.max_y()
@@ -71,7 +68,14 @@ test "capture decodes block state into palette suffix" {
   )
   @test.assert_eq(bp.palette.length(), 1)
   @test.assert_eq(bp.palette[0], "classic.oak_log:1")
-  let placed = load_blueprint_into_world(map, @level.CHUNK_X_SIZE, bp.encode(), 5, 5, 5)
+  let placed = load_blueprint_into_world(
+    map,
+    @level.CHUNK_X_SIZE,
+    bp.encode(),
+    5,
+    5,
+    5,
+  )
   @test.assert_eq(placed, Ok(()))
   let back = @level.get_block_id(map, @level.CHUNK_X_SIZE, 5, 5, 5).unwrap()
   @test.assert_eq(back, log_id)
@@ -80,15 +84,19 @@ test "capture decodes block state into palette suffix" {
 ///|
 test "load_blueprint_into_world places at the requested anchor" {
   let map = design_chunk_map()
-  let bp = @designer.Blueprint::new(
-    "box",
-    [2, 1, 1],
-    [1, 0, 0],
-    palette=["stone"],
-  )
+  let bp = @designer.Blueprint::new("box", [2, 1, 1], [1, 0, 0], palette=[
+    "stone",
+  ])
   bp.set_cell(0, 0, 0, 0)
   bp.set_cell(1, 0, 0, 0)
-  let result = load_blueprint_into_world(map, @level.CHUNK_X_SIZE, bp.encode(), 10, 20, 30)
+  let result = load_blueprint_into_world(
+    map,
+    @level.CHUNK_X_SIZE,
+    bp.encode(),
+    10,
+    20,
+    30,
+  )
   @test.assert_eq(result, Ok(()))
   let stone_id = @block.lookup_by_name("stone").unwrap().internal_id()
   // Anchor (1,0,0) lands on (10,20,30); local x=0 lands one behind it.

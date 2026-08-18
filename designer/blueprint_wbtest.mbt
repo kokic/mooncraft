@@ -9,12 +9,9 @@ fn collected_blocks() -> (Array[Array[Int]], (Int, Int, Int, UInt) -> Unit) {
 
 ///|
 test "blueprint encode/decode round-trips" {
-  let bp = Blueprint::new(
-    "test_well",
-    [5, 4, 5],
-    [2, 0, 2],
-    palette=["cobblestone", "water"],
-  )
+  let bp = Blueprint::new("test_well", [5, 4, 5], [2, 0, 2], palette=[
+    "cobblestone", "water",
+  ])
   bp.set_cell(0, 0, 0, 0)
   bp.set_cell(2, 1, 2, 1)
   bp.set_cell(4, 3, 4, 0)
@@ -86,7 +83,9 @@ test "parse_palette_entry splits name and state" {
 
 ///|
 test "place_blueprint applies palette state to internal id" {
-  let bp = Blueprint::new("log", [1, 1, 1], [0, 0, 0], palette=["classic.oak_log:1"])
+  let bp = Blueprint::new("log", [1, 1, 1], [0, 0, 0], palette=[
+    "classic.oak_log:1",
+  ])
   bp.set_cell(0, 0, 0, 0)
   let (calls, set_block) = collected_blocks()
   place_blueprint(bp, set_block, 0, 0, 0)

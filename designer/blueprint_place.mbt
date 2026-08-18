@@ -33,7 +33,12 @@ fn mirror_offset(ox : Int, oz : Int, mirror : Bool) -> (Int, Int) {
 
 ///|
 /// Remap a facing state under rotation and mirror.
-fn remap_state(facing : @block.Facing, state : UInt, quarters : Int, mirror : Bool) -> UInt {
+fn remap_state(
+  facing : @block.Facing,
+  state : UInt,
+  quarters : Int,
+  mirror : Bool,
+) -> UInt {
   match facing {
     @block.Facing::None => state
     @block.Facing::Axis => state
@@ -121,7 +126,7 @@ pub fn place_blueprint(
           None => ()
           Some(block) => {
             let state = remap_state(block.facing, state, quarters, mirror)
-            set_block(wx + ox, wy + oy, wz + oz, block.internal_id(state=state))
+            set_block(wx + ox, wy + oy, wz + oz, block.internal_id(state~))
           }
         }
       }

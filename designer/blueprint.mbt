@@ -46,7 +46,12 @@ pub fn Blueprint::depth(self : Blueprint) -> Int {
 }
 
 ///|
-pub fn Blueprint::cell_index(self : Blueprint, x : Int, y : Int, z : Int) -> Int {
+pub fn Blueprint::cell_index(
+  self : Blueprint,
+  x : Int,
+  y : Int,
+  z : Int,
+) -> Int {
   (y * self.depth() + z) * self.width() + x
 }
 
@@ -56,7 +61,13 @@ pub fn Blueprint::cell(self : Blueprint, x : Int, y : Int, z : Int) -> Int {
 }
 
 ///|
-pub fn Blueprint::set_cell(self : Blueprint, x : Int, y : Int, z : Int, v : Int) -> Unit {
+pub fn Blueprint::set_cell(
+  self : Blueprint,
+  x : Int,
+  y : Int,
+  z : Int,
+  v : Int,
+) -> Unit {
   self.cells[self.cell_index(x, y, z)] = v
 }
 
@@ -102,11 +113,7 @@ pub fn Blueprint::trim_empty(self : Blueprint) -> Blueprint {
   let trimmed = Blueprint::new(
     self.name,
     [max_x - min_x + 1, max_y - min_y + 1, max_z - min_z + 1],
-    [
-      self.anchor[0] - min_x,
-      self.anchor[1] - min_y,
-      self.anchor[2] - min_z,
-    ],
+    [self.anchor[0] - min_x, self.anchor[1] - min_y, self.anchor[2] - min_z],
     palette=self.palette.copy(),
   )
   for y in min_y..<=max_y {

@@ -1,26 +1,34 @@
 ///|
+/// Compile a WebGL shader.
+///
+/// Raises `GltfError::ShaderCompileFailed` with the driver log when the
+/// compiler rejects the source.
 pub fn compile_gltf_shader(
   gl : @webgl.WebGLRenderingContext,
   type_ : Int,
   source : String,
-) -> @webgl.WebGLShader {
+) -> @webgl.WebGLShader raise GltfError {
   let shader = gl.create_shader(type_)
   gl.shader_source(shader, source)
   gl.compile_shader(shader)
   if !gl.get_shader_parameter(shader, @webgl.GL_COMPILE_STATUS) {
     let log = gl.get_shader_info_log(shader)
     gl.delete_shader(shader)
-    abort("shader compile: \{log}")
+    raise GltfError::ShaderCompileFailed(log)
   }
   shader
 }
 
 ///|
+/// Link a glTF vertex/fragment program.
+///
+/// Raises `GltfError::ShaderCompileFailed` or `GltfError::ProgramLinkFailed`
+/// with the driver log when compilation or linking fails.
 pub fn create_gltf_program(
   gl : @webgl.WebGLRenderingContext,
   vs_source : String,
   fs_source : String,
-) -> GltfProgramInfo {
+) -> GltfProgramInfo raise GltfError {
   let vs = compile_gltf_shader(gl, @webgl.GL_VERTEX_SHADER, vs_source)
   let fs = compile_gltf_shader(gl, @webgl.GL_FRAGMENT_SHADER, fs_source)
   let program = gl.create_program()
@@ -32,7 +40,7 @@ pub fn create_gltf_program(
   if !gl.get_program_parameter(program, @webgl.GL_LINK_STATUS) {
     let log = gl.get_program_info_log(program)
     gl.delete_program(program)
-    abort("program link: \{log}")
+    raise GltfError::ProgramLinkFailed(log)
   }
   {
     program,

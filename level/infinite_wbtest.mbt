@@ -92,7 +92,6 @@ test "Infinite bedrock has a solid floor and a randomized upper edge" {
 test "Infinite underground switches from stone to deepslate" {
   let world = World::new(seed=29U, world_type=WorldType::Infinite)
   let deepslate = @block.lookup_by_name("deepslate").unwrap().internal_id()
-  let mut found = false
   for wx in 0..<CHUNK_X_SIZE {
     for wz in 0..<CHUNK_Z_SIZE {
       let column = prepare_infinite_column(world, wx, wz)
@@ -102,16 +101,12 @@ test "Infinite underground switches from stone to deepslate" {
         let cy = @util.floor_div(wy, CHUNK_Y_SIZE)
         let chunk = world.generate_chunk(0, cy, 0)
         let ry = wy - cy * CHUNK_Y_SIZE
-        if chunk.get_tile(wx, ry, wz) == deepslate {
-          found = true
-          break
-        }
+        guard chunk.get_tile(wx, ry, wz) == deepslate else { continue }
+        return
       }
-      guard !found else { break }
     }
-    guard !found else { break }
   }
-  assert_true(found)
+  @test.fail("no deepslate found")
 }
 
 ///|

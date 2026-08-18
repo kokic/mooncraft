@@ -1,16 +1,16 @@
 ///|
-fn component_count(type_name : String) -> Int {
+fn component_count(type_name : String) -> Int raise GltfError {
   match type_name {
     "SCALAR" => 1
     "VEC2" => 2
     "VEC3" => 3
     "VEC4" => 4
-    _ => abort("unsupported accessor type")
+    _ => raise GltfError::UnsupportedAccessorType(type_name)
   }
 }
 
 ///|
-fn component_byte_size(component_type : Int) -> Int {
+fn component_byte_size(component_type : Int) -> Int raise GltfError {
   if component_type == 5120 || component_type == 5121 {
     1
   } else if component_type == 5122 || component_type == 5123 {
@@ -18,7 +18,7 @@ fn component_byte_size(component_type : Int) -> Int {
   } else if component_type == 5125 || component_type == 5126 {
     4
   } else {
-    abort("unsupported component type")
+    raise GltfError::UnsupportedComponentType(component_type)
   }
 }
 
@@ -44,6 +44,9 @@ fn read_component(
 }
 
 ///|
+/// Read a typed glTF accessor into a flat Float32Array.
+///
+/// Raises `GltfError` when the accessor type or component type is unsupported.
 pub fn read_accessor_values(
   buffer : @ffi.ArrayBuffer,
   component_type : Int,
@@ -51,7 +54,7 @@ pub fn read_accessor_values(
   count : Int,
   byte_offset : Int,
   byte_stride : Int,
-) -> @ffi.Float32Array {
+) -> @ffi.Float32Array raise GltfError {
   let comps = component_count(type_name)
   let comp_bytes = component_byte_size(component_type)
   let stride = if byte_stride > 0 { byte_stride } else { comp_bytes * comps }
@@ -71,13 +74,16 @@ pub fn read_accessor_values(
 }
 
 ///|
+/// Read glTF index values into a flat Float32Array.
+///
+/// Raises `GltfError` when the component type is unsupported.
 pub fn read_indices(
   buffer : @ffi.ArrayBuffer,
   component_type : Int,
   count : Int,
   byte_offset : Int,
   byte_stride : Int,
-) -> @ffi.Float32Array {
+) -> @ffi.Float32Array raise GltfError {
   let comp_bytes = component_byte_size(component_type)
   let stride = if byte_stride > 0 { byte_stride } else { comp_bytes }
   let view = @ffi.DataView::new(buffer)

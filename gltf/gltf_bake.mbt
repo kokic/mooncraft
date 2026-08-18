@@ -121,11 +121,13 @@ fn decode_block_gltf(
   fit_in_block : Bool,
   on_done : (String) -> Unit,
 ) -> Unit {
-  let (json_text, glb_bin) = if is_glb_buffer(buffer) {
-    let parsed = parse_glb(buffer)
-    (parsed.json_text, parsed.bin_data)
-  } else {
-    (array_buffer_to_text(buffer), None)
+  let (json_text, glb_bin) = try decode_glb_or_json_text(buffer) catch {
+    error => {
+      on_done(error.message())
+      return
+    }
+  } noraise {
+    result => result
   }
   try @json.parse(json_text) catch {
     error => on_done(error.to_string())
@@ -259,6 +261,107 @@ fn triangle_shade(
 }
 
 ///|
+/// The three transformed vertices of triangle `t` and their source indices.
+fn triangle_vertices(
+  world : @ffi.Float32Array,
+  positions : Array[Double],
+  indices : Array[Double],
+  t : Int,
+) -> ((Array[Double], Array[Double], Array[Double]), Array[Int]) {
+  let v : Array[Int] = [0, 0, 0]
+  for k in 0..<3 {
+    v[k] = if indices.length() > 0 {
+      indices[t * 3 + k].to_int()
+    } else {
+      t * 3 + k
+    }
+  }
+  let p0 = transform_vertex(
+    world,
+    positions[v[0] * 3],
+    positions[v[0] * 3 + 1],
+    positions[v[0] * 3 + 2],
+  )
+  let p1 = transform_vertex(
+    world,
+    positions[v[1] * 3],
+    positions[v[1] * 3 + 1],
+    positions[v[1] * 3 + 2],
+  )
+  let p2 = transform_vertex(
+    world,
+    positions[v[2] * 3],
+    positions[v[2] * 3 + 1],
+    positions[v[2] * 3 + 2],
+  )
+  ((p0, p1, p2), v)
+}
+
+///|
+/// Append one baked vertex with its UV and shade.
+fn emit_baked_vertex(
+  out_positions : Array[Float],
+  out_uvs : Array[Float],
+  out_shades : Array[Float],
+  p : Array[Double],
+  uvs : Array[Double],
+  vi : Int,
+  shade : Float,
+) -> Unit {
+  out_positions.push(Float::from_double(p[0]))
+  out_positions.push(Float::from_double(p[1]))
+  out_positions.push(Float::from_double(p[2]))
+  if uvs.length() >= (vi + 1) * 2 {
+    out_uvs.push(Float::from_double(uvs[vi * 2]))
+    out_uvs.push(Float::from_double(uvs[vi * 2 + 1]))
+  } else {
+    out_uvs.push(0.0F)
+    out_uvs.push(0.0F)
+  }
+  out_shades.push(shade)
+}
+
+///|
+/// Emit one triangle: the front face, plus the back face when double-sided.
+fn emit_baked_triangle(
+  out_positions : Array[Float],
+  out_uvs : Array[Float],
+  out_shades : Array[Float],
+  uvs : Array[Double],
+  p0 : Array[Double],
+  p1 : Array[Double],
+  p2 : Array[Double],
+  v : Array[Int],
+  shade : Float,
+  double_sided : Bool,
+) -> Unit {
+  for k in 0..<3 {
+    emit_baked_vertex(
+      out_positions,
+      out_uvs,
+      out_shades,
+      [p0, p1, p2][k],
+      uvs,
+      v[k],
+      shade,
+    )
+  }
+  if double_sided {
+    for k in 0..<3 {
+      emit_baked_vertex(
+        out_positions,
+        out_uvs,
+        out_shades,
+        [p2, p1, p0][k],
+        uvs,
+        v[2 - k],
+        shade,
+      )
+    }
+  }
+}
+
+///|
 fn bake_triangles(
   primitive : GltfBakePrimitive,
   world : @ffi.Float32Array,
@@ -278,65 +381,19 @@ fn bake_triangles(
   let out_uvs : Array[Float] = []
   let out_shades : Array[Float] = []
   for t in 0..<tri_count {
-    let v : Array[Int] = [0, 0, 0]
-    for k in 0..<3 {
-      v[k] = if indices.length() > 0 {
-        indices[t * 3 + k].to_int()
-      } else {
-        t * 3 + k
-      }
-    }
-    let p0 = transform_vertex(
-      world,
-      positions[v[0] * 3],
-      positions[v[0] * 3 + 1],
-      positions[v[0] * 3 + 2],
+    let ((p0, p1, p2), v) = triangle_vertices(world, positions, indices, t)
+    emit_baked_triangle(
+      out_positions,
+      out_uvs,
+      out_shades,
+      uvs,
+      p0,
+      p1,
+      p2,
+      v,
+      triangle_shade(p0, p1, p2),
+      meta.double_sided,
     )
-    let p1 = transform_vertex(
-      world,
-      positions[v[1] * 3],
-      positions[v[1] * 3 + 1],
-      positions[v[1] * 3 + 2],
-    )
-    let p2 = transform_vertex(
-      world,
-      positions[v[2] * 3],
-      positions[v[2] * 3 + 1],
-      positions[v[2] * 3 + 2],
-    )
-    let shade = triangle_shade(p0, p1, p2)
-    for k in 0..<3 {
-      let p = [p0, p1, p2][k]
-      out_positions.push(Float::from_double(p[0]))
-      out_positions.push(Float::from_double(p[1]))
-      out_positions.push(Float::from_double(p[2]))
-      let vi = v[k]
-      if uvs.length() >= (vi + 1) * 2 {
-        out_uvs.push(Float::from_double(uvs[vi * 2]))
-        out_uvs.push(Float::from_double(uvs[vi * 2 + 1]))
-      } else {
-        out_uvs.push(0.0F)
-        out_uvs.push(0.0F)
-      }
-      out_shades.push(shade)
-    }
-    if meta.double_sided {
-      for k in 0..<3 {
-        let p = [p2, p1, p0][k]
-        out_positions.push(Float::from_double(p[0]))
-        out_positions.push(Float::from_double(p[1]))
-        out_positions.push(Float::from_double(p[2]))
-        let vi = v[2 - k]
-        if uvs.length() >= (vi + 1) * 2 {
-          out_uvs.push(Float::from_double(uvs[vi * 2]))
-          out_uvs.push(Float::from_double(uvs[vi * 2 + 1]))
-        } else {
-          out_uvs.push(0.0F)
-          out_uvs.push(0.0F)
-        }
-        out_shades.push(shade)
-      }
-    }
   }
   out.push(GltfBakePrimitiveRaw::{
     positions: out_positions,

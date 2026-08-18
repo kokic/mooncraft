@@ -218,6 +218,19 @@ let classic_torch_uv_bottom : (Float, Float, Float, Float) = @util.offset_uv_pix
 )
 
 ///|
+/// Per-face shade scales in normal order (xp, xn, yp, yn, zp, zn).
+fn face_shades() -> (Float, Float, Float, Float, Float, Float) {
+  (
+    @util.face_shade_scale(1, 0, 0),
+    @util.face_shade_scale(-1, 0, 0),
+    @util.face_shade_scale(0, 1, 0),
+    @util.face_shade_scale(0, -1, 0),
+    @util.face_shade_scale(0, 0, 1),
+    @util.face_shade_scale(0, 0, -1),
+  )
+}
+
+///|
 pub fn Torch::append_mesh(
   state : UInt,
   layer_f : Float,
@@ -243,74 +256,64 @@ pub fn Torch::append_mesh(
   let z0 = torch_min
   let z1 = torch_max
   let transform = TorchTransform::from(state.reinterpret_as_int())
-  let shade_xp = @util.face_shade_scale(1, 0, 0)
-  let shade_xn = @util.face_shade_scale(-1, 0, 0)
-  let shade_yp = @util.face_shade_scale(0, 1, 0)
-  let shade_yn = @util.face_shade_scale(0, -1, 0)
-  let shade_zp = @util.face_shade_scale(0, 0, 1)
-  let shade_zn = @util.face_shade_scale(0, 0, -1)
-  push_face(
-    transform.apply((x1, y0, z0), bx, by, bz),
-    transform.apply((x1, y0, z1), bx, by, bz),
-    transform.apply((x1, y1, z1), bx, by, bz),
-    transform.apply((x1, y1, z0), bx, by, bz),
+  let (shade_xp, shade_xn, shade_yp, shade_yn, shade_zp, shade_zn) = face_shades()
+  let push = fn(
+    corners : Array[(Float, Float, Float)],
+    normal : (Int, Int, Int),
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    shade : Float,
+  ) -> Unit {
+    push_face(
+      transform.apply(corners[0], bx, by, bz),
+      transform.apply(corners[1], bx, by, bz),
+      transform.apply(corners[2], bx, by, bz),
+      transform.apply(corners[3], bx, by, bz),
+      normal,
+      layer_f,
+      uv_rect,
+      flip_v,
+      shade,
+    )
+  }
+  push(
+    [(x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0)],
     (1, 0, 0),
-    layer_f,
     torch_uv_side,
     true,
     shade_xp,
   )
-  push_face(
-    transform.apply((x0, y0, z1), bx, by, bz),
-    transform.apply((x0, y0, z0), bx, by, bz),
-    transform.apply((x0, y1, z0), bx, by, bz),
-    transform.apply((x0, y1, z1), bx, by, bz),
+  push(
+    [(x0, y0, z1), (x0, y0, z0), (x0, y1, z0), (x0, y1, z1)],
     (-1, 0, 0),
-    layer_f,
     torch_uv_side,
     true,
     shade_xn,
   )
-  push_face(
-    transform.apply((x0, y1, z1), bx, by, bz),
-    transform.apply((x0, y1, z0), bx, by, bz),
-    transform.apply((x1, y1, z0), bx, by, bz),
-    transform.apply((x1, y1, z1), bx, by, bz),
+  push(
+    [(x0, y1, z1), (x0, y1, z0), (x1, y1, z0), (x1, y1, z1)],
     (0, 1, 0),
-    layer_f,
     torch_uv_top,
     false,
     shade_yp,
   )
-  push_face(
-    transform.apply((x0, y0, z0), bx, by, bz),
-    transform.apply((x0, y0, z1), bx, by, bz),
-    transform.apply((x1, y0, z1), bx, by, bz),
-    transform.apply((x1, y0, z0), bx, by, bz),
+  push(
+    [(x0, y0, z0), (x0, y0, z1), (x1, y0, z1), (x1, y0, z0)],
     (0, -1, 0),
-    layer_f,
     torch_uv_bottom,
     false,
     shade_yn,
   )
-  push_face(
-    transform.apply((x1, y0, z1), bx, by, bz),
-    transform.apply((x0, y0, z1), bx, by, bz),
-    transform.apply((x0, y1, z1), bx, by, bz),
-    transform.apply((x1, y1, z1), bx, by, bz),
+  push(
+    [(x1, y0, z1), (x0, y0, z1), (x0, y1, z1), (x1, y1, z1)],
     (0, 0, 1),
-    layer_f,
     torch_uv_side,
     true,
     shade_zp,
   )
-  push_face(
-    transform.apply((x0, y0, z0), bx, by, bz),
-    transform.apply((x1, y0, z0), bx, by, bz),
-    transform.apply((x1, y1, z0), bx, by, bz),
-    transform.apply((x0, y1, z0), bx, by, bz),
+  push(
+    [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)],
     (0, 0, -1),
-    layer_f,
     torch_uv_side,
     true,
     shade_zn,
@@ -319,12 +322,7 @@ pub fn Torch::append_mesh(
 
 ///|
 pub fn Torch::append_colors(push_color : (Int, Float) -> Unit) -> Unit {
-  let shade_xp = @util.face_shade_scale(1, 0, 0)
-  let shade_xn = @util.face_shade_scale(-1, 0, 0)
-  let shade_yp = @util.face_shade_scale(0, 1, 0)
-  let shade_yn = @util.face_shade_scale(0, -1, 0)
-  let shade_zp = @util.face_shade_scale(0, 0, 1)
-  let shade_zn = @util.face_shade_scale(0, 0, -1)
+  let (shade_xp, shade_xn, shade_yp, shade_yn, shade_zp, shade_zn) = face_shades()
   push_color(6, shade_xp)
   push_color(6, shade_xn)
   push_color(6, shade_yp)
@@ -335,12 +333,7 @@ pub fn Torch::append_colors(push_color : (Int, Float) -> Unit) -> Unit {
 
 ///|
 pub fn Torch::append_classic_colors(push_color : (Int, Float) -> Unit) -> Unit {
-  let shade_xp = @util.face_shade_scale(1, 0, 0)
-  let shade_xn = @util.face_shade_scale(-1, 0, 0)
-  let shade_yp = @util.face_shade_scale(0, 1, 0)
-  let shade_yn = @util.face_shade_scale(0, -1, 0)
-  let shade_zp = @util.face_shade_scale(0, 0, 1)
-  let shade_zn = @util.face_shade_scale(0, 0, -1)
+  let (shade_xp, shade_xn, shade_yp, shade_yn, shade_zp, shade_zn) = face_shades()
   push_color(6, shade_yp)
   push_color(6, shade_yn)
   push_color(6, shade_xp)

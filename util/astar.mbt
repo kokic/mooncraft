@@ -96,35 +96,28 @@ pub fn[Node, Key : Eq + Hash] astar(
   while !open.is_empty() {
     guard best_open_index(open) is Some(index) else { return None }
     let entry = open.remove(index)
-    match g_score.get(entry.key) {
-      Some(best_g) => {
-        guard entry.g == best_g else { continue }
-        guard !is_goal(entry.node) else {
-          return Some(
-            reconstruct_path(entry.key, nodes_by_key, came_from, entry.g),
-          )
-        }
-        for next in neighbors(entry.node) {
-          let next_key = key(next.node)
-          let tentative_g = entry.g + next.cost
-          let should_update = match g_score.get(next_key) {
-            Some(old_g) => tentative_g < old_g
-            None => true
-          }
-          if should_update {
-            came_from[next_key] = entry.key
-            g_score[next_key] = tentative_g
-            nodes_by_key[next_key] = next.node
-            open.push({
-              node: next.node,
-              key: next_key,
-              g: tentative_g,
-              f: tentative_g + heuristic(next.node),
-            })
-          }
-        }
+    guard g_score.get(entry.key) is Some(best_g) else { continue }
+    guard entry.g == best_g else { continue }
+    guard !is_goal(entry.node) else {
+      return Some(reconstruct_path(entry.key, nodes_by_key, came_from, entry.g))
+    }
+    for next in neighbors(entry.node) {
+      let next_key = key(next.node)
+      let tentative_g = entry.g + next.cost
+      let should_update = g_score
+        .get(next_key)
+        .map_or(true, old_g => tentative_g < old_g)
+      if should_update {
+        came_from[next_key] = entry.key
+        g_score[next_key] = tentative_g
+        nodes_by_key[next_key] = next.node
+        open.push({
+          node: next.node,
+          key: next_key,
+          g: tentative_g,
+          f: tentative_g + heuristic(next.node),
+        })
       }
-      None => ()
     }
   }
   None

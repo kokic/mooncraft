@@ -15,33 +15,29 @@ pub fn can_place_block(
   if player_pos.length() < 3 {
     return true
   }
-  match @block.get_shape_desc(internal_id) {
-    None => false
-    Some(desc) => {
-      let px = player_pos[0]
-      let py = player_pos[1]
-      let pz = player_pos[2]
-      let ent_min_x = px - entity_radius
-      let ent_max_x = px + entity_radius
-      let ent_min_y = py
-      let ent_max_y = py + entity_height
-      let ent_min_z = pz - entity_radius
-      let ent_max_z = pz + entity_radius
-      for box in desc.boxes {
-        let b_min_x = wx.to_double() + box.min[0].to_double()
-        let b_max_x = wx.to_double() + box.max[0].to_double()
-        let b_min_y = wy.to_double() + box.min[1].to_double()
-        let b_max_y = wy.to_double() + box.max[1].to_double()
-        let b_min_z = wz.to_double() + box.min[2].to_double()
-        let b_max_z = wz.to_double() + box.max[2].to_double()
-        if intersects(
-            ent_min_x, ent_min_y, ent_min_z, ent_max_x, ent_max_y, ent_max_z, b_min_x,
-            b_min_y, b_min_z, b_max_x, b_max_y, b_max_z,
-          ) {
-          return false
-        }
-      }
-      true
-    }
+  guard @block.get_shape_desc(internal_id) is Some(desc) else { false }
+  let ent_min = [
+    player_pos[0] - entity_radius,
+    player_pos[1],
+    player_pos[2] - entity_radius,
+  ]
+  let ent_max = [
+    player_pos[0] + entity_radius,
+    player_pos[1] + entity_height,
+    player_pos[2] + entity_radius,
+  ]
+  for box in desc.boxes {
+    let b_min = [
+      wx.to_double() + box.min[0].to_double(),
+      wy.to_double() + box.min[1].to_double(),
+      wz.to_double() + box.min[2].to_double(),
+    ]
+    let b_max = [
+      wx.to_double() + box.max[0].to_double(),
+      wy.to_double() + box.max[1].to_double(),
+      wz.to_double() + box.max[2].to_double(),
+    ]
+    guard !aabb_overlap(ent_min, ent_max, b_min, b_max) else { return false }
   }
+  true
 }

@@ -39,16 +39,45 @@ fn collect_inventory_items() -> Array[@ui.UiItemView] {
 }
 
 ///|
+/// How the game client is launched.
+///
+/// `Play` runs a full session (demo entities, save-slot integration).
+/// `Design` runs the developer-only Design world: an empty canvas with
+/// blueprint-only persistence.
+pub(all) enum LaunchMode {
+  Play
+  Design
+}
+
+///|
 /// Create the authoritative CPU-side runtime and publish its stateful API.
 pub fn register_runtime_api(
   world : @level.World,
   chunk_data : Array[UInt],
   save_text : String,
   mob_runtime : @mob.MobRuntime,
-  designer : Bool,
+  mode : LaunchMode,
 ) -> Unit {
-  @ffi.cast_global_set("mcCollectHotbarItems", collect_hotbar_items)
-  @ffi.cast_global_set("mcCollectInventoryItems", collect_inventory_items)
+  let game = build_game_runtime(world, chunk_data, mob_runtime)
+  load_initial_save(game, world, save_text)
+  register_world_api(game)
+  register_player_api(game)
+  register_game_tick_api(game)
+  match mode {
+    LaunchMode::Play => register_save_api(game)
+    LaunchMode::Design => ()
+  }
+  register_command_api(game, mob_runtime)
+  register_designer_api(game)
+}
+
+///|
+/// Build the player, chunk, and game runtimes wired to the world.
+fn build_game_runtime(
+  world : @level.World,
+  chunk_data : Array[UInt],
+  mob_runtime : @mob.MobRuntime,
+) -> GameRuntime {
   let chunk_runtime = @chunk.ChunkRuntime::new(
     world,
     chunk_data,
@@ -76,14 +105,18 @@ pub fn register_runtime_api(
     @player.SPAWN_YAW,
     @player.SPAWN_PITCH,
   )
-  let game = GameRuntime::new(
+  GameRuntime::new(
     world,
     chunk_runtime,
     player_runtime,
     mob_runtime,
     @level.CHUNK_X_SIZE,
   )
-  load_initial_save(game, world, save_text)
+}
+
+///|
+/// Block access, raycast, and block-use actions.
+fn register_world_api(game : GameRuntime) -> Unit {
   @ffi.cast_global_set("mcGetBlockId", (wx : Int, wy : Int, wz : Int) => {
     @level.get_block_id(
       game.chunk_runtime.chunk_map(),
@@ -151,19 +184,13 @@ pub fn register_runtime_api(
       entity_radius,
     )
   })
-  @ffi.cast_global_set("mcTickGame", fn(
-    registry : @block.RenderRegistry,
-    delta : Double,
-  ) {
-    game.tick(registry, delta)
-  })
-  @ffi.cast_global_set("mcMarkChunkBlockChanged", fn(
-    wx : Int,
-    wy : Int,
-    wz : Int,
-  ) {
-    game.mark_block_changed(wx, wy, wz)
-  })
+}
+
+///|
+/// Player input, hotbar, and inventory state.
+fn register_player_api(game : GameRuntime) -> Unit {
+  @ffi.cast_global_set("mcCollectHotbarItems", collect_hotbar_items)
+  @ffi.cast_global_set("mcCollectInventoryItems", collect_inventory_items)
   @ffi.cast_global_set("mcPlayerSnapshot", fn() { game.player_snapshot() })
   @ffi.cast_global_set("mcSetPlayerMoveIntent", fn(input : @player.MoveInput) {
     game.set_move_intent(input)
@@ -197,11 +224,40 @@ pub fn register_runtime_api(
   @ffi.cast_global_set("mcSetPlayerInventoryOpen", (open : Bool) => {
     game.set_inventory_open(open)
   })
-  if !designer {
-    @ffi.cast_global_set("mcEncodeGameSave", (now : Double) => {
-      game.save_snapshot(now)
-    })
-  }
+}
+
+///|
+/// Per-frame game simulation and block-change bookkeeping.
+fn register_game_tick_api(game : GameRuntime) -> Unit {
+  @ffi.cast_global_set("mcTickGame", fn(
+    registry : @block.RenderRegistry,
+    delta : Double,
+  ) {
+    game.tick(registry, delta)
+  })
+  @ffi.cast_global_set("mcMarkChunkBlockChanged", fn(
+    wx : Int,
+    wy : Int,
+    wz : Int,
+  ) {
+    game.mark_block_changed(wx, wy, wz)
+  })
+}
+
+///|
+/// Save-slot integration for play sessions.
+fn register_save_api(game : GameRuntime) -> Unit {
+  @ffi.cast_global_set("mcEncodeGameSave", (now : Double) => {
+    game.save_snapshot(now)
+  })
+}
+
+///|
+/// Chat commands and mob navigation hooks.
+fn register_command_api(
+  game : GameRuntime,
+  mob_runtime : @mob.MobRuntime,
+) -> Unit {
   @ffi.cast_global_set("mcExecuteCommand", (input : String) => {
     FlattenResult::from(
       @command.execute_command(
@@ -230,7 +286,6 @@ pub fn register_runtime_api(
     renderer : @gltf.GltfRenderer,
     delta : Double,
   ) => mob_runtime.tick(renderer, delta))
-  register_designer_api(game)
 }
 
 ///|

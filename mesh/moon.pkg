@@ -5,3 +5,7 @@ import {
   "kokic/mooncraft/gltf",
   "kokic/mooncraft/util",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "test"

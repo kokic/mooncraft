@@ -141,10 +141,9 @@ fn PathSearch::advance(self : PathSearch, budget : Int) -> PathSearchResult {
       let (next, step_cost) = neighbor
       let key = pos_key(next.wx, next.wy, next.wz)
       let cost = entry.cost + step_cost
-      let should_update = match self.costs.get(key) {
-        Some(previous) => cost < previous
-        None => true
-      }
+      let should_update = self.costs
+        .get(key)
+        .map_or(true, previous => cost < previous)
       guard should_update else { continue }
       self.parents[key] = entry.key
       self.costs[key] = cost

@@ -8,9 +8,9 @@ fn block_name_matches(
   internal_id : UInt,
   selector : @item.BlockSelector,
 ) -> Bool {
-  @block.lookup_by_internal_id(internal_id)
-  .map(block => selector.matches(block.name))
-  .unwrap_or(false)
+  @block.lookup_by_internal_id(internal_id).map_or(false, block => {
+    selector.matches(block.name)
+  })
 }
 
 ///|
@@ -19,14 +19,12 @@ fn resolve_block_internal_id_by_selector(
 ) -> UInt? {
   let mut found : UInt? = None
   for block in @block.blocks {
-    if selector.matches(block.name) {
-      match found {
-        Some(_) =>
-          // Ambiguous predicate: refuse replacement to keep behavior deterministic.
-          return None
-        None => found = Some(block.internal_id())
-      }
+    guard selector.matches(block.name) else { continue }
+    guard found is None else {
+      // Ambiguous predicate: refuse replacement to keep behavior deterministic.
+      return None
     }
+    found = Some(block.internal_id())
   }
   found
 }
@@ -39,9 +37,9 @@ fn is_air_at(
   wy : Int,
   wz : Int,
 ) -> Bool {
-  get_block_id(chunk_map, size, wx, wy, wz)
-  .map(id => id == @schema.AIR_ID)
-  .unwrap_or(false)
+  get_block_id(chunk_map, size, wx, wy, wz).map_or(false, id => {
+    id == @schema.AIR_ID
+  })
 }
 
 ///|
@@ -167,24 +165,15 @@ pub fn apply_use_on_action(
       require_above_air~
     ) => {
       let current = get_block_id(chunk_map, size, wx, wy, wz)
-      match current {
-        None => []
-        Some(current_id) =>
-          if require_above_air && !is_air_at(chunk_map, size, wx, wy + 1, wz) {
-            []
-          } else {
-            let expected_ok = block_name_matches(current_id, expected_predicate)
-            if !expected_ok {
-              []
-            } else {
-              match resolve_block_internal_id_by_selector(new_predicate) {
-                None => []
-                Some(new_id) =>
-                  set_block_id(chunk_map, size, wx, wy, wz, new_id)
-              }
-            }
-          }
+      guard current is Some(current_id) else { [] }
+      guard !require_above_air || is_air_at(chunk_map, size, wx, wy + 1, wz) else {
+        []
       }
+      guard block_name_matches(current_id, expected_predicate) else { [] }
+      guard resolve_block_internal_id_by_selector(new_predicate) is Some(new_id) else {
+        []
+      }
+      set_block_id(chunk_map, size, wx, wy, wz, new_id)
     }
     @item.UseOnAction::PlaceBlock(
       target_wx~,
@@ -196,38 +185,31 @@ pub fn apply_use_on_action(
       name~,
       require_air~,
       click~
-    ) =>
-      if require_air &&
-        !can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) {
+    ) => {
+      guard !require_air ||
+        can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) else {
         []
-      } else {
-        match resolve_block_internal_id(name) {
-          None => []
-          Some(base_id) => {
-            let block = [target_wx, target_wy, target_wz]
-            let prev = [place_wx, place_wy, place_wz]
-            let placement_state = @block.compute_placement_state(
-              base_id,
-              block,
-              prev,
-              player_pos~,
-              click~,
-            )
-            let raw_id = @schema.decode_block_id(base_id)
-            let internal_id = @schema.encode_variant(raw_id, placement_state)
-            if can_place_block(
-                internal_id, player_pos, entity_height, entity_radius, place_wx,
-                place_wy, place_wz,
-              ) {
-              set_block_id(
-                chunk_map, size, place_wx, place_wy, place_wz, internal_id,
-              )
-            } else {
-              []
-            }
-          }
-        }
       }
+      guard resolve_block_internal_id(name) is Some(base_id) else { [] }
+      let block = [target_wx, target_wy, target_wz]
+      let prev = [place_wx, place_wy, place_wz]
+      let placement_state = @block.compute_placement_state(
+        base_id,
+        block,
+        prev,
+        player_pos~,
+        click~,
+      )
+      let raw_id = @schema.decode_block_id(base_id)
+      let internal_id = @schema.encode_variant(raw_id, placement_state)
+      guard can_place_block(
+        internal_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
+        place_wz,
+      ) else {
+        []
+      }
+      set_block_id(chunk_map, size, place_wx, place_wy, place_wz, internal_id)
+    }
   }
 }
 

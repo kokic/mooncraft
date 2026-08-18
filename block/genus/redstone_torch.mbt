@@ -77,30 +77,40 @@ pub fn Torch::append_classic_mesh(
   let z0 = torch_min
   let z1 = torch_max
   let transform = TorchTransform::from(state.reinterpret_as_int())
-  let shade_xp = @util.face_shade_scale(1, 0, 0)
-  let shade_xn = @util.face_shade_scale(-1, 0, 0)
-  let shade_yp = @util.face_shade_scale(0, 1, 0)
-  let shade_yn = @util.face_shade_scale(0, -1, 0)
-  let shade_zp = @util.face_shade_scale(0, 0, 1)
-  let shade_zn = @util.face_shade_scale(0, 0, -1)
-  push_face(
-    transform.apply((x0, y1, z1), bx, by, bz),
-    transform.apply((x0, y1, z0), bx, by, bz),
-    transform.apply((x1, y1, z0), bx, by, bz),
-    transform.apply((x1, y1, z1), bx, by, bz),
+  let (shade_xp, shade_xn, shade_yp, shade_yn, shade_zp, shade_zn) = face_shades()
+  let push = fn(
+    rev : Bool,
+    corners : Array[(Float, Float, Float)],
+    normal : (Int, Int, Int),
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    shade : Float,
+  ) -> Unit {
+    let emit = if rev { push_face_rev } else { push_face }
+    emit(
+      transform.apply(corners[0], bx, by, bz),
+      transform.apply(corners[1], bx, by, bz),
+      transform.apply(corners[2], bx, by, bz),
+      transform.apply(corners[3], bx, by, bz),
+      normal,
+      layer_f,
+      uv_rect,
+      flip_v,
+      shade,
+    )
+  }
+  push(
+    false,
+    [(x0, y1, z1), (x0, y1, z0), (x1, y1, z0), (x1, y1, z1)],
     (0, 1, 0),
-    layer_f,
     classic_torch_uv_top,
     false,
     shade_yp,
   )
-  push_face(
-    transform.apply((x0, y0, z0), bx, by, bz),
-    transform.apply((x0, y0, z1), bx, by, bz),
-    transform.apply((x1, y0, z1), bx, by, bz),
-    transform.apply((x1, y0, z0), bx, by, bz),
+  push(
+    false,
+    [(x0, y0, z0), (x0, y0, z1), (x1, y0, z1), (x1, y0, z0)],
     (0, -1, 0),
-    layer_f,
     classic_torch_uv_bottom,
     false,
     shade_yn,
@@ -109,92 +119,68 @@ pub fn Torch::append_classic_mesh(
   let py1 = 1.0F
   let pz0 = 0.0F
   let pz1 = 1.0F
-  push_face(
-    transform.apply((x1, py0, pz0), bx, by, bz),
-    transform.apply((x1, py0, pz1), bx, by, bz),
-    transform.apply((x1, py1, pz1), bx, by, bz),
-    transform.apply((x1, py1, pz0), bx, by, bz),
+  push(
+    false,
+    [(x1, py0, pz0), (x1, py0, pz1), (x1, py1, pz1), (x1, py1, pz0)],
     (1, 0, 0),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_xp,
   )
-  push_face_rev(
-    transform.apply((x1, py0, pz0), bx, by, bz),
-    transform.apply((x1, py0, pz1), bx, by, bz),
-    transform.apply((x1, py1, pz1), bx, by, bz),
-    transform.apply((x1, py1, pz0), bx, by, bz),
+  push(
+    true,
+    [(x1, py0, pz0), (x1, py0, pz1), (x1, py1, pz1), (x1, py1, pz0)],
     (-1, 0, 0),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_xn,
   )
-  push_face(
-    transform.apply((x0, py0, pz1), bx, by, bz),
-    transform.apply((x0, py0, pz0), bx, by, bz),
-    transform.apply((x0, py1, pz0), bx, by, bz),
-    transform.apply((x0, py1, pz1), bx, by, bz),
+  push(
+    false,
+    [(x0, py0, pz1), (x0, py0, pz0), (x0, py1, pz0), (x0, py1, pz1)],
     (-1, 0, 0),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_xn,
   )
-  push_face_rev(
-    transform.apply((x0, py0, pz1), bx, by, bz),
-    transform.apply((x0, py0, pz0), bx, by, bz),
-    transform.apply((x0, py1, pz0), bx, by, bz),
-    transform.apply((x0, py1, pz1), bx, by, bz),
+  push(
+    true,
+    [(x0, py0, pz1), (x0, py0, pz0), (x0, py1, pz0), (x0, py1, pz1)],
     (1, 0, 0),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_xp,
   )
   let px0 = 0.0F
   let px1 = 1.0F
-  push_face(
-    transform.apply((px1, py0, z0), bx, by, bz),
-    transform.apply((px0, py0, z0), bx, by, bz),
-    transform.apply((px0, py1, z0), bx, by, bz),
-    transform.apply((px1, py1, z0), bx, by, bz),
+  push(
+    false,
+    [(px1, py0, z0), (px0, py0, z0), (px0, py1, z0), (px1, py1, z0)],
     (0, 0, 1),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_zp,
   )
-  push_face_rev(
-    transform.apply((px1, py0, z0), bx, by, bz),
-    transform.apply((px0, py0, z0), bx, by, bz),
-    transform.apply((px0, py1, z0), bx, by, bz),
-    transform.apply((px1, py1, z0), bx, by, bz),
+  push(
+    true,
+    [(px1, py0, z0), (px0, py0, z0), (px0, py1, z0), (px1, py1, z0)],
     (0, 0, -1),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_zn,
   )
-  push_face(
-    transform.apply((px0, py0, z1), bx, by, bz),
-    transform.apply((px1, py0, z1), bx, by, bz),
-    transform.apply((px1, py1, z1), bx, by, bz),
-    transform.apply((px0, py1, z1), bx, by, bz),
+  push(
+    false,
+    [(px0, py0, z1), (px1, py0, z1), (px1, py1, z1), (px0, py1, z1)],
     (0, 0, -1),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_zn,
   )
-  push_face_rev(
-    transform.apply((px0, py0, z1), bx, by, bz),
-    transform.apply((px1, py0, z1), bx, by, bz),
-    transform.apply((px1, py1, z1), bx, by, bz),
-    transform.apply((px0, py1, z1), bx, by, bz),
+  push(
+    true,
+    [(px0, py0, z1), (px1, py0, z1), (px1, py1, z1), (px0, py1, z1)],
     (0, 0, 1),
-    layer_f,
     classic_torch_uv_full,
     true,
     shade_zp,
@@ -222,80 +208,70 @@ pub fn Torch::append_redstone_mesh(
 ) -> Unit {
   Torch::append_mesh(state, layer_f, bx, by, bz, push_face)
   let transform = TorchTransform::from(state.reinterpret_as_int())
-  let shade_xp = @util.face_shade_scale(1, 0, 0)
-  let shade_xn = @util.face_shade_scale(-1, 0, 0)
-  let shade_yp = @util.face_shade_scale(0, 1, 0)
-  let shade_yn = @util.face_shade_scale(0, -1, 0)
-  let shade_zp = @util.face_shade_scale(0, 0, 1)
-  let shade_zn = @util.face_shade_scale(0, 0, -1)
+  let (shade_xp, shade_xn, shade_yp, shade_yn, shade_zp, shade_zn) = face_shades()
   let gx0 = redstone_torch_glow_min
   let gx1 = redstone_torch_glow_max
   let gy0 = redstone_torch_glow_y_min
   let gy1 = redstone_torch_glow_y_max
   let gz0 = redstone_torch_glow_min
   let gz1 = redstone_torch_glow_max
-  push_face(
-    transform.apply((gx0, gy0, gz1), bx, by, bz),
-    transform.apply((gx0, gy0, gz0), bx, by, bz),
-    transform.apply((gx1, gy0, gz0), bx, by, bz),
-    transform.apply((gx1, gy0, gz1), bx, by, bz),
+  let push = fn(
+    corners : Array[(Float, Float, Float)],
+    normal : (Int, Int, Int),
+    uv_rect : (Float, Float, Float, Float),
+    flip_v : Bool,
+    shade : Float,
+  ) -> Unit {
+    push_face(
+      transform.apply(corners[0], bx, by, bz),
+      transform.apply(corners[1], bx, by, bz),
+      transform.apply(corners[2], bx, by, bz),
+      transform.apply(corners[3], bx, by, bz),
+      normal,
+      layer_f,
+      uv_rect,
+      flip_v,
+      shade,
+    )
+  }
+  push(
+    [(gx0, gy0, gz1), (gx0, gy0, gz0), (gx1, gy0, gz0), (gx1, gy0, gz1)],
     (0, 1, 0),
-    layer_f,
     redstone_torch_uv_up,
     false,
     shade_yp,
   )
-  push_face(
-    transform.apply((gx0, gy1, gz0), bx, by, bz),
-    transform.apply((gx0, gy1, gz1), bx, by, bz),
-    transform.apply((gx1, gy1, gz1), bx, by, bz),
-    transform.apply((gx1, gy1, gz0), bx, by, bz),
+  push(
+    [(gx0, gy1, gz0), (gx0, gy1, gz1), (gx1, gy1, gz1), (gx1, gy1, gz0)],
     (0, -1, 0),
-    layer_f,
     redstone_torch_uv_down,
     false,
     shade_yn,
   )
-  push_face(
-    transform.apply((gx1, gy0, gz0), bx, by, bz),
-    transform.apply((gx0, gy0, gz0), bx, by, bz),
-    transform.apply((gx0, gy1, gz0), bx, by, bz),
-    transform.apply((gx1, gy1, gz0), bx, by, bz),
+  push(
+    [(gx1, gy0, gz0), (gx0, gy0, gz0), (gx0, gy1, gz0), (gx1, gy1, gz0)],
     (0, 0, 1),
-    layer_f,
     redstone_torch_uv_south,
     true,
     shade_zp,
   )
-  push_face(
-    transform.apply((gx0, gy0, gz1), bx, by, bz),
-    transform.apply((gx1, gy0, gz1), bx, by, bz),
-    transform.apply((gx1, gy1, gz1), bx, by, bz),
-    transform.apply((gx0, gy1, gz1), bx, by, bz),
+  push(
+    [(gx0, gy0, gz1), (gx1, gy0, gz1), (gx1, gy1, gz1), (gx0, gy1, gz1)],
     (0, 0, -1),
-    layer_f,
     redstone_torch_uv_north,
     true,
     shade_zn,
   )
-  push_face(
-    transform.apply((gx0, gy0, gz0), bx, by, bz),
-    transform.apply((gx0, gy0, gz1), bx, by, bz),
-    transform.apply((gx0, gy1, gz1), bx, by, bz),
-    transform.apply((gx0, gy1, gz0), bx, by, bz),
+  push(
+    [(gx0, gy0, gz0), (gx0, gy0, gz1), (gx0, gy1, gz1), (gx0, gy1, gz0)],
     (1, 0, 0),
-    layer_f,
     redstone_torch_uv_east,
     true,
     shade_xp,
   )
-  push_face(
-    transform.apply((gx1, gy0, gz1), bx, by, bz),
-    transform.apply((gx1, gy0, gz0), bx, by, bz),
-    transform.apply((gx1, gy1, gz0), bx, by, bz),
-    transform.apply((gx1, gy1, gz1), bx, by, bz),
+  push(
+    [(gx1, gy0, gz1), (gx1, gy0, gz0), (gx1, gy1, gz0), (gx1, gy1, gz1)],
     (-1, 0, 0),
-    layer_f,
     redstone_torch_uv_west,
     true,
     shade_xn,
@@ -305,12 +281,7 @@ pub fn Torch::append_redstone_mesh(
 ///|
 pub fn Torch::append_redstone_colors(push_color : (Int, Float) -> Unit) -> Unit {
   Torch::append_colors(push_color)
-  let shade_xp = @util.face_shade_scale(1, 0, 0)
-  let shade_xn = @util.face_shade_scale(-1, 0, 0)
-  let shade_yp = @util.face_shade_scale(0, 1, 0)
-  let shade_yn = @util.face_shade_scale(0, -1, 0)
-  let shade_zp = @util.face_shade_scale(0, 0, 1)
-  let shade_zn = @util.face_shade_scale(0, 0, -1)
+  let (shade_xp, shade_xn, shade_yp, shade_yn, shade_zp, shade_zn) = face_shades()
   push_color(6, shade_yp)
   push_color(6, shade_yn)
   push_color(6, shade_zp)

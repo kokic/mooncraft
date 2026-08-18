@@ -80,6 +80,44 @@ fn chunk_column_key_by_world(size : Int, wx : Int, wz : Int) -> String {
 }
 
 ///|
+/// Pre-generate the chunk column at the spawn point so surface selection and
+/// the first frame have complete data. The center chunk at y=0 uses the
+/// caller-provided `initial_chunk`.
+fn seed_spawn_column(
+  world : @level.World,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
+  dirty_lights : @hashmap.HashMap[String, Bool],
+  loaded_columns : @hashmap.HashMap[String, Bool],
+  initial_chunk : Array[UInt],
+  chunk_min_y : Int,
+  chunk_max_y : Int,
+  spawn_chunk_x : Int,
+  spawn_chunk_z : Int,
+) -> Unit {
+  let initial_column : Array[@level.Chunk] = if world.world_type()
+    is @level.WorldType::Infinite {
+    world.generate_chunk_column(spawn_chunk_x, spawn_chunk_z)
+  } else {
+    []
+  }
+  for cy in chunk_min_y..<=chunk_max_y {
+    let key = @level.chunk_key_by_chunk_xyz(spawn_chunk_x, cy, spawn_chunk_z)
+    let data = if spawn_chunk_x == 0 && cy == 0 && spawn_chunk_z == 0 {
+      initial_chunk
+    } else if world.world_type() is @level.WorldType::Infinite {
+      initial_column[cy - chunk_min_y].tile_map
+    } else {
+      world.generate_chunk(spawn_chunk_x, cy, spawn_chunk_z).tile_map
+    }
+    chunk_map[key] = data
+    dirty_lights[key] = true
+  }
+  loaded_columns[@level.chunk_column_key_by_chunk_xz(
+    spawn_chunk_x, spawn_chunk_z,
+  )] = true
+}
+
+///|
 pub fn ChunkRuntime::new(
   world : @level.World,
   initial_chunk : Array[UInt],
@@ -103,28 +141,10 @@ pub fn ChunkRuntime::new(
   let chunk_max_y = @util.floor_div(world.max_y(), chunk_size)
   let loaded_columns : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
   let dirty_lights : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
-  let initial_column : Array[@level.Chunk] = if world.world_type()
-    is @level.WorldType::Infinite {
-    world.generate_chunk_column(spawn_chunk_x, spawn_chunk_z)
-  } else {
-    []
-  }
-  // Spawn surface selection needs a complete column before the first frame.
-  for cy in chunk_min_y..<=chunk_max_y {
-    let key = @level.chunk_key_by_chunk_xyz(spawn_chunk_x, cy, spawn_chunk_z)
-    let data = if spawn_chunk_x == 0 && cy == 0 && spawn_chunk_z == 0 {
-      initial_chunk
-    } else if world.world_type() is @level.WorldType::Infinite {
-      initial_column[cy - chunk_min_y].tile_map
-    } else {
-      world.generate_chunk(spawn_chunk_x, cy, spawn_chunk_z).tile_map
-    }
-    chunk_map[key] = data
-    dirty_lights[key] = true
-  }
-  loaded_columns[@level.chunk_column_key_by_chunk_xz(
+  seed_spawn_column(
+    world, chunk_map, dirty_lights, loaded_columns, initial_chunk, chunk_min_y, chunk_max_y,
     spawn_chunk_x, spawn_chunk_z,
-  )] = true
+  )
   let runtime = {
     world,
     chunk_map,
@@ -266,10 +286,9 @@ pub fn ChunkRuntime::chunk_light(self : ChunkRuntime, key : String) -> Bytes? {
 
 ///|
 fn ChunkRuntime::enqueue_column(self : ChunkRuntime, key : String) -> Unit {
-  let is_active = match self.active_infinite_column {
-    Some(generation) => generation.column_key() == key
-    None => false
-  }
+  let is_active = self.active_infinite_column.map_or(false, generation => {
+    generation.column_key() == key
+  })
   guard !self.loaded_columns.contains(key) &&
     !self.queued_columns.contains(key) &&
     !is_active else {
@@ -904,8 +923,9 @@ pub fn ChunkRuntime::mark_block_changed(
   if self.loaded_columns.contains(column_key) {
     self.dirty_lights[key] = true
   }
-  match @level.get_block_id(self.chunk_map, self.chunk_size, wx, wy, wz) {
-    Some(id) => self.record_block_delta(wx, wy, wz, id)
-    None => ()
+  guard @level.get_block_id(self.chunk_map, self.chunk_size, wx, wy, wz)
+    is Some(id) else {
+    ()
   }
+  self.record_block_delta(wx, wy, wz, id)
 }

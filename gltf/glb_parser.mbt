@@ -8,18 +8,41 @@ const GLB_JSON_TYPE = 0x4e4f534a
 const GLB_BIN_TYPE = 0x004e4942
 
 ///|
+/// Decode a fetched buffer into (JSON text, optional BIN chunk): parsed from
+/// the GLB container when the buffer is binary, otherwise read as UTF-8 text.
+///
+/// Raises `GltfError::InvalidGlb` when a GLB container is malformed.
+fn decode_glb_or_json_text(
+  buffer : @ffi.ArrayBuffer,
+) -> (String, @ffi.ArrayBuffer?) raise GltfError {
+  if is_glb_buffer(buffer) {
+    let parsed = parse_glb(buffer)
+    (parsed.json_text, parsed.bin_data)
+  } else {
+    (array_buffer_to_text(buffer), None)
+  }
+}
+
+///|
 pub struct GlbParseResult {
   json_text : String
   bin_data : @ffi.ArrayBuffer?
 }
 
 ///|
-pub fn parse_glb(buffer : @ffi.ArrayBuffer) -> GlbParseResult {
+/// Parse a GLB container into its JSON text and optional BIN chunk.
+///
+/// Raises `GltfError::InvalidGlb` when the container is malformed.
+pub fn parse_glb(buffer : @ffi.ArrayBuffer) -> GlbParseResult raise GltfError {
   let view = @ffi.DataView::new(buffer)
   let magic = view.get_uint32_le(0)
-  guard magic == GLB_MAGIC else { abort("invalid glb magic") }
+  guard magic == GLB_MAGIC else {
+    raise GltfError::InvalidGlb("invalid glb magic")
+  }
   let version = view.get_uint32_le(4)
-  guard version == 2 else { abort("unsupported glb version") }
+  guard version == 2 else {
+    raise GltfError::InvalidGlb("unsupported glb version")
+  }
   let total_len = view.get_uint32_le(8)
   let mut offset = 12
   let mut json_text = ""
@@ -38,6 +61,8 @@ pub fn parse_glb(buffer : @ffi.ArrayBuffer) -> GlbParseResult {
     }
     offset = chunk_end
   }
-  guard json_text.length() > 0 else { abort("missing GLB JSON chunk") }
+  guard json_text.length() > 0 else {
+    raise GltfError::InvalidGlb("missing GLB JSON chunk")
+  }
   { json_text, bin_data }
 }

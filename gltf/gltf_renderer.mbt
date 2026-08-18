@@ -120,10 +120,13 @@ fn GltfRenderer::create_instance(
 }
 
 ///|
+/// Create the glTF entity renderer and its shared shader program.
+///
+/// Raises `GltfError` when the WebGL shader compilation or linking fails.
 pub fn create_gltf_renderer(
   gl : @webgl.WebGLRenderingContext,
   configs : Array[GltfEntityConfig],
-) -> GltfRenderer {
+) -> GltfRenderer raise GltfError {
   let renderer = GltfRenderer::{
     gl,
     program: create_gltf_program(gl, GLTF_VS_SOURCE, GLTF_FS_SOURCE),

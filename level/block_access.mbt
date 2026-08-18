@@ -48,8 +48,7 @@ pub fn is_water_at(
 ) -> Bool {
   get_block_id(chunk_map, size, wx, wy, wz)
   .bind(id => @block.lookup_by_internal_id(id))
-  .map(block => block.is_water())
-  .unwrap_or(false)
+  .map_or(false, block => block.is_water())
 }
 
 ///|

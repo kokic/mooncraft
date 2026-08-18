@@ -267,6 +267,75 @@ fn prepare_infinite_column(
 }
 
 ///|
+/// The block at the top of a solid column: sand for arid and ocean biomes,
+/// snow at mountain elevations, grass otherwise.
+fn top_surface_block(
+  biome : @biome.Biome,
+  wy : Int,
+  palette : InfiniteBlockPalette,
+) -> UInt {
+  match biome {
+    @biome.Ocean
+    | @biome.DeepOcean
+    | @biome.Desert
+    | @biome.DesertLakes
+    | @biome.Beach => palette.sand
+    @biome.Mountains =>
+      if wy >= SEA_LEVEL + 23 {
+        palette.snow
+      } else {
+        palette.grass
+      }
+    @biome.WindsweptHills =>
+      if wy >= SEA_LEVEL + 15 {
+        palette.snow
+      } else {
+        palette.grass
+      }
+    _ => palette.grass
+  }
+}
+
+///|
+/// The block for a fluid cell: air above the aquifer, water or lava below.
+fn fluid_block(fluid : TerrainFluid, palette : InfiniteBlockPalette) -> UInt {
+  match fluid {
+    Air => @schema.AIR_ID
+    Water => palette.water
+    Lava => palette.lava
+  }
+}
+
+///|
+/// Rock block for a solid below-surface cell: deepslate below sea level, ore
+/// by layered noise bands above.
+fn underground_rock(
+  world : World,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+  biome : @biome.Biome,
+  palette : InfiniteBlockPalette,
+) -> UInt {
+  let rock = if wy < 0 { palette.deepslate } else { palette.stone }
+  @feature.pick_stone_ore(
+    world.noise,
+    wx,
+    wy,
+    wz,
+    biome is @biome.Mountains || biome is @biome.WindsweptHills,
+    rock,
+    palette.coal_ore,
+    palette.iron_ore,
+    palette.gold_ore,
+    palette.redstone_ore,
+    palette.diamond_ore,
+    palette.lapis_ore,
+    palette.emerald_ore,
+  )
+}
+
+///|
 fn fill_infinite_block(
   world : World,
   chunk : Chunk,
@@ -276,46 +345,22 @@ fn fill_infinite_block(
   column : InfiniteColumnSample,
   palette : InfiniteBlockPalette,
 ) -> Unit {
-  let air = @schema.AIR_ID
   let (wx, wy, wz) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
   if wy < world.min_y() || wy > world.max_y() {
-    chunk.update_tile_map(rx, ry, rz, air)
+    chunk.update_tile_map(rx, ry, rz, @schema.AIR_ID)
     return
   }
   let biome = column.terrain.surface_biome
   let density = column.density_at(wy)
   let use_inland_water = column.inland_min_wy <= wy && wy <= column.top_solid_wy
-  if is_infinite_bedrock(world, wx, wy, wz) {
-    chunk.update_tile_map(rx, ry, rz, palette.bedrock)
+  let block = if is_infinite_bedrock(world, wx, wy, wz) {
+    palette.bedrock
   } else if use_inland_water {
-    chunk.update_tile_map(rx, ry, rz, palette.water)
+    palette.water
   } else if density <= 0.0 {
-    match column.fluid_at(wy) {
-      Air => chunk.update_tile_map(rx, ry, rz, air)
-      Water => chunk.update_tile_map(rx, ry, rz, palette.water)
-      Lava => chunk.update_tile_map(rx, ry, rz, palette.lava)
-    }
+    fluid_block(column.fluid_at(wy), palette)
   } else if wy == column.top_solid_wy {
-    match biome {
-      @biome.Ocean
-      | @biome.DeepOcean
-      | @biome.Desert
-      | @biome.DesertLakes
-      | @biome.Beach => chunk.update_tile_map(rx, ry, rz, palette.sand)
-      @biome.Mountains =>
-        if wy >= SEA_LEVEL + 23 {
-          chunk.update_tile_map(rx, ry, rz, palette.snow)
-        } else {
-          chunk.update_tile_map(rx, ry, rz, palette.grass)
-        }
-      @biome.WindsweptHills =>
-        if wy >= SEA_LEVEL + 15 {
-          chunk.update_tile_map(rx, ry, rz, palette.snow)
-        } else {
-          chunk.update_tile_map(rx, ry, rz, palette.grass)
-        }
-      _ => chunk.update_tile_map(rx, ry, rz, palette.grass)
-    }
+    top_surface_block(biome, wy, palette)
   } else if (
       biome is @biome.Desert ||
       biome is @biome.DesertLakes ||
@@ -324,35 +369,16 @@ fn fill_infinite_block(
       biome is @biome.DeepOcean
     ) &&
     wy >= column.top_solid_wy - column.sand_depth {
-    chunk.update_tile_map(rx, ry, rz, palette.sand)
+    palette.sand
   } else if (biome is @biome.Desert || biome is @biome.DesertLakes) &&
     wy >= column.top_solid_wy - column.sand_depth - DESERT_SANDSTONE_DEPTH {
-    chunk.update_tile_map(rx, ry, rz, palette.sandstone)
+    palette.sandstone
   } else if wy >= column.top_solid_wy - column.dirt_depth {
-    chunk.update_tile_map(rx, ry, rz, palette.dirt)
+    palette.dirt
   } else {
-    let rock = if wy < 0 { palette.deepslate } else { palette.stone }
-    chunk.update_tile_map(
-      rx,
-      ry,
-      rz,
-      @feature.pick_stone_ore(
-        world.noise,
-        wx,
-        wy,
-        wz,
-        biome is @biome.Mountains || biome is @biome.WindsweptHills,
-        rock,
-        palette.coal_ore,
-        palette.iron_ore,
-        palette.gold_ore,
-        palette.redstone_ore,
-        palette.diamond_ore,
-        palette.lapis_ore,
-        palette.emerald_ore,
-      ),
-    )
+    underground_rock(world, wx, wy, wz, biome, palette)
   }
+  chunk.update_tile_map(rx, ry, rz, block)
 }
 
 ///|

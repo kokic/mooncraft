@@ -59,11 +59,13 @@ fn GltfRenderer::decode_asset_response(
   url : String,
   buffer : @ffi.ArrayBuffer,
 ) -> Unit {
-  let (json_text, glb_bin) = if is_glb_buffer(buffer) {
-    let parsed = parse_glb(buffer)
-    (parsed.json_text, parsed.bin_data)
-  } else {
-    (array_buffer_to_text(buffer), None)
+  let (json_text, glb_bin) = try decode_glb_or_json_text(buffer) catch {
+    error => {
+      self.fail_asset(url, error.message())
+      return
+    }
+  } noraise {
+    result => result
   }
   try @json.parse(json_text) catch {
     error => self.fail_asset(url, error.to_string())
@@ -174,9 +176,20 @@ fn read_accessor_from(
   let count = json_int(json_field(accessor, "count"))
   let type_name = json_string(json_field(accessor, "type"))
   Some(
-    read_accessor_values(
-      buffer, component_type, type_name, count, offset, stride,
-    ),
+    try
+      read_accessor_values(
+        buffer, component_type, type_name, count, offset, stride,
+      )
+    catch {
+      error => {
+        log_gltf_error(
+          "skipping accessor \{accessor_index}: \{error.message()}",
+        )
+        return None
+      }
+    } noraise {
+      values => values
+    },
   )
 }
 
@@ -198,13 +211,22 @@ fn read_indices_from(
   let offset = json_int(json_field(view, "byteOffset")) +
     json_int(json_field(accessor, "byteOffset"))
   Some(
-    read_indices(
-      buffer,
-      json_int(json_field(accessor, "componentType")),
-      json_int(json_field(accessor, "count")),
-      offset,
-      json_int(json_field(view, "byteStride")),
-    ),
+    try
+      read_indices(
+        buffer,
+        json_int(json_field(accessor, "componentType")),
+        json_int(json_field(accessor, "count")),
+        offset,
+        json_int(json_field(view, "byteStride")),
+      )
+    catch {
+      error => {
+        log_gltf_error("skipping indices \{accessor_index}: \{error.message()}")
+        return None
+      }
+    } noraise {
+      values => values
+    },
   )
 }
 

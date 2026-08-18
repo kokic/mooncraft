@@ -117,15 +117,14 @@ fn finite_surface_biome(
 }
 
 ///|
-fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
-  let sx = finite_scaled_coord(wx)
-  let sz = finite_scaled_coord(wz)
-  let sample = @biome.sample(world.noise, sx, sz)
-  let biome = @biome.biome_from_sample(sample)
-  let surface_biome = finite_surface_biome(sample, biome)
-  let x = wx.to_double()
-  let z = wz.to_double()
-  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
+/// Rolling base terrain height before biome elevation: rolling waves, detail
+/// noise, climate, and continental uplift.
+fn finite_base_height(
+  world : World,
+  x : Double,
+  z : Double,
+  sample : @biome.BiomeSample,
+) -> Double {
   let rolling = @biome.fbm2d(
       world.noise,
       x * FINITE_ROLLING_FREQ,
@@ -138,36 +137,51 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   let detail = world.noise.gen2d(x * FINITE_DETAIL_FREQ, z * FINITE_DETAIL_FREQ) *
     FINITE_DETAIL_AMP
   let climate = sample.humidity * 1.15 - sample.temperature.abs() * 0.50
-  let mut surface = FINITE_BASE_HEIGHT +
-    rolling +
-    detail +
-    climate +
-    @util.max0(sample.continental) * 4.2
-  match surface_biome {
+  FINITE_BASE_HEIGHT +
+  rolling +
+  detail +
+  climate +
+  @util.max0(sample.continental) * 4.2
+}
+
+///|
+/// Height adjustment applied by the surface biome.
+fn finite_biome_elevation(
+  biome : @biome.Biome,
+  ridge : Double,
+  erosion_t : Double,
+) -> Double {
+  match biome {
     @biome.Mountains =>
-      surface = surface +
-        FINITE_MOUNTAIN_BONUS +
-        sample.ridge * FINITE_MOUNTAIN_RIDGE_BONUS -
-        erosion_t * FINITE_MOUNTAIN_EROSION_PENALTY
+      FINITE_MOUNTAIN_BONUS +
+      ridge * FINITE_MOUNTAIN_RIDGE_BONUS -
+      erosion_t * FINITE_MOUNTAIN_EROSION_PENALTY
     @biome.WindsweptHills =>
-      surface = surface +
-        FINITE_WINDSWEPT_BONUS +
-        sample.ridge * 3.2 -
-        erosion_t * 2.0
-    @biome.Forest => surface = surface + 0.8
-    @biome.Desert => surface = surface - 0.8
-    @biome.DesertLakes => surface = surface - 1.4
-    @biome.Beach => surface = surface - 2.2
-    _ => ()
+      FINITE_WINDSWEPT_BONUS + ridge * 3.2 - erosion_t * 2.0
+    @biome.Forest => 0.8
+    @biome.Desert => -0.8
+    @biome.DesertLakes => -1.4
+    @biome.Beach => -2.2
+    _ => 0.0
   }
+}
+
+///|
+fn clamp_finite_height(h : Int) -> Int {
   let min_h = FINITE_MIN_Y + 4
   let max_h = FINITE_MAX_Y - 2
-  let mut surface_i = surface.round().to_int()
-  if surface_i < min_h {
-    surface_i = min_h
-  } else if surface_i > max_h {
-    surface_i = max_h
+  if h < min_h {
+    min_h
+  } else if h > max_h {
+    max_h
+  } else {
+    h
   }
+}
+
+///|
+/// The flat plain height below a surface: mountain biomes carve deeper.
+fn finite_plain_height(surface_i : Int, surface_biome : @biome.Biome) -> Int {
   let plain_drop = if surface_biome is @biome.Mountains {
     5
   } else if surface_biome is @biome.WindsweptHills {
@@ -175,10 +189,28 @@ fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
   } else {
     3
   }
-  let mut plain = surface_i - plain_drop
-  if plain < min_h - 2 {
-    plain = min_h - 2
+  let plain = surface_i - plain_drop
+  if plain < FINITE_MIN_Y + 2 {
+    FINITE_MIN_Y + 2
+  } else {
+    plain
   }
+}
+
+///|
+fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
+  let sx = finite_scaled_coord(wx)
+  let sz = finite_scaled_coord(wz)
+  let sample = @biome.sample(world.noise, sx, sz)
+  let biome = @biome.biome_from_sample(sample)
+  let surface_biome = finite_surface_biome(sample, biome)
+  let x = wx.to_double()
+  let z = wz.to_double()
+  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
+  let surface = finite_base_height(world, x, z, sample) +
+    finite_biome_elevation(surface_biome, sample.ridge, erosion_t)
+  let surface_i = clamp_finite_height(surface.round().to_int())
+  let plain = finite_plain_height(surface_i, surface_biome)
   TerrainColumn::{
     wx,
     wz,

@@ -198,32 +198,27 @@ pub fn place_oak_trees_in_chunk(
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      if should_place_oak(world.noise, wx, wz, params) {
-        if rx >= 2 &&
-          rx <= CHUNK_X_SIZE - 3 &&
-          rz >= 2 &&
-          rz <= CHUNK_Z_SIZE - 3 {
-          match find_tree_base_ry(chunk, rx, rz, air) {
-            None => ()
-            Some(base_ry) => {
-              let base = chunk.get_tile(rx, base_ry, rz)
-              if is_grass(base) {
-                let (_, surface, _) = chunk.block_rxyz_to_block_xyz(
-                  rx, base_ry, rz,
-                )
-                let setter = fn(x : Int, y : Int, z : Int, id : UInt) -> Unit {
-                  region.set_block(x, y, z, id)
-                }
-                @feature.place_oak_tree_genus(
-                  setter,
-                  wx,
-                  surface,
-                  wz,
-                  seed=world.seed(),
-                )
-              }
-            }
+      if should_place_oak(world.noise, wx, wz, params) &&
+        rx >= 2 &&
+        rx <= CHUNK_X_SIZE - 3 &&
+        rz >= 2 &&
+        rz <= CHUNK_Z_SIZE - 3 {
+        guard find_tree_base_ry(chunk, rx, rz, air) is Some(base_ry) else {
+          continue
+        }
+        let base = chunk.get_tile(rx, base_ry, rz)
+        if is_grass(base) {
+          let (_, surface, _) = chunk.block_rxyz_to_block_xyz(rx, base_ry, rz)
+          let setter = fn(x : Int, y : Int, z : Int, id : UInt) -> Unit {
+            region.set_block(x, y, z, id)
           }
+          @feature.place_oak_tree_genus(
+            setter,
+            wx,
+            surface,
+            wz,
+            seed=world.seed(),
+          )
         }
       }
     }
@@ -258,8 +253,7 @@ fn place_biome_trees_in_chunk_with_biome(
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
       let biome = surface_biome_at(wx, wz)
-      match
-        tree_profile_for_biome(
+      guard tree_profile_for_biome(
           world.noise,
           wx,
           wz,
@@ -269,44 +263,39 @@ fn place_biome_trees_in_chunk_with_biome(
           spruce_log,
           acacia_log,
           jungle_log,
-        ) {
-        None => ()
-        Some((params, log_block)) =>
-          if should_place_oak(world.noise, wx, wz, params) {
-            if rx >= 2 &&
-              rx <= CHUNK_X_SIZE - 3 &&
-              rz >= 2 &&
-              rz <= CHUNK_Z_SIZE - 3 {
-              match find_tree_base_ry(chunk, rx, rz, air) {
-                None => ()
-                Some(base_ry) => {
-                  let base = chunk.get_tile(rx, base_ry, rz)
-                  if can_place_tree_on_biome_surface(
-                      biome, base, grass_id, dirt_id, sand_id, snow_id,
-                    ) &&
-                    (
-                      is_grass(base) ||
-                      base == dirt_id ||
-                      base == sand_id ||
-                      base == snow_id
-                    ) {
-                    let (_, surface, _) = chunk.block_rxyz_to_block_xyz(
-                      rx, base_ry, rz,
-                    )
-                    @feature.place_oak_tree_genus(
-                      (x, y, z, id) => region.set_block(x, y, z, id),
-                      wx,
-                      surface,
-                      wz,
-                      filler_log=log_block,
-                      filler_leaves=leaves_id,
-                      seed=world.seed(),
-                    )
-                  }
-                }
-              }
-            }
-          }
+        )
+        is Some((params, log_block)) else {
+        continue
+      }
+      if should_place_oak(world.noise, wx, wz, params) &&
+        rx >= 2 &&
+        rx <= CHUNK_X_SIZE - 3 &&
+        rz >= 2 &&
+        rz <= CHUNK_Z_SIZE - 3 {
+        guard find_tree_base_ry(chunk, rx, rz, air) is Some(base_ry) else {
+          continue
+        }
+        let base = chunk.get_tile(rx, base_ry, rz)
+        if can_place_tree_on_biome_surface(
+            biome, base, grass_id, dirt_id, sand_id, snow_id,
+          ) &&
+          (
+            is_grass(base) ||
+            base == dirt_id ||
+            base == sand_id ||
+            base == snow_id
+          ) {
+          let (_, surface, _) = chunk.block_rxyz_to_block_xyz(rx, base_ry, rz)
+          @feature.place_oak_tree_genus(
+            (x, y, z, id) => region.set_block(x, y, z, id),
+            wx,
+            surface,
+            wz,
+            filler_log=log_block,
+            filler_leaves=leaves_id,
+            seed=world.seed(),
+          )
+        }
       }
     }
   }

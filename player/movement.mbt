@@ -26,29 +26,22 @@ pub fn MoveInput::new(
 }
 
 ///|
-fn intersects(
-  a_min_x : Double,
-  a_min_y : Double,
-  a_min_z : Double,
-  a_max_x : Double,
-  a_max_y : Double,
-  a_max_z : Double,
-  b_min_x : Double,
-  b_min_y : Double,
-  b_min_z : Double,
-  b_max_x : Double,
-  b_max_y : Double,
-  b_max_z : Double,
+fn aabb_overlap(
+  a_min : Array[Double],
+  a_max : Array[Double],
+  b_min : Array[Double],
+  b_max : Array[Double],
 ) -> Bool {
-  a_max_x > b_min_x &&
-  a_min_x < b_max_x &&
-  a_max_y > b_min_y &&
-  a_min_y < b_max_y &&
-  a_max_z > b_min_z &&
-  a_min_z < b_max_z
+  a_max[0] > b_min[0] &&
+  a_min[0] < b_max[0] &&
+  a_max[1] > b_min[1] &&
+  a_min[1] < b_max[1] &&
+  a_max[2] > b_min[2] &&
+  a_min[2] < b_max[2]
 }
 
 ///|
+/// Collision boxes of the selectable block at (wx, wy, wz), if any.
 fn get_block_boxes_at(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
@@ -103,6 +96,72 @@ fn is_player_in_water(
 }
 
 ///|
+/// The world-space AABB of the player after moving to `next` along `axis`.
+/// Horizontal movement keeps the vertical extents fixed at `pos`; vertical
+/// movement places the feet at `next` with the head `entity_height` above.
+fn player_aabb_at(
+  pos : Array[Double],
+  axis : Int,
+  next : Double,
+  entity_height : Double,
+  entity_radius : Double,
+) -> (Array[Double], Array[Double]) {
+  let ent_min = [pos[0], pos[1], pos[2]]
+  let ent_max = [pos[0], pos[1], pos[2]]
+  if axis == 1 {
+    ent_min[1] = next
+    ent_max[1] = next + entity_height
+  } else {
+    ent_min[axis] = next - entity_radius
+    ent_max[axis] = next + entity_radius
+    ent_max[1] = pos[1] + entity_height
+  }
+  (ent_min, ent_max)
+}
+
+///|
+/// Block coordinate of the leading edge of the player AABB along `axis`.
+fn leading_block_coord(
+  axis : Int,
+  next : Double,
+  dir : Int,
+  entity_height : Double,
+  entity_radius : Double,
+) -> Int {
+  let target = if axis == 1 {
+    if dir > 0 {
+      next + entity_height
+    } else {
+      next
+    }
+  } else {
+    next + dir.to_double() * entity_radius
+  }
+  target.floor().to_int()
+}
+
+///|
+/// The block coordinate range swept on a perpendicular axis: vertical sweeps
+/// span the entity height, horizontal sweeps span the entity radius.
+fn sweep_bounds(
+  pos : Array[Double],
+  axis : Int,
+  entity_height : Double,
+  entity_radius : Double,
+) -> (Int, Int) {
+  if axis == 1 {
+    (pos[1].floor().to_int(), (pos[1] + entity_height).floor().to_int())
+  } else {
+    (
+      (pos[axis] - entity_radius).floor().to_int(),
+      (pos[axis] + entity_radius).floor().to_int(),
+    )
+  }
+}
+
+///|
+/// Move along `axis` by `delta`, resolving collisions against solid block
+/// AABBs. Returns the clamped new coordinate on that axis.
 fn move_axis(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
@@ -112,143 +171,76 @@ fn move_axis(
   entity_height : Double,
   entity_radius : Double,
 ) -> Double {
-  if delta == 0.0 {
-    return pos[axis]
-  }
-  let radius = entity_radius
-  let height = entity_height
+  guard delta != 0.0 else { pos[axis] }
   let dir = if delta > 0.0 { 1 } else { -1 }
   let mut next = pos[axis] + delta
   let eps = 0.0001
-  if axis == 0 {
-    let target_x = next + dir.to_double() * radius
-    let block_x = target_x.floor().to_int()
-    let min_y = pos[1].floor().to_int()
-    let max_y = (pos[1] + height).floor().to_int()
-    let min_z = (pos[2] - radius).floor().to_int()
-    let max_z = (pos[2] + radius).floor().to_int()
-    let ent_min_x = next - radius
-    let ent_max_x = next + radius
-    let ent_min_y = pos[1]
-    let ent_max_y = pos[1] + height
-    let ent_min_z = pos[2] - radius
-    let ent_max_z = pos[2] + radius
-    for by in min_y..<=max_y {
-      for bz in min_z..<=max_z {
-        match get_block_boxes_at(chunk_map, size, block_x, by, bz) {
-          None => ()
-          Some(boxes) =>
-            for box in boxes {
-              let b_min_x = block_x.to_double() + box.min[0].to_double()
-              let b_max_x = block_x.to_double() + box.max[0].to_double()
-              let b_min_y = by.to_double() + box.min[1].to_double()
-              let b_max_y = by.to_double() + box.max[1].to_double()
-              let b_min_z = bz.to_double() + box.min[2].to_double()
-              let b_max_z = bz.to_double() + box.max[2].to_double()
-              if !intersects(
-                  ent_min_x, ent_min_y, ent_min_z, ent_max_x, ent_max_y, ent_max_z,
-                  b_min_x, b_min_y, b_min_z, b_max_x, b_max_y, b_max_z,
-                ) {
-                continue
-              }
-              next = if dir > 0 {
-                b_min_x - radius - eps
-              } else {
-                b_max_x + radius + eps
-              }
-              return next
-            }
+  let (ent_min, ent_max) = player_aabb_at(
+    pos, axis, next, entity_height, entity_radius,
+  )
+  let block_axis = leading_block_coord(
+    axis, next, dir, entity_height, entity_radius,
+  )
+  // Sweep order matches the axis-major iteration: vertical outer loop for
+  // horizontal movement, horizontal outer loop for vertical movement.
+  let outer = if axis == 1 { 0 } else { 1 }
+  let inner = 3 - axis - outer
+  let (min_outer, max_outer) = sweep_bounds(
+    pos, outer, entity_height, entity_radius,
+  )
+  let (min_inner, max_inner) = sweep_bounds(
+    pos, inner, entity_height, entity_radius,
+  )
+  for b_outer in min_outer..<=max_outer {
+    for b_inner in min_inner..<=max_inner {
+      let bx = if axis == 0 {
+        block_axis
+      } else if outer == 0 {
+        b_outer
+      } else {
+        b_inner
+      }
+      let by = if axis == 1 { block_axis } else { b_outer }
+      let bz = if axis == 2 {
+        block_axis
+      } else if inner == 2 {
+        b_inner
+      } else {
+        b_outer
+      }
+      guard get_block_boxes_at(chunk_map, size, bx, by, bz) is Some(boxes) else {
+        continue
+      }
+      for box in boxes {
+        let b_min = [
+          bx.to_double() + box.min[0].to_double(),
+          by.to_double() + box.min[1].to_double(),
+          bz.to_double() + box.min[2].to_double(),
+        ]
+        let b_max = [
+          bx.to_double() + box.max[0].to_double(),
+          by.to_double() + box.max[1].to_double(),
+          bz.to_double() + box.max[2].to_double(),
+        ]
+        guard aabb_overlap(ent_min, ent_max, b_min, b_max) else { continue }
+        if axis == 1 {
+          next = if dir > 0 {
+            b_min[1] - entity_height - eps
+          } else {
+            b_max[1] + eps
+          }
+        } else {
+          next = if dir > 0 {
+            b_min[axis] - entity_radius - eps
+          } else {
+            b_max[axis] + entity_radius + eps
+          }
         }
+        return next
       }
     }
-    next
-  } else if axis == 2 {
-    let target_z = next + dir.to_double() * radius
-    let block_z = target_z.floor().to_int()
-    let min_y = pos[1].floor().to_int()
-    let max_y = (pos[1] + height).floor().to_int()
-    let min_x = (pos[0] - radius).floor().to_int()
-    let max_x = (pos[0] + radius).floor().to_int()
-    let ent_min_x = pos[0] - radius
-    let ent_max_x = pos[0] + radius
-    let ent_min_y = pos[1]
-    let ent_max_y = pos[1] + height
-    let ent_min_z = next - radius
-    let ent_max_z = next + radius
-    for by in min_y..<=max_y {
-      for bx in min_x..<=max_x {
-        match get_block_boxes_at(chunk_map, size, bx, by, block_z) {
-          None => ()
-          Some(boxes) =>
-            for box in boxes {
-              let b_min_x = bx.to_double() + box.min[0].to_double()
-              let b_max_x = bx.to_double() + box.max[0].to_double()
-              let b_min_y = by.to_double() + box.min[1].to_double()
-              let b_max_y = by.to_double() + box.max[1].to_double()
-              let b_min_z = block_z.to_double() + box.min[2].to_double()
-              let b_max_z = block_z.to_double() + box.max[2].to_double()
-              if !intersects(
-                  ent_min_x, ent_min_y, ent_min_z, ent_max_x, ent_max_y, ent_max_z,
-                  b_min_x, b_min_y, b_min_z, b_max_x, b_max_y, b_max_z,
-                ) {
-                continue
-              }
-              next = if dir > 0 {
-                b_min_z - radius - eps
-              } else {
-                b_max_z + radius + eps
-              }
-              return next
-            }
-        }
-      }
-    }
-    next
-  } else if axis == 1 {
-    let target_y = if dir > 0 { next + height } else { next }
-    let block_y = target_y.floor().to_int()
-    let min_x = (pos[0] - radius).floor().to_int()
-    let max_x = (pos[0] + radius).floor().to_int()
-    let min_z = (pos[2] - radius).floor().to_int()
-    let max_z = (pos[2] + radius).floor().to_int()
-    let ent_min_x = pos[0] - radius
-    let ent_max_x = pos[0] + radius
-    let ent_min_y = next
-    let ent_max_y = next + height
-    let ent_min_z = pos[2] - radius
-    let ent_max_z = pos[2] + radius
-    for bx in min_x..<=max_x {
-      for bz in min_z..<=max_z {
-        match get_block_boxes_at(chunk_map, size, bx, block_y, bz) {
-          None => ()
-          Some(boxes) =>
-            for box in boxes {
-              let b_min_x = bx.to_double() + box.min[0].to_double()
-              let b_max_x = bx.to_double() + box.max[0].to_double()
-              let b_min_y = block_y.to_double() + box.min[1].to_double()
-              let b_max_y = block_y.to_double() + box.max[1].to_double()
-              let b_min_z = bz.to_double() + box.min[2].to_double()
-              let b_max_z = bz.to_double() + box.max[2].to_double()
-              if !intersects(
-                  ent_min_x, ent_min_y, ent_min_z, ent_max_x, ent_max_y, ent_max_z,
-                  b_min_x, b_min_y, b_min_z, b_max_x, b_max_y, b_max_z,
-                ) {
-                continue
-              }
-              next = if dir > 0 {
-                b_min_y - height - eps
-              } else {
-                b_max_y + eps
-              }
-              return next
-            }
-        }
-      }
-    }
-    next
-  } else {
-    next
   }
+  next
 }
 
 ///|

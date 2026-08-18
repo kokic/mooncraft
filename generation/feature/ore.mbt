@@ -30,40 +30,26 @@ pub fn pick_stone_ore(
   // Partition one coherent field into rarity bands instead of sampling a
   // separate 3D noise field for every eligible ore at every solid block.
   let sample = ore_field(noise, wx, wy, wz)
-  if is_mountains && wy >= 4 && wy <= 28 {
-    if sample > 0.82 {
-      return emerald_ore
-    }
+  if is_mountains && wy >= 4 && wy <= 28 && sample > 0.82 {
+    return emerald_ore
   }
-  if wy <= -18 {
-    if sample > 0.78 {
-      return diamond_ore
-    }
+  if wy <= -18 && sample > 0.78 {
+    return diamond_ore
   }
-  if wy <= -12 {
-    if sample > 0.74 {
-      return redstone_ore
-    }
+  if wy <= -12 && sample > 0.74 {
+    return redstone_ore
   }
-  if wy <= -8 {
-    if sample > 0.71 {
-      return lapis_ore
-    }
+  if wy <= -8 && sample > 0.71 {
+    return lapis_ore
   }
-  if wy <= -4 {
-    if sample > 0.68 {
-      return gold_ore
-    }
+  if wy <= -4 && sample > 0.68 {
+    return gold_ore
   }
-  if wy <= 12 {
-    if sample > 0.65 {
-      return iron_ore
-    }
+  if wy <= 12 && sample > 0.65 {
+    return iron_ore
   }
-  if wy <= 28 {
-    if sample > 0.62 {
-      return coal_ore
-    }
+  if sample > 0.62 {
+    return coal_ore
   }
   stone
 }

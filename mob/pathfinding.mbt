@@ -8,23 +8,21 @@ priv struct PathNode {
 ///|
 fn is_solid_floor(internal_id : UInt) -> Bool {
   guard internal_id != @schema.AIR_ID else { false }
-  @block.lookup_by_internal_id(internal_id)
-  .map(fn(block) {
+  @block.lookup_by_internal_id(internal_id).map_or(false, fn(block) {
     guard !block.is_water() else { false }
     match block.shape {
       @block.Shape::Air => false
       _ => true
     }
   })
-  .unwrap_or(false)
 }
 
 ///|
 fn is_passable(internal_id : UInt) -> Bool {
   guard internal_id == @schema.AIR_ID else {
-    @block.lookup_by_internal_id(internal_id)
-    .map(fn(block) { block.is_water() })
-    .unwrap_or(false)
+    @block.lookup_by_internal_id(internal_id).map_or(false, fn(block) {
+      block.is_water()
+    })
   }
   true
 }
@@ -40,9 +38,9 @@ fn is_walkable(
   let floor = @level.get_block_id(chunk_map, size, wx, wy - 1, wz)
   let feet = @level.get_block_id(chunk_map, size, wx, wy, wz)
   let head = @level.get_block_id(chunk_map, size, wx, wy + 1, wz)
-  floor.map(is_solid_floor).unwrap_or(false) &&
-  feet.map(is_passable).unwrap_or(false) &&
-  head.map(is_passable).unwrap_or(false)
+  floor.map_or(false, is_solid_floor) &&
+  feet.map_or(false, is_passable) &&
+  head.map_or(false, is_passable)
 }
 
 ///|

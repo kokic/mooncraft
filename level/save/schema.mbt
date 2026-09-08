@@ -26,6 +26,12 @@ pub struct SavePayload {
   entities : Array[@entity.EntitySave]
 } derive(Debug, ToJson, FromJson)
 
+pub extend SavePayload with Debug::{to_repr}
+
+pub extend SavePayload with ToJson::{to_json}
+
+pub extend SavePayload with FromJson::{from_json}
+
 ///|
 pub fn SavePayload::new(
   saved_at : Double,
@@ -47,8 +53,8 @@ pub fn SavePayload::new(
   {
     version: SAVE_SCHEMA_VERSION,
     saved_at,
-    world: { seed, world_type, height },
-    player: { position, yaw, pitch },
+    world: { seed, world_type, height, },
+    player: { position, yaw, pitch, },
     inventory,
     block_deltas,
     entities,

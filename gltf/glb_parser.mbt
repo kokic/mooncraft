@@ -64,5 +64,5 @@ pub fn parse_glb(buffer : @ffi.ArrayBuffer) -> GlbParseResult raise GltfError {
   guard json_text.length() > 0 else {
     raise GltfError::InvalidGlb("missing GLB JSON chunk")
   }
-  { json_text, bin_data }
+  { json_text, bin_data, }
 }

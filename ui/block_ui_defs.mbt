@@ -52,7 +52,7 @@ fn pick_side(faces : @block.TextureNames) -> String {
 ///|
 fn texture_or_fallback(name : String) -> UiTexture {
   let tex = if name.length() > 0 { name } else { @block.fallback_texture }
-  UiTexture::{ name: tex }
+  UiTexture::{ name: tex, }
 }
 
 ///|

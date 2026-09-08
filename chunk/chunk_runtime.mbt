@@ -605,7 +605,7 @@ fn ChunkRuntime::mark_section_by_world(
     sz < self.sections_per_axis else {
     return
   }
-  let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
+  let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz, }
   self.dirty_sections[section_key(chunk_key, sx, sy, sz)] = section
 }
 
@@ -641,7 +641,7 @@ fn ChunkRuntime::mark_section_dirty(
   sy : Int,
   sz : Int,
 ) -> Unit {
-  let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz }
+  let section = ChunkSection::{ chunk_key, x: sx, y: sy, z: sz, }
   guard self.section_in_mesh_window(section) else { return }
   let key = section_key(chunk_key, sx, sy, sz)
   guard self.section_has_non_air(section) ||

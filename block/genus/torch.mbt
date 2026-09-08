@@ -74,7 +74,7 @@ pub fn Torch::collect_bounds() -> Array[Array[Float]] {
 ///|
 pub fn Torch::get_outline_pad() -> @util.AABB {
   let v = 0.5F / 16
-  @util.AABB::{ sx: v, sy: 0, sz: v, ex: v, ey: -v, ez: v }
+  @util.AABB::{ sx: v, sy: 0, sz: v, ex: v, ey: -v, ez: v, }
 }
 
 ///|
@@ -402,5 +402,5 @@ pub fn torch_bounds_index(state : UInt) -> Int {
 pub fn Torch::shape_box_by_state(state : UInt) -> @shape.Box {
   let bounds = Torch::collect_bounds()
   let idx = torch_bounds_index(state)
-  @shape.Box::{ min: bounds[idx], max: bounds[idx + 1] }
+  @shape.Box::{ min: bounds[idx], max: bounds[idx + 1], }
 }

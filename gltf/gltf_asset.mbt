@@ -86,7 +86,7 @@ fn GltfRenderer::load_asset_buffers(
     root,
     glb_bin,
     buffers => {
-      let build = GltfAssetBuild::{ renderer: self, url, root, buffers }
+      let build = GltfAssetBuild::{ renderer: self, url, root, buffers, }
       build.complete()
     },
     message => self.fail_asset(url, message),
@@ -470,7 +470,7 @@ fn GltfAssetBuild::parse_animations(
         output,
       })
     }
-    { name: json_string(json_field(animation, "name")), duration, channels }
+    { name: json_string(json_field(animation, "name")), duration, channels, }
   })
 }
 

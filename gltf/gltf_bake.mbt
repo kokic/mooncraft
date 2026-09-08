@@ -43,7 +43,7 @@ pub fn block_gltf_spec(
   url : String,
   fit_in_block : Bool,
 ) -> BlockGltfSpec {
-  { name, url, fit_in_block }
+  { name, url, fit_in_block, }
 }
 
 ///|

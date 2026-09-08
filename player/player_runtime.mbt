@@ -8,6 +8,7 @@ pub struct PlayerSnapshot {
   entity_radius : Double
 } derive(Debug)
 
+pub extend PlayerSnapshot with Debug::{to_repr}
 ///|
 pub struct PlayerRuntime {
   chunk_map : @hashmap.HashMap[String, Array[UInt]]

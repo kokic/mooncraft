@@ -181,7 +181,7 @@ fn collect_light_coords(
       }
     }
   }
-  { loaded, min_cx, max_cx, min_cz, max_cz, min_cy, max_cy }
+  { loaded, min_cx, max_cx, min_cz, max_cz, min_cy, max_cy, }
 }
 
 ///|

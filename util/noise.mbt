@@ -114,7 +114,7 @@ pub struct Noise {
 pub fn Noise::new(seed? : UInt = @env.now().to_uint()) -> Noise {
   let random = LCG(seed~)
   let permutations = Noise::build_permutations(random)
-  Noise::{ seed, permutations }
+  Noise::{ seed, permutations, }
 }
 
 ///|

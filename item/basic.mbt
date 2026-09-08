@@ -26,7 +26,7 @@ pub struct ItemStack {
 
 ///|
 pub fn ItemStack::from_item(item : Item, count? : Int = 1) -> ItemStack {
-  ItemStack::{ item_id: item.id, count }
+  ItemStack::{ item_id: item.id, count, }
 }
 
 ///|
@@ -58,5 +58,5 @@ fn Item::create(
   profile? : ItemProfile = generic_profile,
   texture : String,
 ) -> Item {
-  Item::{ name, id: alloc_item_id(), texture, category, profile }
+  Item::{ name, id: alloc_item_id(), texture, category, profile, }
 }

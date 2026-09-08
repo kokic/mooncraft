@@ -39,7 +39,7 @@ fn PathSearch::new(
   goal_wx : Int,
   goal_wz : Int,
 ) -> PathSearch {
-  let start = PathNode::{ wx: start_wx, wy: start_wy, wz: start_wz }
+  let start = PathNode::{ wx: start_wx, wy: start_wy, wz: start_wz, }
   let key = pos_key(start_wx, start_wy, start_wz)
   let open = [
     {
@@ -104,7 +104,7 @@ fn PathSearch::neighbors(
     for step in [(node.wy, 1.0), (node.wy + 1, 1.5), (node.wy - 1, 1.2)] {
       let (wy, cost) = step
       guard is_walkable(self.chunk_map, self.size, wx, wy, wz) else { continue }
-      neighbors.push((PathNode::{ wx, wy, wz }, cost))
+      neighbors.push((PathNode::{ wx, wy, wz, }, cost))
     }
   }
   neighbors

@@ -36,7 +36,7 @@ pub struct InternalIDCounter {
 
 ///|
 pub fn InternalIDCounter::new() -> InternalIDCounter {
-  InternalIDCounter::{ counter: 0 }
+  InternalIDCounter::{ counter: 0, }
 }
 
 ///|

@@ -157,9 +157,9 @@ priv struct MeshSplitTargets {
 ///|
 fn MeshSplitTargets::new() -> MeshSplitTargets {
   let empty = fn() -> MeshFaceArrays {
-    { positions: [], uvs: [], layers: [], colors: [], normals: None }
+    { positions: [], uvs: [], layers: [], colors: [], normals: None, }
   }
-  { normal: empty(), leaf: empty(), water: empty(), translucent: empty() }
+  { normal: empty(), leaf: empty(), water: empty(), translucent: empty(), }
 }
 
 ///|
@@ -209,7 +209,7 @@ priv struct ColorTargets {
 
 ///|
 fn ColorTargets::new() -> ColorTargets {
-  { normal: [], leaf: [], water: [], translucent: [] }
+  { normal: [], leaf: [], water: [], translucent: [], }
 }
 
 ///|

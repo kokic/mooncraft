@@ -52,5 +52,5 @@ pub fn compute_spawn_position(
   let py = spawn_y.to_double()
   let pz = local_z.to_double() + 0.5
   let surface_out = surface_y.unwrap_or(-1)
-  @level.SpawnResult::{ position: [px, py, pz], surface_y: surface_out }
+  @level.SpawnResult::{ position: [px, py, pz], surface_y: surface_out, }
 }

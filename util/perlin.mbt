@@ -41,7 +41,7 @@ pub struct PerlinNoise {
 pub fn PerlinNoise::new(seed? : UInt = @env.now().to_uint()) -> PerlinNoise {
   let base = Noise::new(seed~)
   let grad_p = PerlinNoise::build_gradients(base.permutations)
-  PerlinNoise::{ base, grad_p }
+  PerlinNoise::{ base, grad_p, }
 }
 
 ///|

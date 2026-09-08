@@ -135,7 +135,7 @@ pub fn raycast_blocks(
             clamp_click_offset(hit_y - by.to_double()),
             clamp_click_offset(hit_z - bz.to_double()),
           )
-          return Some(RaycastResult::{ block: [bx, by, bz], prev, click })
+          return Some(RaycastResult::{ block: [bx, by, bz], prev, click, })
         } else {
           last_pos = Some((bx, by, bz))
         }

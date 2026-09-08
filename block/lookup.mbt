@@ -16,7 +16,7 @@ pub fn[V] BlockRegistry::from_maps(
   by_name : @hashmap.HashMap[String, V],
   by_internal_id : @hashmap.HashMap[@schema.InternalID, V],
 ) -> BlockRegistry[V] {
-  { by_name, by_internal_id }
+  { by_name, by_internal_id, }
 }
 
 ///|
@@ -79,12 +79,12 @@ fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
       pos_z: resolve_layer(def.faces.pos_z),
       neg_z: resolve_layer(def.faces.neg_z),
     }
-    let rb = RenderBlock::{ block: def, faces, internal_id: def.internal_id() }
+    let rb = RenderBlock::{ block: def, faces, internal_id: def.internal_id(), }
     render_by_name[def.name] = rb
     render_by_id[rb.internal_id] = rb
   }
   (
-    BlockRegistry::{ by_name: block_by_name, by_internal_id: block_by_id },
+    BlockRegistry::{ by_name: block_by_name, by_internal_id: block_by_id, },
     BlockRegistry::from_maps(render_by_name, render_by_id),
   )
 }

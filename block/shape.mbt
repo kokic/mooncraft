@@ -1,4 +1,3 @@
-
 ///|
 #warnings("-unused_constructor")
 pub enum Shape {
@@ -47,7 +46,7 @@ pub(all) struct BlockProfile {
 
 ///|
 fn full_cube_boxes(_state : UInt) -> Array[@shape.Box] {
-  [@shape.Box::{ min: [0.0F, 0.0F, 0.0F], max: [1.0F, 1.0F, 1.0F] }]
+  [@shape.Box::{ min: [0.0F, 0.0F, 0.0F], max: [1.0F, 1.0F, 1.0F], }]
 }
 
 ///|

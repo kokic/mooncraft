@@ -5,7 +5,7 @@ pub struct EntityRuntime {
 
 ///|
 pub fn EntityRuntime::new() -> EntityRuntime {
-  { entities: {} }
+  { entities: {}, }
 }
 
 ///|

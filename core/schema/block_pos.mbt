@@ -7,5 +7,5 @@ pub struct BlockPos {
 
 ///|
 pub fn BlockPos::BlockPos(x : Int, y : Int, z : Int) -> BlockPos {
-  BlockPos::{ x, y, z }
+  BlockPos::{ x, y, z, }
 }

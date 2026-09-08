@@ -140,5 +140,5 @@ pub fn ChunkRuntime::tick(
     self.build_mesh_command(registry, section)
   })
   let recolors = self.build_recolor_commands(registry, relit, mesh_updates)
-  { generated, evicted, mesh_updates, recolors }
+  { generated, evicted, mesh_updates, recolors, }
 }

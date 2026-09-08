@@ -23,7 +23,7 @@ pub fn MobSpawnRequest::new(
   yaw? : Double = 0.0,
   scale : Array[Double],
 ) -> MobSpawnRequest {
-  { id, kind, x, y, z, animation, upside_down, yaw, scale }
+  { id, kind, x, y, z, animation, upside_down, yaw, scale, }
 }
 
 ///|

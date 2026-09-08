@@ -9,5 +9,5 @@ pub struct BlockDelta {
 
 ///|
 pub fn BlockDelta::new(x : Int, y : Int, z : Int, id : String) -> BlockDelta {
-  { x, y, z, id }
+  { x, y, z, id, }
 }

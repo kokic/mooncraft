@@ -22,7 +22,7 @@ pub fn MoveInput::new(
   sprint? : Bool = false,
   fast? : Bool = false,
 ) -> MoveInput {
-  { forward, back, left, right, up, down, sprint, fast }
+  { forward, back, left, right, up, down, sprint, fast, }
 }
 
 ///|

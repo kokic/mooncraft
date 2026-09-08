@@ -297,7 +297,7 @@ pub struct FlattenResult {
 ///|
 pub fn FlattenResult::from(result : Result[String, String]) -> FlattenResult {
   match result {
-    Ok(msg) => { success: true, message: msg }
-    Err(msg) => { success: false, message: msg }
+    Ok(msg) => { success: true, message: msg, }
+    Err(msg) => { success: false, message: msg, }
   }
 }

@@ -54,5 +54,5 @@ pub fn camera_from_yaw_pitch(
     yaw,
     pitch,
   )
-  { position, direction, center }
+  { position, direction, center, }
 }

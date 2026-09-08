@@ -11,7 +11,7 @@ pub fn EntityPosition::new(
   y : Double,
   z : Double,
 ) -> EntityPosition {
-  { x, y, z }
+  { x, y, z, }
 }
 
 ///|

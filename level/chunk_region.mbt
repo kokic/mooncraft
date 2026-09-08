@@ -26,7 +26,7 @@ fn enqueue_block(wx : Int, wy : Int, wz : Int, id : UInt) -> Unit {
   let cy = @util.floor_div(wy, CHUNK_Y_SIZE)
   let cz = @util.floor_div(wz, CHUNK_Z_SIZE)
   let key = chunk_key_by_chunk_xyz(cx, cy, cz)
-  let placement = BlockPlacement::{ wx, wy, wz, id }
+  let placement = BlockPlacement::{ wx, wy, wz, id, }
   if pending_block_placements.contains(key) {
     let arr = pending_block_placements[key]
     arr.push(placement)

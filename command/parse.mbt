@@ -6,7 +6,7 @@ priv struct ParseScope {
 
 ///|
 fn ParseScope::new(tokens : Array[StringView]) -> ParseScope {
-  { tokens, pos: 1 }
+  { tokens, pos: 1, }
 }
 
 ///|

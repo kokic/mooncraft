@@ -139,7 +139,7 @@ fn EntityState::set_path(
   waypoints : Array[EntityPosition],
 ) -> Bool {
   guard self.move_speed > 0.0 && !waypoints.is_empty() else { false }
-  self.movement = Some({ waypoints, next_index: 0, started: false })
+  self.movement = Some({ waypoints, next_index: 0, started: false, })
   true
 }
 

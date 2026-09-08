@@ -6,7 +6,7 @@ fn GameRuntime::new(
   mob_runtime : @mob.MobRuntime,
   chunk_size : Int,
 ) -> GameRuntime {
-  { world, chunk_runtime, player_runtime, mob_runtime, chunk_size }
+  { world, chunk_runtime, player_runtime, mob_runtime, chunk_size, }
 }
 
 ///|

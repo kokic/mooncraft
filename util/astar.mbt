@@ -8,11 +8,14 @@ pub(all) struct AStarNeighbor[Node] {
 } derive(Debug)
 
 ///|
+pub extend AStarNeighbor with Debug::{to_repr}
+
+///|
 pub fn[Node] AStarNeighbor::new(
   node : Node,
   cost : Double,
 ) -> AStarNeighbor[Node] {
-  { node, cost }
+  { node, cost, }
 }
 
 ///|
@@ -24,6 +27,9 @@ pub(all) struct AStarPath[Node] {
   nodes : Array[Node]
   cost : Double
 } derive(Debug)
+
+///|
+pub extend AStarPath with Debug::{to_repr}
 
 ///|
 priv struct AStarOpenEntry[Node, Key] {
@@ -53,7 +59,7 @@ fn[Node, Key : Eq + Hash] reconstruct_path(
   came_from : @hashmap.HashMap[Key, Key],
   total_cost : Double,
 ) -> AStarPath[Node] {
-  let path = Array::new()
+  let path = Array()
   let mut current = goal_key
   path.push(nodes_by_key[current])
   while came_from.contains(current) {
@@ -61,7 +67,7 @@ fn[Node, Key : Eq + Hash] reconstruct_path(
     path.push(nodes_by_key[current])
   }
   path.rev_in_place()
-  { nodes: path, cost: total_cost }
+  { nodes: path, cost: total_cost, }
 }
 
 ///|
@@ -81,7 +87,7 @@ pub fn[Node, Key : Eq + Hash] astar(
   heuristic~ : (Node) -> Double,
 ) -> AStarPath[Node]? {
   let start_key = key(start)
-  let open = Array::new()
+  let open = Array()
   let g_score : @hashmap.HashMap[Key, Double] = @hashmap.HashMap([])
   let came_from : @hashmap.HashMap[Key, Key] = @hashmap.HashMap([])
   let nodes_by_key : @hashmap.HashMap[Key, Node] = @hashmap.HashMap([])

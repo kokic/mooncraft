@@ -6,7 +6,12 @@ pub fn build_chunk_colors_split(
   size : Int,
 ) -> MeshColorsSplit {
   guard PaddedChunk::new(registry, chunk_data, chunk_light, size) is Some(chunk) else {
-    return MeshColorsSplit::{ normal: [], leaf: [], water: [], translucent: [] }
+    return MeshColorsSplit::{
+      normal: [],
+      leaf: [],
+      water: [],
+      translucent: [],
+    }
   }
   let targets = ColorTargets::new()
   for x in 0..<size {

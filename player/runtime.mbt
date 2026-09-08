@@ -9,8 +9,17 @@ pub struct HotbarSlot {
 } derive(Debug, ToJson, FromJson)
 
 ///|
+pub extend HotbarSlot with Debug::{to_repr}
+
+///|
+pub extend HotbarSlot with ToJson::{to_json}
+
+///|
+pub extend HotbarSlot with FromJson::{from_json}
+
+///|
 pub fn HotbarSlot::new(name : String, category : String) -> HotbarSlot {
-  { name, category }
+  { name, category, }
 }
 
 ///|
@@ -22,6 +31,15 @@ pub struct PlayerInventorySnapshot {
   hotbar_slots : Array[HotbarSlot?]
   inventory_open : Bool
 } derive(Debug, ToJson, FromJson)
+
+///|
+pub extend PlayerInventorySnapshot with Debug::{to_repr}
+
+///|
+pub extend PlayerInventorySnapshot with ToJson::{to_json}
+
+///|
+pub extend PlayerInventorySnapshot with FromJson::{from_json}
 
 ///|
 pub struct PlayerInventoryRuntime {

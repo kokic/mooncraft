@@ -17,7 +17,7 @@ pub fn texture_index_override(
   index : Int,
   texture : String,
 ) -> TextureIndexOverride {
-  TextureIndexOverride::{ index, texture }
+  TextureIndexOverride::{ index, texture, }
 }
 
 ///|
@@ -25,7 +25,7 @@ pub fn material_texture_override(
   material : String,
   texture : String,
 ) -> MaterialTextureOverride {
-  MaterialTextureOverride::{ material, texture }
+  MaterialTextureOverride::{ material, texture, }
 }
 
 ///|

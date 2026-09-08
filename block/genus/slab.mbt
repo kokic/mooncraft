@@ -11,7 +11,7 @@ pub struct SlabModelData {
 }
 
 ///|
-pub let slab_data : SlabModelData = SlabModelData::{ max_y: SLAB_MAX_Y }
+pub let slab_data : SlabModelData = SlabModelData::{ max_y: SLAB_MAX_Y, }
 
 ///|
 pub fn Slab::unique_name(base : String, state : UInt) -> String {
@@ -24,8 +24,8 @@ pub fn Slab::unique_name(base : String, state : UInt) -> String {
 ///|
 pub fn Slab::box(state : UInt) -> @shape.Box {
   match state.reinterpret_as_int() {
-    1 => @shape.Box::{ min: [0.0F, SLAB_MAX_Y, 0.0F], max: [1.0F, 1.0F, 1.0F] }
-    _ => @shape.Box::{ min: [0.0F, 0.0F, 0.0F], max: [1.0F, SLAB_MAX_Y, 1.0F] }
+    1 => @shape.Box::{ min: [0.0F, SLAB_MAX_Y, 0.0F], max: [1.0F, 1.0F, 1.0F], }
+    _ => @shape.Box::{ min: [0.0F, 0.0F, 0.0F], max: [1.0F, SLAB_MAX_Y, 1.0F], }
   }
 }
 

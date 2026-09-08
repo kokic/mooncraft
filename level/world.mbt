@@ -577,7 +577,7 @@ fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
     world, wx, wz, sample, surface_biome, params,
   )
   let surface = surface_height_with_params(world, wx, wz, sample, surface_biome)
-  TerrainColumn::{ wx, wz, sample, biome, surface_biome, plain, surface }
+  TerrainColumn::{ wx, wz, sample, biome, surface_biome, plain, surface, }
 }
 
 ///|
@@ -621,7 +621,7 @@ pub fn World::new(
   let noise = @util.PerlinNoise::new(seed~)
   let terrain_noise = TerrainNoiseRouter::new(seed)
   let infinite_height = normalize_infinite_world_height(height)
-  World::{ seed, kind: world_type, infinite_height, noise, terrain_noise }
+  World::{ seed, kind: world_type, infinite_height, noise, terrain_noise, }
 }
 
 ///|

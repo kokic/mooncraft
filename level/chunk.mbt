@@ -9,7 +9,7 @@ pub struct Chunk {
 ///|
 pub fn Chunk::new(x : Int, y : Int, z : Int) -> Chunk {
   let size = CHUNK_X_SIZE * CHUNK_Y_SIZE * CHUNK_Z_SIZE
-  Chunk::{ x, y, z, tile_map: Array::make(size, 0) }
+  Chunk::{ x, y, z, tile_map: Array::make(size, 0), }
 }
 
 ///|

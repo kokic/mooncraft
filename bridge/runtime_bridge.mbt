@@ -197,7 +197,7 @@ pub extern "js" fn js_look_at_xyz(
 ///|
 pub extern "js" fn js_start_animation_cycle(
   entity_id : String,
-  clips : Array[String],
+  clips : FixedArray[String],
   interval_ms : Int,
   timeout_ms : Int,
 ) -> Unit =
@@ -335,7 +335,7 @@ pub fn look_at_xzy(
 ///|
 pub fn start_animation_cycle(
   entity_id : String,
-  clips : Array[String],
+  clips : FixedArray[String],
   interval_ms? : Int = DEFAULT_DEMO_INTERVAL_MS,
   timeout_ms? : Int = DEFAULT_API_TIMEOUT_MS,
 ) -> Unit {

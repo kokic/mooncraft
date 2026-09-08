@@ -7,7 +7,7 @@ pub extern "js" fn Float32Array::new(length : Int) -> Float32Array =
   #| (length) => new Float32Array(length)
 
 ///|
-pub extern "js" fn Float32Array::as_array(self : Self) -> Array[Double] =
+pub extern "js" fn Float32Array::as_array(self : Self) -> FixedArray[Double] =
   #| (array) => array
 
 ///|
@@ -28,5 +28,5 @@ pub fn Float32Array::at(self : Self, index : Int) -> Double {
 
 ///|
 pub fn Float32Array::values(self : Self) -> Array[Double] {
-  self.as_array()
+   Array::from_fixed_array(self.as_array())
 }

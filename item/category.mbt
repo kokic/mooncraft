@@ -6,6 +6,9 @@ pub(all) enum Category {
 } derive(Eq)
 
 ///|
+pub extend Category with Eq::{equal, not_equal}
+
+///|
 pub fn Category::tag(category : Category) -> String {
   match category {
     Item => "item"

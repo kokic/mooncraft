@@ -9,11 +9,29 @@ pub struct SaveWorld {
 } derive(Debug, ToJson, FromJson)
 
 ///|
+pub extend SaveWorld with Debug::{to_repr}
+
+///|
+pub extend SaveWorld with ToJson::{to_json}
+
+///|
+pub extend SaveWorld with FromJson::{from_json}
+
+///|
 pub struct SavePlayer {
   position : Array[Double]
   yaw : Double
   pitch : Double
 } derive(Debug, ToJson, FromJson)
+
+///|
+pub extend SavePlayer with Debug::{to_repr}
+
+///|
+pub extend SavePlayer with ToJson::{to_json}
+
+///|
+pub extend SavePlayer with FromJson::{from_json}
 
 ///|
 pub struct SavePayload {
@@ -26,10 +44,13 @@ pub struct SavePayload {
   entities : Array[@entity.EntitySave]
 } derive(Debug, ToJson, FromJson)
 
+///|
 pub extend SavePayload with Debug::{to_repr}
 
+///|
 pub extend SavePayload with ToJson::{to_json}
 
+///|
 pub extend SavePayload with FromJson::{from_json}
 
 ///|

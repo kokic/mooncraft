@@ -6,6 +6,15 @@ pub struct EntityPosition {
 } derive(Debug, ToJson, FromJson)
 
 ///|
+pub extend EntityPosition with Debug::{to_repr}
+
+///|
+pub extend EntityPosition with ToJson::{to_json}
+
+///|
+pub extend EntityPosition with FromJson::{from_json}
+
+///|
 pub fn EntityPosition::new(
   x : Double,
   y : Double,
@@ -21,6 +30,15 @@ pub(all) enum MobKind {
   Snowman
   Moonbit
 } derive(Debug, ToJson, FromJson)
+
+///|
+pub extend MobKind with Debug::{to_repr}
+
+///|
+pub extend MobKind with ToJson::{to_json}
+
+///|
+pub extend MobKind with FromJson::{from_json}
 
 ///|
 pub fn MobKind::from_name(name : StringView) -> MobKind? {
@@ -41,12 +59,30 @@ pub(all) enum ProjectileKind {
 } derive(Debug, ToJson, FromJson)
 
 ///|
+pub extend ProjectileKind with Debug::{to_repr}
+
+///|
+pub extend ProjectileKind with ToJson::{to_json}
+
+///|
+pub extend ProjectileKind with FromJson::{from_json}
+
+///|
 #warnings("-unused_constructor")
 pub(all) enum EntityKind {
   Mob(MobKind)
   Projectile(ProjectileKind)
   ItemDrop
 } derive(Debug, ToJson, FromJson)
+
+///|
+pub extend EntityKind with Debug::{to_repr}
+
+///|
+pub extend EntityKind with ToJson::{to_json}
+
+///|
+pub extend EntityKind with FromJson::{from_json}
 
 ///|
 pub struct EntitySpawn {
@@ -59,6 +95,8 @@ pub struct EntitySpawn {
   upside_down : Bool
   yaw : Double
 } derive(Debug)
+
+pub extend EntitySpawn with Debug::{to_repr}
 
 ///|
 pub fn EntitySpawn::new(
@@ -95,6 +133,9 @@ pub struct EntitySnapshot {
   upside_down : Bool
 } derive(Debug)
 
+pub extend EntitySnapshot with Debug::{to_repr}
+
+
 ///|
 /// Persistent movement state for an entity that was moving when the world was saved.
 pub struct EntityMovementSave {
@@ -102,6 +143,12 @@ pub struct EntityMovementSave {
   next_index : Int
   started : Bool
 } derive(Debug, ToJson, FromJson)
+
+pub extend EntityMovementSave with Debug::{to_repr}
+
+pub extend EntityMovementSave with ToJson::{to_json}
+
+pub extend EntityMovementSave with FromJson::{from_json}
 
 ///|
 /// Complete persistent state owned by the entity runtime.
@@ -118,9 +165,21 @@ pub struct EntitySave {
 } derive(Debug, ToJson, FromJson)
 
 ///|
+pub extend EntitySave with Debug::{to_repr}
+
+///|
+pub extend EntitySave with ToJson::{to_json}
+
+///|
+pub extend EntitySave with FromJson::{from_json}
+
+///|
 pub enum EntityEvent {
   MovementStarted(String)
   WaypointReached(String, Int)
   MovementCompleted(String)
   MovementCancelled(String)
 } derive(Debug)
+
+///|
+pub extend EntityEvent with Debug::{to_repr}

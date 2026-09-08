@@ -54,6 +54,12 @@ pub struct ChunkSection {
 } derive(Debug, ToJson)
 
 ///|
+pub extend ChunkSection with Debug::{to_repr}
+
+///|
+pub extend ChunkSection with ToJson::{to_json}
+
+///|
 /// One MoonBit-prepared mesh upload for a level section.
 pub struct ChunkMeshCommand {
   chunk_key : String

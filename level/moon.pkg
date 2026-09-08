@@ -20,7 +20,7 @@ import {
 } for "wbtest"
 
 import {
-  "moonbitlang/core/hashmap",
+  // "moonbitlang/core/hashmap",
   "moonbitlang/core/test",
 } for "test"
 

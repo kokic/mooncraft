@@ -12,6 +12,15 @@ pub struct Blueprint {
 } derive(Debug, ToJson, FromJson)
 
 ///|
+pub extend Blueprint with Debug::{to_repr}
+
+///|
+pub extend Blueprint with ToJson::{to_json}
+
+///|
+pub extend Blueprint with FromJson::{from_json}
+
+///|
 pub fn Blueprint::new(
   name : String,
   size : Array[Int],

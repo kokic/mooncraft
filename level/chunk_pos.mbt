@@ -6,6 +6,9 @@ pub struct ChunkBlockPos {
 } derive(Debug)
 
 ///|
+pub extend ChunkBlockPos with Debug::{to_repr}
+
+///|
 const SHIFT_X = 4
 
 ///|

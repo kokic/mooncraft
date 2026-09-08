@@ -9,7 +9,7 @@ import {
 }
 
 import {
-  "moonbitlang/core/hashmap",
+  // "moonbitlang/core/hashmap",
   "moonbitlang/core/test",
 } for "test"
 

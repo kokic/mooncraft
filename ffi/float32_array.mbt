@@ -27,6 +27,5 @@ pub fn Float32Array::at(self : Self, index : Int) -> Double {
 }
 
 ///|
-pub fn Float32Array::values(self : Self) -> Array[Double] {
-   Array::from_fixed_array(self.as_array())
-}
+pub extern "js" fn Float32Array::values(self : Self) -> FixedArray[Double] =
+  #| (array) => array

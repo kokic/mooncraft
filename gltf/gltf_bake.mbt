@@ -264,8 +264,8 @@ fn triangle_shade(
 /// The three transformed vertices of triangle `t` and their source indices.
 fn triangle_vertices(
   world : @ffi.Float32Array,
-  positions : Array[Double],
-  indices : Array[Double],
+  positions : FixedArray[Double],
+  indices : FixedArray[Double],
   t : Int,
 ) -> ((Array[Double], Array[Double], Array[Double]), Array[Int]) {
   let v : Array[Int] = [0, 0, 0]
@@ -304,7 +304,7 @@ fn emit_baked_vertex(
   out_uvs : Array[Float],
   out_shades : Array[Float],
   p : Array[Double],
-  uvs : Array[Double],
+  uvs : FixedArray[Double],
   vi : Int,
   shade : Float,
 ) -> Unit {
@@ -327,7 +327,7 @@ fn emit_baked_triangle(
   out_positions : Array[Float],
   out_uvs : Array[Float],
   out_shades : Array[Float],
-  uvs : Array[Double],
+  uvs : FixedArray[Double],
   p0 : Array[Double],
   p1 : Array[Double],
   p2 : Array[Double],

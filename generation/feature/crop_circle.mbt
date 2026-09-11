@@ -3,10 +3,7 @@
 // terrain experiments.
 // STATUS: NEEDS_ADJUSTMENT - glyph coverage and placement rules are bespoke;
 // move to data if this becomes user-facing content.
-pub let crop_circle_texts : Array[String] = [
-  "Spore", "Jerry", "Yorkin", "Herobrine", "knifefire", "Guest0x0", "Also try Minecraft",
-  "Also try Manosaba",
-]
+pub let crop_circle_texts : Array[String] = []
 
 ///|
 const GLYPH_WIDTH : Int = 5
@@ -33,20 +30,9 @@ const CROP_TEXT_Z_STEP : Int = 72
 const CROP_TEXT_Z_JITTER : Int = 2
 
 ///|
-fn clamp01(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
-  }
-}
-
-///|
 fn hash01(seed : Int, salt : Int) -> Double {
   let n = seed * 110351 + salt * 92317 + 7919
-  clamp01((@util.Noise::fast(n) + 1.0) * 0.5)
+  @util.clamp01((@util.Noise::fast(n) + 1.0) * 0.5)
 }
 
 ///|
@@ -163,7 +149,9 @@ pub fn place_crop_circle_texts_flat(
   set_block : (Int, Int, Int, UInt) -> Unit,
   world_seed : Int,
   surface_y : Int,
-  filler? : @block.BlockId = @block.lookup_by_name("grass_path").unwrap().id,
+  filler? : @block.BlockId = @block.lookup_by_name("grass_path")
+    .unwrap()
+    .internal_id(),
 ) -> Unit {
   for i in 0..<crop_circle_texts.length() {
     let text = crop_circle_texts[i]

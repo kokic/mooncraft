@@ -7,8 +7,9 @@ target
 .mooncakes/
 .moonagent/
 .local/
+.dist/
+node_modules/
+package-lock.json
 dev/
-dist/js/release/
-dist/.moon-lock
 *.mbti
 AGENTS.md

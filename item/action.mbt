@@ -1,13 +1,13 @@
 ///|
 pub enum BlockSelector {
-  Exact(@util.UniqueName)
-  AnyOf(Array[@util.UniqueName])
+  Exact(@schema.UniqueID)
+  AnyOf(Array[@schema.UniqueID])
 }
 
 ///|
 pub fn BlockSelector::matches(
   selector : BlockSelector,
-  name : @util.UniqueName,
+  name : @schema.UniqueID,
 ) -> Bool {
   match selector {
     Exact(expected) => name == expected
@@ -23,7 +23,7 @@ pub fn BlockSelector::matches(
 ///|
 test "block_selector_matches" {
   assert_true(BlockSelector::Exact("water").matches("water"))
-  assert_false(BlockSelector::Exact("water").matches("air"))
+  assert_false(BlockSelector::Exact("water").matches(@schema.AIR_NAME))
   assert_true(
     BlockSelector::AnyOf(["grass", "pre-classic.grass"]).matches("grass"),
   )
@@ -59,8 +59,9 @@ pub enum UseOnAction {
     place_wx~ : Int,
     place_wy~ : Int,
     place_wz~ : Int,
-    name~ : @util.UniqueName,
-    require_air~ : Bool
+    name~ : @schema.UniqueID,
+    require_air~ : Bool,
+    click~ : (Float, Float, Float)
   )
   Batch(Array[UseOnAction])
 }

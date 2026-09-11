@@ -1,17 +1,17 @@
 ///|
-fn can_break_block(long_id : UInt) -> Bool {
-  if long_id == @block.AIR_LONG_ID {
+fn can_break_block(internal_id : UInt) -> Bool {
+  if internal_id == @schema.AIR_ID {
     false
   } else {
-    @block.lookup_by_long_id(long_id)
-    .map(block => block.is_selectable())
-    .unwrap_or(false)
+    @block.lookup_by_internal_id(internal_id).map_or(false, block => {
+      block.is_selectable()
+    })
   }
 }
 
 ///|
 pub fn apply_use_action(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   action : @item.UseAction,
 ) -> Array[String] {
@@ -29,15 +29,10 @@ pub fn apply_use_action(
       }
       out
     }
-    @item.UseAction::BreakBlock(wx~, wy~, wz~) =>
-      match get_block_id(chunk_map, size, wx, wy, wz) {
-        None => []
-        Some(id) =>
-          if can_break_block(id) {
-            set_block_id(chunk_map, size, wx, wy, wz, @block.AIR_LONG_ID)
-          } else {
-            []
-          }
-      }
+    @item.UseAction::BreakBlock(wx~, wy~, wz~) => {
+      guard get_block_id(chunk_map, size, wx, wy, wz) is Some(id) else { [] }
+      guard can_break_block(id) else { [] }
+      set_block_id(chunk_map, size, wx, wy, wz, @schema.AIR_ID)
+    }
   }
 }

@@ -1,4 +1,5 @@
 import {
-  "kokic/mooncraft/util",
+  "moonbitlang/core/hashmap",
+  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/block/shape",
 }

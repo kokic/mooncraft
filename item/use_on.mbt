@@ -31,6 +31,7 @@ pub fn use_item_on(
             place_wz=prev[2],
             name=block_name,
             require_air=true,
+            click~,
           )
         Empty | Unknown => UseOnAction::None
       }

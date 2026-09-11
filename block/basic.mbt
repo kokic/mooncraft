@@ -2,8 +2,8 @@
 /// Block definition used by both simulation and rendering.
 /// Rendering derives texture indices from `faces`.
 pub struct Block {
-  name : @util.UniqueName
-  id : BlockId
+  name : @schema.UniqueID
+  priv id : BlockId
   state : UInt
   occlusion_cull : Bool
   /// Eliminate coplanarity between adjacent blocks
@@ -24,9 +24,16 @@ pub struct Block {
 pub type BlockId = UInt
 
 ///|
+let block_id_table : @schema.InternalIDCounter = @schema.InternalIDCounter::new()
+
+///|
+fn alloc_block_id() -> @schema.InternalID {
+  block_id_table.allocate()
+}
+
+///|
 fn Block::create(
-  name : @util.UniqueName,
-  id? : BlockId = alloc_id(),
+  name : @schema.UniqueID,
   state? : UInt = 0,
   occlusion_cull? : Bool = true,
   same_block_cull? : Bool = true,
@@ -39,8 +46,39 @@ fn Block::create(
   category? : @item.Category = @item.Block,
   faces : FixedArray[String],
 ) -> Block {
-  // STATUS: COMPLETE - supported face layouts are 0/1/2/3/6 textures. The
-  // panic below catches invalid registry entries during development.
+  Block::unsafe_create_with_specified_id(
+    name,
+    state~,
+    occlusion_cull~,
+    same_block_cull~,
+    luminance~,
+    opacity~,
+    alpha_mode~,
+    shape~,
+    facing~,
+    material~,
+    category~,
+    faces,
+    alloc_block_id(),
+  )
+}
+
+///|
+fn Block::unsafe_create_with_specified_id(
+  name : @schema.UniqueID,
+  state? : UInt = 0,
+  occlusion_cull? : Bool = true,
+  same_block_cull? : Bool = true,
+  luminance? : Int = 0,
+  opacity? : Int = 15,
+  alpha_mode? : AlphaMode = AlphaMode::Opaque,
+  shape? : Shape = Shape::Cube,
+  facing? : Facing = Facing::None,
+  material? : Material = Material::Normal,
+  category? : @item.Category = @item.Block,
+  faces : FixedArray[String],
+  id : BlockId,
+) -> Block {
   let faces = match faces.length() {
     0 => TextureNames::new()
     1 => TextureNames::isotropic(faces[0])
@@ -75,41 +113,26 @@ fn Block::create(
 }
 
 ///|
-pub fn Block::long_id(block : Block, state? : UInt = block.state) -> UInt {
-  @util.pack_long_id(block.id, state)
+pub fn Block::internal_id(
+  block : Block,
+  state? : UInt = block.state,
+) -> @schema.InternalID {
+  @schema.encode_variant(block.id, state)
 }
 
 ///|
 pub let fallback_texture : String = "missing_tile"
 
 ///|
+#export_name("collectTextureNames")
 pub fn collect_texture_names() -> Array[String] {
-  let seen : Map[String, Bool] = Map([])
+  let seen : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
   let out : Array[String] = [fallback_texture]
   seen[fallback_texture] = true
   for block in blocks {
-    let faces = block.faces
-    if faces.pos_x is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.neg_x is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.pos_y is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.neg_y is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.pos_z is Some(tex) && !seen.contains(tex) {
-      seen[tex] = true
-      out.push(tex)
-    }
-    if faces.neg_z is Some(tex) && !seen.contains(tex) {
+    for face in block.faces.all() {
+      guard face is Some(tex) else { continue }
+      guard !seen.contains(tex) else { continue }
       seen[tex] = true
       out.push(tex)
     }
@@ -125,12 +148,12 @@ pub fn collect_texture_names() -> Array[String] {
 }
 
 ///|
-/// Collect (long_id, opacity, luminance) for lighting.
+/// Collect (internal_id, opacity, luminance) for lighting.
 pub fn collect_block_light_info() -> Array[Array[Int]] {
   let out : Array[Array[Int]] = []
   for block in blocks {
-    let long_id = block.long_id().reinterpret_as_int()
-    out.push([long_id, block.opacity, block.luminance])
+    let internal_id = block.internal_id().reinterpret_as_int()
+    out.push([internal_id, block.opacity, block.luminance])
   }
   out
 }

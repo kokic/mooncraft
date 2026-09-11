@@ -25,26 +25,6 @@ pub(all) struct BiomeSample {
 }
 
 ///|
-fn clamp01(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
-  }
-}
-
-///|
-fn max0(value : Double) -> Double {
-  if value > 0.0 {
-    value
-  } else {
-    0.0
-  }
-}
-
-///|
 pub fn fbm2d(
   noise : @util.PerlinNoise,
   x : Double,
@@ -125,7 +105,7 @@ pub fn sample(noise : @util.PerlinNoise, wx : Int, wz : Int) -> BiomeSample {
       2.0,
       0.5,
     ).abs()
-  let ridge = clamp01(ridge_a * 0.7 + ridge_b * 0.3)
+  let ridge = @util.clamp01(ridge_a * 0.7 + ridge_b * 0.3)
   let river = fbm2d(
     noise,
     (x + 7777.0) * RIVER_FREQ,
@@ -147,10 +127,10 @@ pub fn sample(noise : @util.PerlinNoise, wx : Int, wz : Int) -> BiomeSample {
 
 ///|
 fn mountain_score(sample : BiomeSample) -> Double {
-  let erosion_t = clamp01((sample.erosion + 1.0) * 0.5)
+  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
   sample.ridge * (1.20 - erosion_t * 0.60) +
   sample.weirdness.abs() * 0.14 +
-  max0(sample.continental) * 0.18
+  @util.max0(sample.continental) * 0.18
 }
 
 ///|

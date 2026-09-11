@@ -18,24 +18,121 @@ const DESERT_LAKE_DEPTH_MIN : Int = 4
 const DESERT_LAKE_DEPTH_MAX : Int = 10
 
 ///|
-fn clamp01_infinite(value : Double) -> Double {
-  if value < 0.0 {
-    0.0
-  } else if value > 1.0 {
-    1.0
-  } else {
-    value
+const DENSITY_SAMPLE_STEP : Int = 4
+
+///|
+priv struct InfiniteColumnSample {
+  terrain : TerrainColumn
+  dirt_depth : Int
+  sand_depth : Int
+  top_solid_wy : Int
+  inland_min_wy : Int
+  densities : Array[Double]
+  fluids : Array[TerrainFluid]
+}
+
+///|
+priv struct InfiniteBlockPalette {
+  bedrock : UInt
+  stone : UInt
+  deepslate : UInt
+  grass : UInt
+  snow : UInt
+  dirt : UInt
+  sand : UInt
+  sandstone : UInt
+  water : UInt
+  lava : UInt
+  coal_ore : UInt
+  iron_ore : UInt
+  gold_ore : UInt
+  redstone_ore : UInt
+  diamond_ore : UInt
+  lapis_ore : UInt
+  emerald_ore : UInt
+}
+
+///|
+fn InfiniteBlockPalette::new() -> InfiniteBlockPalette {
+  {
+    bedrock: @block.lookup_by_name("bedrock").unwrap().internal_id(),
+    stone: @block.lookup_by_name("stone").unwrap().internal_id(),
+    deepslate: @block.lookup_by_name("deepslate").unwrap().internal_id(),
+    grass: @block.lookup_by_name("grass").unwrap().internal_id(),
+    snow: @block.lookup_by_name("classic.snow").unwrap().internal_id(),
+    dirt: @block.lookup_by_name("dirt").unwrap().internal_id(),
+    sand: @block.lookup_by_name("sand").unwrap().internal_id(),
+    sandstone: @block.lookup_by_name("sandstone").unwrap().internal_id(),
+    water: @block.lookup_by_name("water").unwrap().internal_id(),
+    lava: @block.lookup_by_name("lava").unwrap().internal_id(),
+    coal_ore: @block.lookup_by_name("classic.coal_ore").unwrap().internal_id(),
+    iron_ore: @block.lookup_by_name("classic.iron_ore").unwrap().internal_id(),
+    gold_ore: @block.lookup_by_name("classic.gold_ore").unwrap().internal_id(),
+    redstone_ore: @block.lookup_by_name("classic.redstone_ore")
+    .unwrap()
+    .internal_id(),
+    diamond_ore: @block.lookup_by_name("classic.diamond_ore")
+    .unwrap()
+    .internal_id(),
+    lapis_ore: @block.lookup_by_name("classic.lapis_ore").unwrap().internal_id(),
+    emerald_ore: @block.lookup_by_name("classic.emerald_ore")
+    .unwrap()
+    .internal_id(),
   }
 }
 
 ///|
+fn sample_column_densities(
+  world : World,
+  terrain : TerrainColumn,
+) -> Array[Double] {
+  let min_y = world.min_y()
+  let max_y = world.max_y()
+  let height = max_y - min_y + 1
+  let densities = Array::make(height, -1.0)
+  let mut lower_y = min_y
+  let mut lower_density = density_at_column(world, terrain, lower_y)
+  while lower_y < max_y {
+    let candidate_y = lower_y + DENSITY_SAMPLE_STEP
+    let upper_y = if candidate_y < max_y { candidate_y } else { max_y }
+    let upper_density = density_at_column(world, terrain, upper_y)
+    let span = (upper_y - lower_y).to_double()
+    for wy in lower_y..<upper_y {
+      let t = (wy - lower_y).to_double() / span
+      densities[wy - min_y] = lower_density +
+        (upper_density - lower_density) * t
+    }
+    lower_y = upper_y
+    lower_density = upper_density
+  }
+  densities[max_y - min_y] = lower_density
+  densities
+}
+
+///|
+fn InfiniteColumnSample::density_at(
+  self : InfiniteColumnSample,
+  wy : Int,
+) -> Double {
+  self.densities[wy - INFINITE_MIN_Y]
+}
+
+///|
+fn InfiniteColumnSample::fluid_at(
+  self : InfiniteColumnSample,
+  wy : Int,
+) -> TerrainFluid {
+  self.fluids[wy - INFINITE_MIN_Y]
+}
+
+///|
 fn noise01(value : Double) -> Double {
-  clamp01_infinite((value + 1.0) * 0.5)
+  @util.clamp01((value + 1.0) * 0.5)
 }
 
 ///|
 fn lerp_int(min : Int, max : Int, t : Double) -> Int {
-  min + ((max - min).to_double() * clamp01_infinite(t)).round().to_int()
+  min + ((max - min).to_double() * @util.clamp01(t)).round().to_int()
 }
 
 ///|
@@ -47,6 +144,18 @@ fn clamp_depth(depth : Int) -> Int {
   } else {
     depth
   }
+}
+
+///|
+fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
+  let layer = wy - world.min_y()
+  guard layer >= 0 && layer < 5 else { false }
+  guard layer > 0 else { true }
+  let coordinate_seed = wx * 73428767 +
+    wy * 42317861 +
+    wz * 912931 +
+    world.seed.reinterpret_as_int()
+  noise01(@util.Noise::fast(coordinate_seed)) < (5 - layer).to_double() / 5.0
 }
 
 ///|
@@ -112,139 +221,402 @@ fn desert_lake_fill_depth(
 }
 
 ///|
+/// Prepare all terrain state shared by the vertical chunks at one XZ block
+/// coordinate. This is the canonical noise/density cache for column generation.
+fn prepare_infinite_column(
+  world : World,
+  wx : Int,
+  wz : Int,
+) -> InfiniteColumnSample {
+  let terrain = terrain_column(world, wx, wz)
+  let densities = sample_column_densities(world, terrain)
+  let min_y = world.min_y()
+  let max_y = world.max_y()
+  let mut top_solid_wy = min_y
+  for wy = max_y; wy > min_y; wy = wy - 1 {
+    if densities[wy - min_y] > 0.0 {
+      top_solid_wy = wy
+      break
+    }
+  }
+  let inland_depth = match terrain.surface_biome {
+    @biome.DesertLakes => desert_lake_fill_depth(world, wx, wz, top_solid_wy)
+    _ => 0
+  }
+  let inland_min_wy = top_solid_wy - inland_depth + 1
+  let fluids : Array[TerrainFluid] = []
+  for wy in min_y..<=max_y {
+    let density = densities[wy - min_y]
+    fluids.push(
+      if density <= 0.0 {
+        aquifer_fluid_at(world, terrain, wy, top_solid_wy)
+      } else {
+        Air
+      },
+    )
+  }
+  {
+    terrain,
+    dirt_depth: surface_dirt_depth(world, wx, wz),
+    sand_depth: desert_sand_depth(world, wx, wz),
+    top_solid_wy,
+    inland_min_wy,
+    densities,
+    fluids,
+  }
+}
+
+///|
+/// The block at the top of a solid column: sand for arid and ocean biomes,
+/// snow at mountain elevations, grass otherwise.
+fn top_surface_block(
+  biome : @biome.Biome,
+  wy : Int,
+  palette : InfiniteBlockPalette,
+) -> UInt {
+  match biome {
+    @biome.Ocean
+    | @biome.DeepOcean
+    | @biome.Desert
+    | @biome.DesertLakes
+    | @biome.Beach => palette.sand
+    @biome.Mountains =>
+      if wy >= SEA_LEVEL + 23 {
+        palette.snow
+      } else {
+        palette.grass
+      }
+    @biome.WindsweptHills =>
+      if wy >= SEA_LEVEL + 15 {
+        palette.snow
+      } else {
+        palette.grass
+      }
+    _ => palette.grass
+  }
+}
+
+///|
+/// The block for a fluid cell: air above the aquifer, water or lava below.
+fn fluid_block(fluid : TerrainFluid, palette : InfiniteBlockPalette) -> UInt {
+  match fluid {
+    Air => @schema.AIR_ID
+    Water => palette.water
+    Lava => palette.lava
+  }
+}
+
+///|
+/// Rock block for a solid below-surface cell: deepslate below sea level, ore
+/// by layered noise bands above.
+fn underground_rock(
+  world : World,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+  biome : @biome.Biome,
+  palette : InfiniteBlockPalette,
+) -> UInt {
+  let rock = if wy < 0 { palette.deepslate } else { palette.stone }
+  @feature.pick_stone_ore(
+    world.noise,
+    wx,
+    wy,
+    wz,
+    biome is @biome.Mountains || biome is @biome.WindsweptHills,
+    rock,
+    palette.coal_ore,
+    palette.iron_ore,
+    palette.gold_ore,
+    palette.redstone_ore,
+    palette.diamond_ore,
+    palette.lapis_ore,
+    palette.emerald_ore,
+  )
+}
+
+///|
+fn fill_infinite_block(
+  world : World,
+  chunk : Chunk,
+  rx : Int,
+  ry : Int,
+  rz : Int,
+  column : InfiniteColumnSample,
+  palette : InfiniteBlockPalette,
+) -> Unit {
+  let (wx, wy, wz) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
+  if wy < world.min_y() || wy > world.max_y() {
+    chunk.update_tile_map(rx, ry, rz, @schema.AIR_ID)
+    return
+  }
+  let biome = column.terrain.surface_biome
+  let density = column.density_at(wy)
+  let use_inland_water = column.inland_min_wy <= wy && wy <= column.top_solid_wy
+  let block = if is_infinite_bedrock(world, wx, wy, wz) {
+    palette.bedrock
+  } else if use_inland_water {
+    palette.water
+  } else if density <= 0.0 {
+    fluid_block(column.fluid_at(wy), palette)
+  } else if wy == column.top_solid_wy {
+    top_surface_block(biome, wy, palette)
+  } else if (
+      biome is @biome.Desert ||
+      biome is @biome.DesertLakes ||
+      biome is @biome.Beach ||
+      biome is @biome.Ocean ||
+      biome is @biome.DeepOcean
+    ) &&
+    wy >= column.top_solid_wy - column.sand_depth {
+    palette.sand
+  } else if (biome is @biome.Desert || biome is @biome.DesertLakes) &&
+    wy >= column.top_solid_wy - column.sand_depth - DESERT_SANDSTONE_DEPTH {
+    palette.sandstone
+  } else if wy >= column.top_solid_wy - column.dirt_depth {
+    palette.dirt
+  } else {
+    underground_rock(world, wx, wy, wz, biome, palette)
+  }
+  chunk.update_tile_map(rx, ry, rz, block)
+}
+
+///|
+fn chunk_has_infinite_surface(
+  chunk : Chunk,
+  columns : Array[InfiniteColumnSample],
+) -> Bool {
+  let min_y = chunk.y * CHUNK_Y_SIZE
+  let max_y = min_y + CHUNK_Y_SIZE
+  columns.any(column => {
+    column.top_solid_wy >= min_y && column.top_solid_wy < max_y
+  })
+}
+
+///|
+fn place_biome_trees_in_generated_chunk(
+  world : World,
+  chunk : Chunk,
+  columns : Array[InfiniteColumnSample],
+  grass : UInt,
+) -> Unit {
+  guard chunk_has_infinite_surface(chunk, columns) else {
+    apply_pending_to_chunk(chunk)
+    return
+  }
+  let base_x = chunk.x * CHUNK_X_SIZE
+  let base_z = chunk.z * CHUNK_Z_SIZE
+  place_biome_trees_in_chunk_with_biome(
+    world,
+    chunk,
+    (wx, wz) => {
+      let rx = wx - base_x
+      let rz = wz - base_z
+      columns[rx * CHUNK_Z_SIZE + rz].terrain.surface_biome
+    },
+    internal_id => internal_id == grass,
+  )
+}
+
+///|
 /// Infinite terrain generation (biomes, soil, caves).
 fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
-  let air = @block.AIR_LONG_ID
-  let bedrock = @block.lookup_by_name("bedrock").unwrap().id
-  let stone = @block.lookup_by_name("stone").unwrap().id
-  let grass = @block.lookup_by_name("grass").unwrap().id
-  let snow = @block.lookup_by_name("classic.snow").unwrap().id
-  let dirt = @block.lookup_by_name("dirt").unwrap().id
-  let sand = @block.lookup_by_name("sand").unwrap().id
-  let sandstone = @block.lookup_by_name("sandstone").unwrap().id
-  let water = @block.lookup_by_name("water").unwrap().id
-  let coal_ore = @block.lookup_by_name("classic.coal_ore").unwrap().id
-  let iron_ore = @block.lookup_by_name("classic.iron_ore").unwrap().id
-  let gold_ore = @block.lookup_by_name("classic.gold_ore").unwrap().id
-  let redstone_ore = @block.lookup_by_name("classic.redstone_ore").unwrap().id
-  let diamond_ore = @block.lookup_by_name("classic.diamond_ore").unwrap().id
-  let lapis_ore = @block.lookup_by_name("classic.lapis_ore").unwrap().id
-  let emerald_ore = @block.lookup_by_name("classic.emerald_ore").unwrap().id
+  let palette = InfiniteBlockPalette::new()
+  let columns : Array[InfiniteColumnSample] = []
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      let column = terrain_column(world, wx, wz)
-      let biome = column.surface_biome
-      let dirt_depth = surface_dirt_depth(world, wx, wz)
-      let sand_depth = desert_sand_depth(world, wx, wz)
-      let surface = column.surface
-      let density_by_ry : Array[Double] = Array::make(CHUNK_Y_SIZE, -1.0)
-      let mut top_solid_ry = -1
+      let column = prepare_infinite_column(world, wx, wz)
+      columns.push(column)
       for ry in 0..<CHUNK_Y_SIZE {
-        let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
-        let density = density_at_column(world, column, wy)
-        density_by_ry[ry] = density
-        if wy >= INFINITE_MIN_Y && density > 0.0 {
-          top_solid_ry = ry
-        }
-      }
-      let top_solid_wy = if top_solid_ry >= 0 {
-        let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, top_solid_ry, rz)
-        wy
-      } else {
-        surface
-      }
-      let inland_depth = match biome {
-        @biome.DesertLakes =>
-          desert_lake_fill_depth(world, wx, wz, top_solid_wy)
-        _ => 0
-      }
-      let inland_top_wy = surface
-      let inland_min_wy = inland_top_wy - inland_depth + 1
-      for ry in 0..<CHUNK_Y_SIZE {
-        let (_, wy, _) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
-        let density = density_by_ry[ry]
-        let use_inland_water = inland_depth > 0 &&
-          wy <= inland_top_wy &&
-          wy >= inland_min_wy
-        if wy < INFINITE_MIN_Y {
-          chunk.update_tile_map(rx, ry, rz, air)
-        } else if wy == INFINITE_MIN_Y {
-          chunk.update_tile_map(rx, ry, rz, bedrock)
-        } else if use_inland_water {
-          chunk.update_tile_map(rx, ry, rz, water)
-        } else if density <= 0.0 {
-          if (
-              biome is @biome.Ocean ||
-              biome is @biome.DeepOcean ||
-              biome is @biome.Beach
-            ) &&
-            wy <= SEA_LEVEL &&
-            wy > surface {
-            chunk.update_tile_map(rx, ry, rz, water)
-          } else {
-            chunk.update_tile_map(rx, ry, rz, air)
-          }
-        } else if top_solid_ry >= 0 && ry == top_solid_ry {
-          match biome {
-            @biome.Ocean => chunk.update_tile_map(rx, ry, rz, sand)
-            @biome.DeepOcean => chunk.update_tile_map(rx, ry, rz, sand)
-            @biome.Desert => chunk.update_tile_map(rx, ry, rz, sand)
-            @biome.DesertLakes => chunk.update_tile_map(rx, ry, rz, sand)
-            @biome.Beach => chunk.update_tile_map(rx, ry, rz, sand)
-            @biome.Mountains =>
-              if wy >= SEA_LEVEL + 23 {
-                chunk.update_tile_map(rx, ry, rz, snow)
-              } else {
-                chunk.update_tile_map(rx, ry, rz, grass)
-              }
-            @biome.WindsweptHills =>
-              if wy >= SEA_LEVEL + 15 {
-                chunk.update_tile_map(rx, ry, rz, snow)
-              } else {
-                chunk.update_tile_map(rx, ry, rz, grass)
-              }
-            _ => chunk.update_tile_map(rx, ry, rz, grass)
-          }
-        } else if (
-            biome is @biome.Desert ||
-            biome is @biome.DesertLakes ||
-            biome is @biome.Beach ||
-            biome is @biome.Ocean ||
-            biome is @biome.DeepOcean
-          ) &&
-          wy >= top_solid_wy - sand_depth {
-          chunk.update_tile_map(rx, ry, rz, sand)
-        } else if (biome is @biome.Desert || biome is @biome.DesertLakes) &&
-          wy >= top_solid_wy - sand_depth - DESERT_SANDSTONE_DEPTH {
-          chunk.update_tile_map(rx, ry, rz, sandstone)
-        } else if wy >= top_solid_wy - dirt_depth {
-          chunk.update_tile_map(rx, ry, rz, dirt)
-        } else {
-          chunk.update_tile_map(
-            rx,
-            ry,
-            rz,
-            @feature.pick_stone_ore(
-              world.noise,
-              wx,
-              wy,
-              wz,
-              biome is @biome.Mountains || biome is @biome.WindsweptHills,
-              stone,
-              coal_ore,
-              iron_ore,
-              gold_ore,
-              redstone_ore,
-              diamond_ore,
-              lapis_ore,
-              emerald_ore,
-            ),
-          )
-        }
+        fill_infinite_block(world, chunk, rx, ry, rz, column, palette)
       }
     }
   }
-  place_biome_trees_in_chunk(world, chunk)
+  place_biome_trees_in_generated_chunk(world, chunk, columns, palette.grass)
   chunk
+}
+
+///|
+priv enum InfiniteColumnGenerationStage {
+  SampleColumns
+  FillColumns
+  PlaceTrees
+  Complete
+}
+
+///|
+/// Incremental generation state for one complete Infinite-world chunk column.
+/// Completed chunks remain private until every terrain and feature step finishes.
+pub struct InfiniteChunkColumnGeneration {
+  column_key : String
+  advance_impl : (Int) -> Bool
+  completed_chunks_impl : () -> Array[Chunk]?
+}
+
+///|
+priv struct InfiniteChunkColumnGenerationState {
+  world : World
+  chunk_x : Int
+  chunk_z : Int
+  chunks : Array[Chunk]
+  columns : Array[InfiniteColumnSample]
+  palette : InfiniteBlockPalette
+  mut stage : InfiniteColumnGenerationStage
+  mut next_index : Int
+}
+
+///|
+pub fn World::begin_infinite_chunk_column_generation(
+  world : World,
+  chunk_x : Int,
+  chunk_z : Int,
+) -> InfiniteChunkColumnGeneration {
+  let chunks : Array[Chunk] = []
+  let chunk_min_y = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
+  let chunk_max_y = @util.floor_div(world.max_y(), CHUNK_Y_SIZE)
+  for chunk_y in chunk_min_y..<=chunk_max_y {
+    chunks.push(Chunk::new(chunk_x, chunk_y, chunk_z))
+  }
+  let state = InfiniteChunkColumnGenerationState::{
+    world,
+    chunk_x,
+    chunk_z,
+    chunks,
+    columns: [],
+    palette: InfiniteBlockPalette::new(),
+    stage: SampleColumns,
+    next_index: 0,
+  }
+  {
+    column_key: chunk_column_key_by_chunk_xz(chunk_x, chunk_z),
+    advance_impl: budget => state.advance(budget),
+    completed_chunks_impl: () => state.completed_chunks(),
+  }
+}
+
+///|
+pub fn InfiniteChunkColumnGeneration::column_key(
+  self : InfiniteChunkColumnGeneration,
+) -> String {
+  self.column_key
+}
+
+///|
+fn InfiniteChunkColumnGenerationState::sample_next_column(
+  self : InfiniteChunkColumnGenerationState,
+) -> Unit {
+  let rx = self.next_index / CHUNK_Z_SIZE
+  let rz = self.next_index % CHUNK_Z_SIZE
+  self.columns.push(
+    prepare_infinite_column(
+      self.world,
+      self.chunk_x * CHUNK_X_SIZE + rx,
+      self.chunk_z * CHUNK_Z_SIZE + rz,
+    ),
+  )
+  self.next_index += 1
+  if self.next_index == CHUNK_X_SIZE * CHUNK_Z_SIZE {
+    self.stage = FillColumns
+    self.next_index = 0
+  }
+}
+
+///|
+fn InfiniteChunkColumnGenerationState::fill_next_column(
+  self : InfiniteChunkColumnGenerationState,
+) -> Unit {
+  let rx = self.next_index / CHUNK_Z_SIZE
+  let rz = self.next_index % CHUNK_Z_SIZE
+  let column = self.columns[self.next_index]
+  for chunk in self.chunks {
+    for ry in 0..<CHUNK_Y_SIZE {
+      fill_infinite_block(self.world, chunk, rx, ry, rz, column, self.palette)
+    }
+  }
+  self.next_index += 1
+  if self.next_index == CHUNK_X_SIZE * CHUNK_Z_SIZE {
+    self.stage = PlaceTrees
+    self.next_index = 0
+  }
+}
+
+///|
+fn InfiniteChunkColumnGenerationState::place_trees(
+  self : InfiniteChunkColumnGenerationState,
+) -> Unit {
+  for chunk in self.chunks {
+    place_biome_trees_in_generated_chunk(
+      self.world,
+      chunk,
+      self.columns,
+      self.palette.grass,
+    )
+  }
+  self.stage = Complete
+}
+
+///|
+/// Advance at most `work_budget` bounded XZ or feature work units.
+/// Returns true only after the complete vertical column is ready to publish.
+fn InfiniteChunkColumnGenerationState::advance(
+  self : InfiniteChunkColumnGenerationState,
+  work_budget : Int,
+) -> Bool {
+  guard work_budget > 0 else { return self.stage is Complete }
+  for _ in 0..<work_budget {
+    match self.stage {
+      SampleColumns => self.sample_next_column()
+      FillColumns => self.fill_next_column()
+      PlaceTrees => self.place_trees()
+      Complete => return true
+    }
+  }
+  self.stage is Complete
+}
+
+///|
+fn InfiniteChunkColumnGenerationState::completed_chunks(
+  self : InfiniteChunkColumnGenerationState,
+) -> Array[Chunk]? {
+  if self.stage is Complete {
+    Some(self.chunks)
+  } else {
+    None
+  }
+}
+
+///|
+pub fn InfiniteChunkColumnGeneration::advance(
+  self : InfiniteChunkColumnGeneration,
+  work_budget : Int,
+) -> Bool {
+  (self.advance_impl)(work_budget)
+}
+
+///|
+pub fn InfiniteChunkColumnGeneration::completed_chunks(
+  self : InfiniteChunkColumnGeneration,
+) -> Array[Chunk]? {
+  (self.completed_chunks_impl)()
+}
+
+///|
+/// Generate a complete vertical infinite-terrain column. Each XZ sample is
+/// prepared once, then consumed by every chunk at that position.
+fn generate_infinite_chunk_column(
+  world : World,
+  chunk_x : Int,
+  chunk_z : Int,
+) -> Array[Chunk] {
+  let generation = world.begin_infinite_chunk_column_generation(
+    chunk_x, chunk_z,
+  )
+  while !generation.advance(64) {
+
+  }
+  match generation.completed_chunks() {
+    Some(chunks) => chunks
+    None => abort("completed infinite column generation has no chunks")
+  }
 }

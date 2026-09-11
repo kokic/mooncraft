@@ -1,5 +1,12 @@
 import {
-  "kokic/mooncraft/entity",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/math",
+  "kokic/mooncraft/core/schema",
+  "kokic/mooncraft/gltf",
   "kokic/mooncraft/level",
   "kokic/mooncraft/player",
+  "kokic/mooncraft/ffi",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/entity",
+  "kokic/mooncraft/camera",
 }

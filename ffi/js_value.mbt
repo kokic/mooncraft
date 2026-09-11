@@ -3,6 +3,10 @@
 pub type JsValue
 
 ///|
+#external
+pub type JsMap
+
+///|
 pub extern "js" fn JsValue::undefined() -> JsValue =
   #| () => undefined
 
@@ -40,6 +44,9 @@ pub impl Show for JsValue with fn output(self, logger) -> Unit {
 }
 
 ///|
+pub extend JsValue with Show::{output, to_string}
+
+///|
 pub fn[T] cast_to_json_string(value : T) -> String {
   JsValue::cast_from(value).to_json_string()
 }
@@ -62,6 +69,9 @@ pub extern "js" fn JsValue::equal(a : JsValue, b : JsValue) -> Bool =
 pub impl Eq for JsValue with fn equal(self, other) -> Bool {
   JsValue::equal(self, other)
 }
+
+///|
+pub extend JsValue with Eq::{not_equal}
 
 ///|
 extern "js" fn JsValue::raw_get(self : Self, key : Self) -> Self = "(obj, key) => obj[key]"

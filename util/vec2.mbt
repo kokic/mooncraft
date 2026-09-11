@@ -5,8 +5,11 @@ pub struct Vec2[T] {
 } derive(Debug)
 
 ///|
+pub extend Vec2 with Debug::{to_repr}
+
+///|
 pub fn[T] Vec2::new(x : T, y : T) -> Vec2[T] {
-  Vec2::{ x, y }
+  Vec2::{ x, y, }
 }
 
 ///|
@@ -15,14 +18,23 @@ pub impl[T : Add] Add for Vec2[T] with fn add(u, v) {
 }
 
 ///|
+pub extend Vec2 with Add::{add}
+
+///|
 pub impl[T : Sub] Sub for Vec2[T] with fn sub(u, v) {
   Vec2::new(u.x - v.x, u.y - v.y)
 }
 
 ///|
+pub extend Vec2 with Sub::{sub}
+
+///|
 pub impl[T : Neg] Neg for Vec2[T] with fn neg(u) {
   Vec2::new(-u.x, -u.y)
 }
+
+///|
+pub extend Vec2 with Neg::{neg}
 
 ///|
 pub fn[T : Mul] Vec2::scale(v : Vec2[T], s : T) -> Vec2[T] {
@@ -40,6 +52,9 @@ pub impl[T : Mul] Mul for Vec2[T] with fn mul(u : Vec2[T], v : Vec2[T]) -> Vec2[
 ] {
   Vec2::new(u.x * v.x, u.y * v.y)
 }
+
+///|
+pub extend Vec2 with Mul::{mul}
 
 ///|
 /// ```plain
@@ -99,3 +114,6 @@ pub fn FVec2::almost_equal(u : FVec2, v : FVec2) -> Bool {
 pub impl Eq for FVec2 with fn equal(u, v) {
   u.x == v.x && u.y == v.y
 }
+
+///|
+pub extend FVec2 with Eq::{equal, not_equal}

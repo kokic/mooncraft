@@ -11,8 +11,8 @@ fn fill_flat(
   chunk : Chunk,
   flat_layer_names? : Array[String] = default_flat_layer_blocks,
 ) -> Chunk {
-  let air = @block.AIR_LONG_ID
-  let layer_ids = flat_layer_long_ids(flat_layer_names)
+  let air = @schema.AIR_ID
+  let layer_ids = flat_layer_internal_ids(flat_layer_names)
   let layer_count = layer_ids.length()
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
@@ -45,14 +45,20 @@ fn fill_flat(
 
 ///|
 /// Resolve flat-layer names to long IDs (unknown names become air).
-fn flat_layer_long_ids(flat_layer_blocks : Array[String]) -> Array[UInt] {
+fn flat_layer_internal_ids(flat_layer_blocks : Array[String]) -> Array[UInt] {
   let ids : Array[UInt] = []
   for name in flat_layer_blocks {
     ids.push(
       @block.lookup_by_name(name)
-      .map(block => block.long_id())
-      .unwrap_or(@block.AIR_LONG_ID),
+      .map(block => block.internal_id())
+      .unwrap_or(@schema.AIR_ID),
     )
   }
   ids
+}
+
+///|
+/// World Y of the top solid layer (grass) for the default flat world.
+pub fn flat_surface_height() -> Int {
+  default_flat_layer_blocks.length() - 1
 }

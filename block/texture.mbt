@@ -11,6 +11,11 @@ pub struct TextureNames {
 }
 
 ///|
+pub fn TextureNames::all(self : TextureNames) -> FixedArray[String?] {
+  [self.pos_x, self.neg_x, self.pos_y, self.neg_y, self.pos_z, self.neg_z]
+}
+
+///|
 pub fn TextureNames::new(
   pos_x? : String,
   neg_x? : String,
@@ -19,7 +24,7 @@ pub fn TextureNames::new(
   pos_z? : String,
   neg_z? : String,
 ) -> TextureNames {
-  TextureNames::{ pos_x, neg_x, pos_y, neg_y, pos_z, neg_z }
+  TextureNames::{ pos_x, neg_x, pos_y, neg_y, pos_z, neg_z, }
 }
 
 ///|

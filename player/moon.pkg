@@ -1,10 +1,13 @@
 import {
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/math",
+  "moonbitlang/core/json",
+  "kokic/mooncraft/core/schema",
   "kokic/mooncraft/block",
-  "kokic/mooncraft/ffi",
   "kokic/mooncraft/level",
-  "kokic/mooncraft/util",
-  "kokic/mooncraft/item",
-  "kokic/mooncraft/math3d",
   "kokic/mooncraft/block/shape",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "test"

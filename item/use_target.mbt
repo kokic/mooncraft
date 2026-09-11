@@ -1,17 +1,9 @@
 ///|
 priv enum UseTarget {
   KnownItem(Item)
-  KnownBlock(@util.UniqueName)
+  KnownBlock(@schema.UniqueID)
   Empty
   Unknown
-}
-
-///|
-fn UseTarget::is_usable(target : UseTarget) -> Bool {
-  match target {
-    KnownItem(_) | KnownBlock(_) => true
-    Empty | Unknown => false
-  }
 }
 
 ///|

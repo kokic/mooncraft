@@ -1,6 +1,6 @@
 ///|
-let items_by_name : Map[@util.UniqueName, Item] = {
-  let out : Map[@util.UniqueName, Item] = Map([])
+let items_by_name : @hashmap.HashMap[@schema.UniqueID, Item] = {
+  let out : @hashmap.HashMap[@schema.UniqueID, Item] = @hashmap.HashMap([])
   for item in items {
     if !out.contains(item.name) {
       out[item.name] = item

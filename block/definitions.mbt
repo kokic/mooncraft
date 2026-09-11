@@ -1,12 +1,10 @@
 ///|
-// STATUS: COMPLETE - enough blocks are registered for current terrain,
-// rendering, and interaction demos.
 // STATUS: INCOMPLETE - this is not a full Minecraft registry; many categories
 // and block behaviors are data-only or absent.
 pub let blocks : Array[Block] = [
-  // Basic
+  // Basic (id: 0)
   Block::create(
-    "air",
+    @schema.AIR_NAME,
     [],
     opacity=0,
     alpha_mode=AlphaMode::Cutout,
@@ -15,6 +13,9 @@ pub let blocks : Array[Block] = [
     category=@item.None,
   ),
   Block::create("stone", ["stone"]),
+  // Modern overworld underground material. The current asset set reuses the
+  // stone texture until a dedicated deepslate texture is added.
+  Block::create("deepslate", ["stone"]),
   Block::create("bedrock", ["bedrock"]),
   Block::create("obsidian", ["obsidian"]),
   Block::create("classic.obsidian", ["classic/obsidian"]),
@@ -23,9 +24,7 @@ pub let blocks : Array[Block] = [
 
   // Terrain
   Block::create("grass_snow", ["snow", "dirt", "grass_side_snowed"]),
-  // STATUS: NEEDS_ADJUSTMENT - the `classoc` prefix is likely a compatibility
-  // typo; keep it stable until save/registry references are audited.
-  Block::create("classoc.grass_snow", [
+  Block::create("classic.grass_snow", [
     "classic/snow", "dirt", "classic/grass_side_snowed",
   ]),
   ..[
@@ -41,7 +40,6 @@ pub let blocks : Array[Block] = [
     "grass_path",
     ["grass_path_top", "dirt", "grass_path_side"],
     shape=Shape::GrassPath,
-    occlusion_cull=false,
     opacity=14,
     alpha_mode=AlphaMode::Opaque,
   ),
@@ -141,6 +139,13 @@ pub let blocks : Array[Block] = [
     opacity=0,
     alpha_mode=AlphaMode::Opaque,
   ),
+  Block::create("oak_planks", ["classic/oak_planks"]),
+
+  // Wool
+  ..[
+    "black", "blue", "brown", "cyan", "gray", "green", "light_blue", "light_gray",
+    "lime", "magenta", "orange", "pink", "purple", "red", "white", "yellow",
+  ].map(v => Block::create("\{v}_wool", ["\{v}_wool"])),
 
   // Nether
   Block::create("netherrack", ["netherrack"]),
@@ -167,63 +172,95 @@ pub let blocks : Array[Block] = [
     Shape::Torch,
     luminance=14,
   ),
-]
 
-///|
-/// True if the block should be selectable (outlined box) in UI.
-pub fn Block::is_selectable(block : Block) -> Bool {
-  match block.shape {
-    Air | Liquid => false
-    _ => true
-  }
-}
+  // Slabs: half blocks reusing their parent block's textures. State 0 is the
+  // bottom half (canonical item variant), state 1 the top half.
+  ..create_slab_group("stone_slab", ["stone"]),
+  ..create_slab_group("deepslate_slab", ["stone"]),
+  ..create_slab_group("oak_slab", ["classic/oak_planks"]),
+  ..create_slab_group("cobblestone_slab", ["cobblestone"]),
+  ..create_slab_group("brick_slab", ["bricks"]),
+  ..create_slab_group("sandstone_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_normal",
+  ]),
+  ..create_slab_group("smooth_sandstone_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_smooth",
+  ]),
+  ..create_slab_group("cut_sandstone_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_carved",
+  ]),
+
+  // Vertical slabs: half blocks split along X or Z instead of Y.
+  ..create_vertical_slab_group("stone_vertical_slab", ["stone"]),
+  ..create_vertical_slab_group("deepslate_vertical_slab", ["stone"]),
+  ..create_vertical_slab_group("oak_vertical_slab", ["classic/oak_planks"]),
+  ..create_vertical_slab_group("cobblestone_vertical_slab", ["cobblestone"]),
+  ..create_vertical_slab_group("brick_vertical_slab", ["bricks"]),
+  ..create_vertical_slab_group("sandstone_vertical_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_normal",
+  ]),
+  ..create_vertical_slab_group("smooth_sandstone_vertical_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_smooth",
+  ]),
+  ..create_vertical_slab_group("cut_sandstone_vertical_slab", [
+    "sandstone_top", "sandstone_bottom", "sandstone_carved",
+  ]),
+
+  // glTF model block (demo): geometry is baked from ./assets/models/zombie.gltf
+  // into the chunk mesh. "zombie" packs at its native 64x32 resolution in the
+  // arbitrary-resolution texture atlas.
+  // Block::create(
+  //   "zombie",
+  //   ["zombie"],
+  //   shape=Shape::Gltf,
+  //   occlusion_cull=false,
+  //   opacity=0,
+  //   alpha_mode=AlphaMode::Cutout,
+  // ),
+]
 
 ///|
 fn create_torch(
   base : String,
-  id : UInt,
   state : UInt,
   faces : FixedArray[String],
   shape : Shape,
+  id : BlockId,
   luminance? : Int = 0,
   category? : @item.Category = @item.Block,
 ) -> Block {
-  Block::create(
+  Block::unsafe_create_with_specified_id(
     @genus.Torch::unique_name(base, state),
     occlusion_cull=false,
     alpha_mode=AlphaMode::Cutout,
     luminance~,
-    id~,
     state~,
     shape~,
     category~,
     faces,
+    id,
   )
 }
 
 ///|
 fn create_torch_group(
   base : String,
-  id? : UInt = alloc_id(),
   faces : FixedArray[String],
   shape : Shape,
   luminance? : Int = 0,
 ) -> Array[Block] {
+  let id = alloc_block_id()
   [
-    create_torch(base, id, 0, faces, shape, luminance~),
-    create_torch(base, id, 1, faces, shape, luminance~, category=@item.None),
-    create_torch(base, id, 2, faces, shape, luminance~, category=@item.None),
-    create_torch(base, id, 3, faces, shape, luminance~, category=@item.None),
-    create_torch(base, id, 4, faces, shape, luminance~, category=@item.None),
+    create_torch(base, 0, faces, shape, id, luminance~),
+    create_torch(base, 1, faces, shape, id, luminance~, category=@item.None),
+    create_torch(base, 2, faces, shape, id, luminance~, category=@item.None),
+    create_torch(base, 3, faces, shape, id, luminance~, category=@item.None),
+    create_torch(base, 4, faces, shape, id, luminance~, category=@item.None),
   ]
 }
 
 ///|
-fn unique_name_by_facing(
-  base : String,
-  facing : Facing,
-  state : UInt,
-) -> String {
+pub fn variant_name(base : String, facing : Facing, state : UInt) -> String {
   match facing {
     Facing::Axis => @genus.Log::unique_name(base, state)
     Facing::Horizontal => @genus.HorizontalFacing::unique_name(base, state)
@@ -235,62 +272,123 @@ fn unique_name_by_facing(
 ///|
 fn create_facing(
   base : String,
-  id : UInt,
   state : UInt,
   faces : FixedArray[String],
   facing : Facing,
+  id : BlockId,
   shape? : Shape = Shape::Cube,
   category? : @item.Category = @item.Block,
 ) -> Block {
-  Block::create(
-    unique_name_by_facing(base, facing, state),
-    id~,
+  Block::unsafe_create_with_specified_id(
+    variant_name(base, facing, state),
     state~,
     facing~,
     shape~,
     category~,
     faces,
+    id,
   )
 }
 
 ///|
 fn create_facing_group(
   base : String,
-  id? : UInt = alloc_id(),
   faces : FixedArray[String],
   facing? : Facing = Facing::None,
   shape? : Shape = Shape::Cube,
 ) -> Array[Block] {
+  let id = alloc_block_id()
   match facing {
     Facing::Axis =>
       [
-        create_facing(base, id, 0, faces, facing, shape~),
-        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
+        create_facing(base, 0, faces, facing, id, shape~),
+        create_facing(base, 1, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 2, faces, facing, id, shape~, category=@item.None),
       ]
     Facing::Horizontal =>
       [
-        create_facing(base, id, 0, faces, facing, shape~),
-        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 3, faces, facing, shape~, category=@item.None),
+        create_facing(base, 0, faces, facing, id, shape~),
+        create_facing(base, 1, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 2, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 3, faces, facing, id, shape~, category=@item.None),
       ]
     Facing::Six =>
       [
-        create_facing(base, id, 0, faces, facing, shape~),
-        create_facing(base, id, 1, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 2, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 3, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 4, faces, facing, shape~, category=@item.None),
-        create_facing(base, id, 5, faces, facing, shape~, category=@item.None),
+        create_facing(base, 0, faces, facing, id, shape~),
+        create_facing(base, 1, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 2, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 3, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 4, faces, facing, id, shape~, category=@item.None),
+        create_facing(base, 5, faces, facing, id, shape~, category=@item.None),
       ]
-    Facing::None => [create_facing(base, id, 0, faces, facing, shape~)]
+    Facing::None => [create_facing(base, 0, faces, facing, id, shape~)]
   }
 }
 
 ///|
+fn create_slab(
+  base : String,
+  state : UInt,
+  faces : FixedArray[String],
+  id : BlockId,
+  category? : @item.Category = @item.Block,
+) -> Block {
+  Block::unsafe_create_with_specified_id(
+    @genus.Slab::unique_name(base, state),
+    occlusion_cull=false,
+    state~,
+    shape=Shape::Slab,
+    category~,
+    faces,
+    id,
+  )
+}
+
+///|
+fn create_slab_group(base : String, faces : FixedArray[String]) -> Array[Block] {
+  let id = alloc_block_id()
+  [
+    create_slab(base, 0, faces, id),
+    create_slab(base, 1, faces, id, category=@item.None),
+  ]
+}
+
+///|
+fn create_vertical_slab(
+  base : String,
+  state : UInt,
+  faces : FixedArray[String],
+  id : BlockId,
+  category? : @item.Category = @item.Block,
+) -> Block {
+  Block::unsafe_create_with_specified_id(
+    @genus.VerticalSlab::unique_name(base, state),
+    occlusion_cull=false,
+    state~,
+    shape=Shape::VerticalSlab,
+    category~,
+    faces,
+    id,
+  )
+}
+
+///|
+fn create_vertical_slab_group(
+  base : String,
+  faces : FixedArray[String],
+) -> Array[Block] {
+  let id = alloc_block_id()
+  [
+    create_vertical_slab(base, 0, faces, id),
+    create_vertical_slab(base, 1, faces, id, category=@item.None),
+    create_vertical_slab(base, 2, faces, id, category=@item.None),
+    create_vertical_slab(base, 3, faces, id, category=@item.None),
+  ]
+}
+
+///|
 fn Block::create_with_classic(
-  name : @util.UniqueName,
+  name : @schema.UniqueID,
   state? : UInt = 0,
   occlusion_cull? : Bool = true,
   same_block_cull? : Bool = false,
@@ -305,7 +403,6 @@ fn Block::create_with_classic(
 ) -> Array[Block] {
   [
     Block::create(
-      id=alloc_id(),
       name,
       state~,
       occlusion_cull~,
@@ -320,7 +417,6 @@ fn Block::create_with_classic(
       faces,
     ),
     Block::create(
-      id=alloc_id(),
       "classic." + name,
       state~,
       occlusion_cull~,
@@ -338,12 +434,8 @@ fn Block::create_with_classic(
 }
 
 ///|
-/// The long id of the air block should be an invariant
-pub const AIR_LONG_ID : UInt = 0 // block_air.long_id()
-
-///|
 pub fn Block::is_air(block : Block) -> Bool {
-  block.id == AIR_LONG_ID
+  block.id == 0
 }
 
 ///|

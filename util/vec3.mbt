@@ -6,8 +6,11 @@ pub struct Vec3[T] {
 } derive(Debug)
 
 ///|
+pub extend Vec3 with Debug::{to_repr}
+
+///|
 pub fn[T] Vec3::new(x : T, y : T, z : T) -> Vec3[T] {
-  Vec3::{ x, y, z }
+  Vec3::{ x, y, z, }
 }
 
 ///|
@@ -18,6 +21,9 @@ pub impl[T : Add] Add for Vec3[T] with fn add(u : Vec3[T], v : Vec3[T]) -> Vec3[
 }
 
 ///|
+pub extend Vec3 with Add::{add}
+
+///|
 pub impl[T : Sub] Sub for Vec3[T] with fn sub(u : Vec3[T], v : Vec3[T]) -> Vec3[
   T,
 ] {
@@ -25,9 +31,15 @@ pub impl[T : Sub] Sub for Vec3[T] with fn sub(u : Vec3[T], v : Vec3[T]) -> Vec3[
 }
 
 ///|
+pub extend Vec3 with Sub::{sub}
+
+///|
 pub impl[T : Neg] Neg for Vec3[T] with fn neg(u) {
   Vec3::new(-u.x, -u.y, -u.z)
 }
+
+///|
+pub extend Vec3 with Neg::{neg}
 
 ///|
 pub fn[T : Mul] Vec3::scale(v : Vec3[T], s : T) -> Vec3[T] {
@@ -45,6 +57,9 @@ pub impl[T : Mul] Mul for Vec3[T] with fn mul(u : Vec3[T], v : Vec3[T]) -> Vec3[
 ] {
   Vec3::new(u.x * v.x, u.y * v.y, u.z * v.z)
 }
+
+///|
+pub extend Vec3 with Mul::{mul}
 
 ///|
 /// ```plain
@@ -140,3 +155,6 @@ pub fn FVec3::almost_equal(u : FVec3, v : FVec3) -> Bool {
 pub impl Eq for FVec3 with fn equal(u, v) {
   u.x == v.x && u.y == v.y && u.z == v.z
 }
+
+///|
+pub extend Vec3 with Eq::{not_equal, equal}

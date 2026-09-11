@@ -6,6 +6,9 @@ pub struct ChunkBlockPos {
 } derive(Debug)
 
 ///|
+pub extend ChunkBlockPos with Debug::{to_repr}
+
+///|
 const SHIFT_X = 4
 
 ///|
@@ -24,7 +27,9 @@ pub const CHUNK_Y_SIZE : Int = 1 << SHIFT_Y
 pub const CHUNK_Z_SIZE : Int = 1 << SHIFT_Z
 
 ///|
-pub fn ChunkBlockPos::from_block_pos(block_pos : BlockPos) -> ChunkBlockPos {
+pub fn ChunkBlockPos::from_block_pos(
+  block_pos : @schema.BlockPos,
+) -> ChunkBlockPos {
   ChunkBlockPos::{
     x: block_pos.x >> SHIFT_X,
     y: block_pos.y >> SHIFT_Y,
@@ -42,6 +47,11 @@ pub fn chunk_key_by_chunk_xyz(
 }
 
 ///|
+pub fn chunk_column_key_by_chunk_xz(chunk_x : Int, chunk_z : Int) -> String {
+  "\{chunk_x},\{chunk_z}"
+}
+
+///|
 pub fn chunk_key_by_block_xyz(
   block_x : Int,
   block_y : Int,
@@ -51,24 +61,30 @@ pub fn chunk_key_by_block_xyz(
 }
 
 ///|
+fn parse_int_or_zero(sv : StringView) -> Int {
+  try @string.parse_int(sv) catch {
+    _ => 0
+  } noraise {
+    v => v
+  }
+}
+
+///|
 pub fn chunk_xyz_by_chunk_key(chunk_key : String) -> (Int, Int, Int) {
-  let parts : Array[StringView] = []
-  for part in chunk_key.split(",") {
-    parts.push(part)
-  }
-  let parse_int_or_zero = fn(sv : StringView) -> Int {
-    try @string.parse_int(sv) catch {
-      _ => 0
-    } noraise {
-      v => v
-    }
-  }
+  let parts = chunk_key.split(",").to_array()
   guard parts.length() == 3 else { (0, 0, 0) }
   (
     parse_int_or_zero(parts[0]),
     parse_int_or_zero(parts[1]),
     parse_int_or_zero(parts[2]),
   )
+}
+
+///|
+pub fn chunk_xz_by_chunk_column_key(column_key : String) -> (Int, Int) {
+  let parts = column_key.split(",").to_array()
+  guard parts.length() == 2 else { (0, 0) }
+  (parse_int_or_zero(parts[0]), parse_int_or_zero(parts[1]))
 }
 
 ///|

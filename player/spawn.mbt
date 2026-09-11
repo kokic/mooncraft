@@ -23,8 +23,16 @@ pub const SPAWN_SURFACE_OFFSET : Int = 3
 pub const SPAWN_FALLBACK_Y : Int = @level.CHUNK_Y_SIZE
 
 ///|
+/// Initial horizontal view angle, aimed toward the demo entity area.
+pub const SPAWN_YAW : Double = 0.7853981633974483
+
+///|
+/// Initial vertical view angle, aimed near entity torso height.
+pub const SPAWN_PITCH : Double = -0.12
+
+///|
 pub fn compute_spawn_position(
-  chunk_map : @ffi.JsValue,
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   chunk_min_y : Int,
   chunk_max_y : Int,
@@ -44,5 +52,5 @@ pub fn compute_spawn_position(
   let py = spawn_y.to_double()
   let pz = local_z.to_double() + 0.5
   let surface_out = surface_y.unwrap_or(-1)
-  @level.SpawnResult::{ position: [px, py, pz], surface_y: surface_out }
+  @level.SpawnResult::{ position: [px, py, pz], surface_y: surface_out, }
 }

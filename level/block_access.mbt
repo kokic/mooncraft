@@ -156,13 +156,10 @@ pub fn build_chunk_data_padded(
         let ncx = @util.floor_div(wx, size)
         let lx = wx - ncx * size
         let key = chunk_key_by_chunk_xyz(ncx, ncy, ncz)
-        match resolve_chunk(key) {
-          Some(chunk) => {
-            let src_idx = (ly * size + lz) * size + lx
-            let out_idx = (py * pad + pz) * pad + px
-            out[out_idx] = chunk[src_idx]
-          }
-          None => ()
+        if resolve_chunk(key) is Some(chunk) {
+          let src_idx = (ly * size + lz) * size + lx
+          let out_idx = (py * pad + pz) * pad + px
+          out[out_idx] = chunk[src_idx]
         }
       }
     }

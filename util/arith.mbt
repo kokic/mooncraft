@@ -3,11 +3,6 @@
 pub fn floor_div(n : Int, d : Int) -> Int {
   let q = n / d
   let r = n % d
-  if r == 0 {
-    q
-  } else if (r > 0) == (d > 0) {
-    q
-  } else {
-    q - 1
-  }
+  guard !(r == 0 || (r > 0) == (d > 0)) else { q }
+  q - 1
 }

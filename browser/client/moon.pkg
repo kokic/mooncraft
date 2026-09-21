@@ -1,0 +1,25 @@
+import {
+  "moonbitlang/core/hashmap",
+  "kokic/cubical/ffi",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/player",
+  "kokic/mooncraft/command",
+  "kokic/mooncraft/block/genus",
+  "kokic/cubical/util",
+  "kokic/mooncraft/biome",
+  "kokic/cubical/i18n",
+  "kokic/mooncraft/item",
+  "kokic/cubical/camera",
+  "kokic/mooncraft/mob",
+  "kokic/cubical/gltf",
+  "kokic/mooncraft/chunk",
+  "kokic/mooncraft/ui",
+  "kokic/mooncraft/level",
+  "kokic/mooncraft/level/save",
+  "kokic/mooncraft/designer",
+  "kokic/cubical/core/schema",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

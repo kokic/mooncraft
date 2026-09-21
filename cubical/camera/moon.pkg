@@ -1,0 +1,6 @@
+import {
+  "moonbitlang/core/math",
+  "kokic/cubical/ffi",
+}
+
+pkgtype(kind: "foreign_library")

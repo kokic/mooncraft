@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/core/hashmap",
+  "kokic/cubical/core/schema",
+  "kokic/mooncraft/block",
+  "kokic/cubical/util",
+  "kokic/mooncraft/level",
+  "kokic/mooncraft/mesh",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/core/hashmap",
+  "kokic/cubical/core/schema",
+  "kokic/cubical/ffi",
+  "kokic/mooncraft-browser/client",
+  "kokic/mooncraft/level",
+  "kokic/mooncraft/mob",
+  "kokic/mooncraft/block/genus" @block_genus,
+  "kokic/mooncraft/level/save",
+  "kokic/mooncraft/chunk",
+  "kokic/mooncraft/player",
+}
+
+// pkgtype(kind: "executable")
+pkgtype(kind: "foreign_library")

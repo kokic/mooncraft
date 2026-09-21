@@ -1,0 +1,9 @@
+import {
+  "kokic/cubical/core/schema",
+  "kokic/mooncraft/block",
+  "kokic/cubical/util",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

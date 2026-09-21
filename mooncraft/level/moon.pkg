@@ -1,0 +1,22 @@
+import {
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "kokic/cubical/core/schema",
+  "kokic/cubical/camera",
+  "kokic/mooncraft/biome",
+  "kokic/cubical/util",
+  "kokic/mooncraft/block",
+  "kokic/mooncraft/item",
+  "kokic/mooncraft/generation/structure",
+  "kokic/mooncraft/generation/feature",
+  "kokic/cubical/ffi",
+}
+
+import {
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/test",
+} for "wbtest"
+
+pkgtype(kind: "foreign_library")

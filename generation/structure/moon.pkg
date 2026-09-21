@@ -1,5 +1,0 @@
-import {
-  "kokic/mooncraft/core/schema",
-  "kokic/mooncraft/block",
-  "kokic/mooncraft/util",
-}

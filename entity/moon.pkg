@@ -1,8 +1,0 @@
-import {
-  "moonbitlang/core/math",
-  "moonbitlang/core/json",
-}
-
-import {
-  "moonbitlang/core/test",
-} for "test"

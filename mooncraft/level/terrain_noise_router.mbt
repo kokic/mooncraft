@@ -74,11 +74,11 @@ fn TerrainNoiseRouter::new(seed : UInt) -> TerrainNoiseRouter {
 ///|
 fn TerrainNoiseRouter::sample_climate(
   self : TerrainNoiseRouter,
-  wx : Int,
-  wz : Int,
+  wx : Double,
+  wz : Double,
 ) -> @biome.BiomeSample {
-  let x = wx.to_double() * 0.25
-  let z = wz.to_double() * 0.25
+  let x = wx * 0.25
+  let z = wz * 0.25
   let shifted_x = x + self.shift.sample(x, z) * 4.0
   let shifted_z = z + self.shift.sample(z + 103.0, x - 71.0) * 4.0
   let weirdness = self.weirdness.sample(shifted_x, shifted_z)

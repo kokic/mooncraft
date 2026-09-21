@@ -19,9 +19,9 @@ fn terrain_shape_density(
   wy : Int,
   shape : TerrainShape,
 ) -> Double {
-  let x = column.wx.to_double()
-  let y = wy.to_double()
-  let z = column.wz.to_double()
+  let x = world.terrain_field_x(column.wx)
+  let y = world.terrain_field_y(wy)
+  let z = world.terrain_field_z(column.wz)
   let river = river_channel_weight(column.sample)
   let base_3d = world.terrain_noise.terrain.sample(x, y, z) *
     (1.0 - river * 0.92)
@@ -32,24 +32,24 @@ fn terrain_shape_density(
   let top_slide = smoothstep(
     world.max_y().to_double() - 24.0,
     world.max_y().to_double() - 4.0,
-    y,
+    wy.to_double(),
   )
   density * (1.0 - top_slide) - top_slide
 }
 
 ///|
 fn should_carve_cave(world : World, column : TerrainColumn, wy : Int) -> Bool {
-  let x = column.wx.to_double()
-  let y = wy.to_double()
-  let z = column.wz.to_double()
+  let x = world.terrain_field_x(column.wx)
+  let y = world.terrain_field_y(wy)
+  let z = world.terrain_field_z(column.wz)
   let surface = column.surface.to_double()
   let surface_clearance = if is_wet_surface_biome(column.surface_biome) {
     8.0
   } else {
     -12.0
   }
-  guard y < surface - surface_clearance else { false }
-  guard y > world.min_y().to_double() + 4.0 else { false }
+  guard wy.to_double() < surface - surface_clearance else { false }
+  guard wy.to_double() > world.min_y().to_double() + 4.0 else { false }
   let cave_region = world.terrain_noise.cave_region.gen3d(
     (x + 557.0) * CAVE_REGION_FREQ,
     y * CAVE_REGION_FREQ,

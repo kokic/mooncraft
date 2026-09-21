@@ -1,5 +1,5 @@
 ///|
-priv enum InfiniteColumnGenerationStage {
+priv enum ColumnGenerationStage {
   SampleColumns
   FillColumns
   PlaceTrees
@@ -7,46 +7,48 @@ priv enum InfiniteColumnGenerationStage {
 }
 
 ///|
-/// Incremental generation state for one complete Infinite-world chunk column.
-/// Completed chunks remain private until every terrain and feature step finishes.
-pub struct InfiniteChunkColumnGeneration {
+/// Incremental generation state for one complete world chunk column. Completed
+/// chunks remain private until every terrain and feature step finishes.
+pub struct ChunkColumnGeneration {
   column_key : String
   advance_impl : (Int) -> Bool
   completed_chunks_impl : () -> Array[Chunk]?
 }
 
 ///|
-priv struct InfiniteChunkColumnGenerationState {
+priv struct ChunkColumnGenerationState {
   world : World
   chunk_x : Int
   chunk_z : Int
   chunks : Array[Chunk]
-  columns : Array[InfiniteColumnSample]
-  palette : InfiniteBlockPalette
-  mut stage : InfiniteColumnGenerationStage
+  columns : Array[TerrainColumnSample]
+  palette : TerrainBlockPalette
+  mut stage : ColumnGenerationStage
   mut next_index : Int
 }
 
 ///|
-pub fn World::begin_infinite_chunk_column_generation(
+pub fn World::begin_chunk_column_generation(
   world : World,
   chunk_x : Int,
   chunk_z : Int,
-) -> InfiniteChunkColumnGeneration {
+) -> ChunkColumnGeneration {
   let chunks : Array[Chunk] = []
   let chunk_min_y = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)
   let chunk_max_y = @util.floor_div(world.max_y(), CHUNK_Y_SIZE)
   for chunk_y in chunk_min_y..<=chunk_max_y {
     chunks.push(Chunk::new(chunk_x, chunk_y, chunk_z))
   }
-  let state = InfiniteChunkColumnGenerationState::{
+  // Finite worlds are bounded: columns outside the region stay generated air.
+  let generates_terrain = world.is_column_generated(chunk_x, chunk_z)
+  let state = ChunkColumnGenerationState::{
     world,
     chunk_x,
     chunk_z,
     chunks,
     columns: [],
-    palette: InfiniteBlockPalette::new(),
-    stage: SampleColumns,
+    palette: TerrainBlockPalette::new(),
+    stage: if generates_terrain { SampleColumns } else { Complete },
     next_index: 0,
   }
   {
@@ -57,20 +59,20 @@ pub fn World::begin_infinite_chunk_column_generation(
 }
 
 ///|
-pub fn InfiniteChunkColumnGeneration::column_key(
-  self : InfiniteChunkColumnGeneration,
+pub fn ChunkColumnGeneration::column_key(
+  self : ChunkColumnGeneration,
 ) -> String {
   self.column_key
 }
 
 ///|
-fn InfiniteChunkColumnGenerationState::sample_next_column(
-  self : InfiniteChunkColumnGenerationState,
+fn ChunkColumnGenerationState::sample_next_column(
+  self : ChunkColumnGenerationState,
 ) -> Unit {
   let rx = self.next_index / CHUNK_Z_SIZE
   let rz = self.next_index % CHUNK_Z_SIZE
   self.columns.push(
-    prepare_infinite_column(
+    prepare_terrain_column(
       self.world,
       self.chunk_x * CHUNK_X_SIZE + rx,
       self.chunk_z * CHUNK_Z_SIZE + rz,
@@ -84,15 +86,15 @@ fn InfiniteChunkColumnGenerationState::sample_next_column(
 }
 
 ///|
-fn InfiniteChunkColumnGenerationState::fill_next_column(
-  self : InfiniteChunkColumnGenerationState,
+fn ChunkColumnGenerationState::fill_next_column(
+  self : ChunkColumnGenerationState,
 ) -> Unit {
   let rx = self.next_index / CHUNK_Z_SIZE
   let rz = self.next_index % CHUNK_Z_SIZE
   let column = self.columns[self.next_index]
   for chunk in self.chunks {
     for ry in 0..<CHUNK_Y_SIZE {
-      fill_infinite_block(self.world, chunk, rx, ry, rz, column, self.palette)
+      fill_terrain_block(self.world, chunk, rx, ry, rz, column, self.palette)
     }
   }
   self.next_index += 1
@@ -103,8 +105,8 @@ fn InfiniteChunkColumnGenerationState::fill_next_column(
 }
 
 ///|
-fn InfiniteChunkColumnGenerationState::place_trees(
-  self : InfiniteChunkColumnGenerationState,
+fn ChunkColumnGenerationState::place_trees(
+  self : ChunkColumnGenerationState,
 ) -> Unit {
   for chunk in self.chunks {
     place_biome_trees_in_generated_chunk(
@@ -114,14 +116,15 @@ fn InfiniteChunkColumnGenerationState::place_trees(
       self.palette.grass,
     )
   }
+  place_terrain_structures(self.world, self.chunks)
   self.stage = Complete
 }
 
 ///|
 /// Advance at most `work_budget` bounded XZ or feature work units.
 /// Returns true only after the complete vertical column is ready to publish.
-fn InfiniteChunkColumnGenerationState::advance(
-  self : InfiniteChunkColumnGenerationState,
+fn ChunkColumnGenerationState::advance(
+  self : ChunkColumnGenerationState,
   work_budget : Int,
 ) -> Bool {
   guard work_budget > 0 else { return self.stage is Complete }
@@ -137,8 +140,8 @@ fn InfiniteChunkColumnGenerationState::advance(
 }
 
 ///|
-fn InfiniteChunkColumnGenerationState::completed_chunks(
-  self : InfiniteChunkColumnGenerationState,
+fn ChunkColumnGenerationState::completed_chunks(
+  self : ChunkColumnGenerationState,
 ) -> Array[Chunk]? {
   if self.stage is Complete {
     Some(self.chunks)
@@ -148,36 +151,34 @@ fn InfiniteChunkColumnGenerationState::completed_chunks(
 }
 
 ///|
-pub fn InfiniteChunkColumnGeneration::advance(
-  self : InfiniteChunkColumnGeneration,
+pub fn ChunkColumnGeneration::advance(
+  self : ChunkColumnGeneration,
   work_budget : Int,
 ) -> Bool {
   (self.advance_impl)(work_budget)
 }
 
 ///|
-pub fn InfiniteChunkColumnGeneration::completed_chunks(
-  self : InfiniteChunkColumnGeneration,
+pub fn ChunkColumnGeneration::completed_chunks(
+  self : ChunkColumnGeneration,
 ) -> Array[Chunk]? {
   (self.completed_chunks_impl)()
 }
 
 ///|
-/// Generate a complete vertical infinite-terrain column. Each XZ sample is
-/// prepared once, then consumed by every chunk at that position.
-fn generate_infinite_chunk_column(
+/// Generate a complete vertical terrain column. Each XZ sample is prepared once,
+/// then consumed by every chunk at that position.
+fn generate_terrain_chunk_column(
   world : World,
   chunk_x : Int,
   chunk_z : Int,
 ) -> Array[Chunk] {
-  let generation = world.begin_infinite_chunk_column_generation(
-    chunk_x, chunk_z,
-  )
+  let generation = world.begin_chunk_column_generation(chunk_x, chunk_z)
   while !generation.advance(64) {
 
   }
   match generation.completed_chunks() {
     Some(chunks) => chunks
-    None => abort("completed infinite column generation has no chunks")
+    None => abort("completed chunk column generation has no chunks")
   }
 }

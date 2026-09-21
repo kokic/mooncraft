@@ -13,8 +13,9 @@ fn seed_spawn_column(
   spawn_chunk_x : Int,
   spawn_chunk_z : Int,
 ) -> Unit {
-  let initial_column : Array[@level.Chunk] = if world.world_type()
-    is @level.WorldType::Infinite {
+  let column_generation = world.world_type() is @level.WorldType::Infinite ||
+    world.world_type() is @level.WorldType::Finite
+  let initial_column : Array[@level.Chunk] = if column_generation {
     world.generate_chunk_column(spawn_chunk_x, spawn_chunk_z)
   } else {
     []
@@ -23,7 +24,7 @@ fn seed_spawn_column(
     let key = @level.chunk_key_by_chunk_xyz(spawn_chunk_x, cy, spawn_chunk_z)
     let data = if spawn_chunk_x == 0 && cy == 0 && spawn_chunk_z == 0 {
       initial_chunk
-    } else if world.world_type() is @level.WorldType::Infinite {
+    } else if column_generation {
       initial_column[cy - chunk_min_y].tile_map
     } else {
       world.generate_chunk(spawn_chunk_x, cy, spawn_chunk_z).tile_map
@@ -60,25 +61,27 @@ fn ChunkRuntime::publish_generated_column(
 }
 
 ///|
-fn ChunkRuntime::generate_queued_infinite(self : ChunkRuntime) -> Array[String] {
-  match self.streaming.active_infinite_column {
+fn ChunkRuntime::generate_queued_incremental(
+  self : ChunkRuntime,
+) -> Array[String] {
+  match self.streaming.active_column {
     Some(generation) =>
       if !self.streaming.desired_columns.contains(generation.column_key()) {
-        self.streaming.active_infinite_column = None
+        self.streaming.active_column = None
       }
     None => ()
   }
-  if self.streaming.active_infinite_column is None {
+  if self.streaming.active_column is None {
     guard self.streaming.take_queued_column() is Some(key) else { return [] }
     let (x, z) = @level.chunk_xz_by_chunk_column_key(key)
-    self.streaming.active_infinite_column = Some(
-      self.world.begin_infinite_chunk_column_generation(x, z),
+    self.streaming.active_column = Some(
+      self.world.begin_chunk_column_generation(x, z),
     )
   }
-  guard self.streaming.active_infinite_column is Some(generation) else { return [] }
+  guard self.streaming.active_column is Some(generation) else { return [] }
   guard generation.advance(self.generation_work_budget) else { return [] }
   let key = generation.column_key()
-  self.streaming.active_infinite_column = None
+  self.streaming.active_column = None
   guard self.streaming.desired_columns.contains(key) else { return [] }
   guard generation.completed_chunks() is Some(chunks) else { return [] }
   self.publish_generated_column(key, chunks)
@@ -107,8 +110,9 @@ fn ChunkRuntime::generate_queued_synchronous(
 
 ///|
 fn ChunkRuntime::generate_queued(self : ChunkRuntime) -> Array[String] {
-  if self.world.world_type() is @level.WorldType::Infinite {
-    self.generate_queued_infinite()
+  if self.world.world_type() is @level.WorldType::Infinite ||
+    self.world.world_type() is @level.WorldType::Finite {
+    self.generate_queued_incremental()
   } else {
     self.generate_queued_synchronous()
   }

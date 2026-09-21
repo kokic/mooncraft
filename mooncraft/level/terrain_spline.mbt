@@ -66,8 +66,12 @@ priv struct TerrainShape {
 }
 
 ///|
+/// Canonical field offset of sea level, subtracted from the offset spline.
+const TERRAIN_OFFSET_AT_SEA_LEVEL : Double = 0.50375
+
+///|
 fn TerrainShape::from_climate(sample : @biome.BiomeSample) -> TerrainShape {
-  let offset = terrain_offset_spline.sample(sample) - 0.50375
+  let offset = terrain_offset_spline.sample(sample) - TERRAIN_OFFSET_AT_SEA_LEVEL
   let river_bed_offset = (SEA_LEVEL.to_double() - 6.0 - 128.0) / 128.0
   let river = river_valley_weight(sample)
   {
@@ -86,8 +90,8 @@ fn TerrainShape::at_column(
   let shape = TerrainShape::from_climate(column.sample)
   guard shape.jaggedness != 0.0 else { shape }
   let noise = world.terrain_noise.jagged.sample(
-    column.wx.to_double(),
-    column.wz.to_double(),
+    world.terrain_field_x(column.wx),
+    world.terrain_field_z(column.wz),
   )
   let jagged = if noise < 0.0 { noise * 0.5 } else { noise }
   {

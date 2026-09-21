@@ -1,16 +1,16 @@
 ///|
-/// Infinite bottom layer Y (bedrock).
-pub const INFINITE_MIN_Y : Int = WORLD_MIN_Y
+/// Bottom layer Y (bedrock) for Infinite and Finite worlds.
+pub const TERRAIN_MIN_Y : Int = WORLD_MIN_Y
 
 ///|
 const DENSITY_SAMPLE_STEP : Int = 4
 
 ///|
 /// Tree anchors stop below high mountain peaks; canopies may extend above it.
-const INFINITE_TREE_LINE : Int = 144
+const TREE_LINE : Int = 144
 
 ///|
-priv struct InfiniteColumnSample {
+priv struct TerrainColumnSample {
   terrain : TerrainColumn
   dirt_depth : Int
   sand_depth : Int
@@ -20,7 +20,7 @@ priv struct InfiniteColumnSample {
 }
 
 ///|
-priv struct InfiniteBlockPalette {
+priv struct TerrainBlockPalette {
   bedrock : UInt
   stone : UInt
   deepslate : UInt
@@ -43,7 +43,7 @@ priv struct InfiniteBlockPalette {
 }
 
 ///|
-fn InfiniteBlockPalette::new() -> InfiniteBlockPalette {
+fn TerrainBlockPalette::new() -> TerrainBlockPalette {
   {
     bedrock: @block.lookup_by_name("bedrock").unwrap().internal_id(),
     stone: @block.lookup_by_name("stone").unwrap().internal_id(),
@@ -118,19 +118,19 @@ fn highest_solid_y(world : World, densities : Array[Double]) -> Int {
 }
 
 ///|
-fn InfiniteColumnSample::density_at(
-  self : InfiniteColumnSample,
+fn TerrainColumnSample::density_at(
+  self : TerrainColumnSample,
   wy : Int,
 ) -> Double {
-  self.densities[wy - INFINITE_MIN_Y]
+  self.densities[wy - TERRAIN_MIN_Y]
 }
 
 ///|
-fn InfiniteColumnSample::fluid_at(
-  self : InfiniteColumnSample,
+fn TerrainColumnSample::fluid_at(
+  self : TerrainColumnSample,
   wy : Int,
 ) -> TerrainFluid {
-  self.fluids[wy - INFINITE_MIN_Y]
+  self.fluids[wy - TERRAIN_MIN_Y]
 }
 
 ///|
@@ -139,7 +139,7 @@ fn noise01(value : Double) -> Double {
 }
 
 ///|
-fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
+fn is_terrain_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
   let layer = wy - world.min_y()
   guard layer >= 0 && layer < 5 else { false }
   guard layer > 0 else { true }
@@ -153,11 +153,11 @@ fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
 ///|
 /// Prepare all terrain state shared by the vertical chunks at one XZ block
 /// coordinate. This is the canonical noise/density cache for column generation.
-fn prepare_infinite_column(
+fn prepare_terrain_column(
   world : World,
   wx : Int,
   wz : Int,
-) -> InfiniteColumnSample {
+) -> TerrainColumnSample {
   let terrain = terrain_column(world, wx, wz)
   let densities = sample_column_densities(world, terrain)
   let min_y = world.min_y()
@@ -186,14 +186,17 @@ fn prepare_infinite_column(
 
 ///|
 /// The block at the top of a solid column: sand for arid and ocean biomes,
-/// snow at mountain elevations, grass otherwise.
+/// snow at mountain elevations, gravel in rivers, stone on peaks, grass otherwise.
 fn top_surface_block(
+  world : World,
   column : TerrainColumn,
   wy : Int,
-  palette : InfiniteBlockPalette,
+  palette : TerrainBlockPalette,
 ) -> UInt {
   let biome = column.surface_biome
-  let snow_line = 140.0 + column.sample.temperature * 40.0
+  let snow_line = world.terrain_wy_at_field_y(
+    140.0 + column.sample.temperature * 40.0,
+  )
   guard wy.to_double() < snow_line else { palette.snow }
   match biome {
     @biome.Ocean
@@ -209,7 +212,7 @@ fn top_surface_block(
 
 ///|
 /// The block for a fluid cell: air above the aquifer, water or lava below.
-fn fluid_block(fluid : TerrainFluid, palette : InfiniteBlockPalette) -> UInt {
+fn fluid_block(fluid : TerrainFluid, palette : TerrainBlockPalette) -> UInt {
   match fluid {
     Air => @schema.AIR_ID
     Water => palette.water
@@ -218,17 +221,21 @@ fn fluid_block(fluid : TerrainFluid, palette : InfiniteBlockPalette) -> UInt {
 }
 
 ///|
-/// Rock block for a solid below-surface cell: deepslate below Y=0, ore
-/// by layered noise bands above.
+/// Rock block for a solid below-surface cell: deepslate below the world's
+/// deepslate level, ore by layered noise bands above.
 fn underground_rock(
   world : World,
   wx : Int,
   wy : Int,
   wz : Int,
   biome : @biome.Biome,
-  palette : InfiniteBlockPalette,
+  palette : TerrainBlockPalette,
 ) -> UInt {
-  let rock = if wy < 0 { palette.deepslate } else { palette.stone }
+  let rock = if wy < world.deepslate_level() {
+    palette.deepslate
+  } else {
+    palette.stone
+  }
   @feature.pick_stone_ore(
     world.noise,
     wx,
@@ -247,14 +254,14 @@ fn underground_rock(
 }
 
 ///|
-fn fill_infinite_block(
+fn fill_terrain_block(
   world : World,
   chunk : Chunk,
   rx : Int,
   ry : Int,
   rz : Int,
-  column : InfiniteColumnSample,
-  palette : InfiniteBlockPalette,
+  column : TerrainColumnSample,
+  palette : TerrainBlockPalette,
 ) -> Unit {
   let (wx, wy, wz) = chunk.block_rxyz_to_block_xyz(rx, ry, rz)
   if wy < world.min_y() || wy > world.max_y() {
@@ -263,18 +270,18 @@ fn fill_infinite_block(
   }
   let biome = column.terrain.surface_biome
   let density = column.density_at(wy)
-  let block = if is_infinite_bedrock(world, wx, wy, wz) {
+  let block = if is_terrain_bedrock(world, wx, wy, wz) {
     palette.bedrock
   } else if density <= 0.0 {
     if biome is @biome.FrozenRiver &&
-      wy == SEA_LEVEL &&
+      wy == world.sea_level() &&
       column.fluid_at(wy) is Water {
       palette.ice
     } else {
       fluid_block(column.fluid_at(wy), palette)
     }
   } else if wy == column.top_solid_wy {
-    top_surface_block(column.terrain, wy, palette)
+    top_surface_block(world, column.terrain, wy, palette)
   } else if (
       biome is @biome.Desert ||
       biome is @biome.DesertLakes ||
@@ -297,9 +304,9 @@ fn fill_infinite_block(
 }
 
 ///|
-fn chunk_has_infinite_surface(
+fn chunk_has_terrain_surface(
   chunk : Chunk,
-  columns : Array[InfiniteColumnSample],
+  columns : Array[TerrainColumnSample],
 ) -> Bool {
   let min_y = chunk.y * CHUNK_Y_SIZE
   let max_y = min_y + CHUNK_Y_SIZE
@@ -312,11 +319,11 @@ fn chunk_has_infinite_surface(
 fn place_biome_trees_in_generated_chunk(
   world : World,
   chunk : Chunk,
-  columns : Array[InfiniteColumnSample],
+  columns : Array[TerrainColumnSample],
   grass : UInt,
 ) -> Unit {
-  guard chunk.y * CHUNK_Y_SIZE < INFINITE_TREE_LINE &&
-    chunk_has_infinite_surface(chunk, columns) else {
+  guard chunk.y * CHUNK_Y_SIZE < TREE_LINE &&
+    chunk_has_terrain_surface(chunk, columns) else {
     apply_pending_to_chunk(chunk)
     return
   }
@@ -335,17 +342,18 @@ fn place_biome_trees_in_generated_chunk(
 }
 
 ///|
-/// Infinite terrain generation (biomes, soil, caves).
-fn fill_infinite(world : World, chunk : Chunk) -> Chunk {
-  let palette = InfiniteBlockPalette::new()
-  let columns : Array[InfiniteColumnSample] = []
+/// Shared terrain generation (biomes, soil, caves, aquifers) for Infinite and
+/// Finite worlds. Finite only differs by its field compression and chunk bounds.
+fn fill_terrain(world : World, chunk : Chunk) -> Chunk {
+  let palette = TerrainBlockPalette::new()
+  let columns : Array[TerrainColumnSample] = []
   for rx in 0..<CHUNK_X_SIZE {
     for rz in 0..<CHUNK_Z_SIZE {
       let (wx, _, wz) = chunk.block_rxyz_to_block_xyz(rx, 0, rz)
-      let column = prepare_infinite_column(world, wx, wz)
+      let column = prepare_terrain_column(world, wx, wz)
       columns.push(column)
       for ry in 0..<CHUNK_Y_SIZE {
-        fill_infinite_block(world, chunk, rx, ry, rz, column, palette)
+        fill_terrain_block(world, chunk, rx, ry, rz, column, palette)
       }
     }
   }

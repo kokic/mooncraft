@@ -17,12 +17,10 @@ pub fn World::climate_sample(
   wz : Int,
 ) -> @biome.BiomeSample {
   match self.kind {
-    Infinite => self.terrain_noise.sample_climate(wx, wz)
-    Finite =>
-      @biome.sample(
-        self.noise,
-        finite_scaled_coord(wx),
-        finite_scaled_coord(wz),
+    Infinite | Finite =>
+      self.terrain_noise.sample_climate(
+        self.terrain_field_x(wx),
+        self.terrain_field_z(wz),
       )
     _ => @biome.sample(self.noise, wx, wz)
   }
@@ -30,13 +28,10 @@ pub fn World::climate_sample(
 
 ///|
 fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
-  guard !(world.kind is WorldType::Finite) else {
-    finite_terrain_column(world, wx, wz)
-  }
   let sample = world.climate_sample(wx, wz)
   let shape = TerrainShape::from_climate(sample)
   let surface = preliminary_surface_height(shape, world)
-  let biome = infinite_surface_biome(sample, surface)
+  let biome = terrain_surface_biome(world, sample, surface)
   let surface_biome = biome
   let plain = surface
   TerrainColumn::{ wx, wz, sample, biome, surface_biome, plain, surface, }

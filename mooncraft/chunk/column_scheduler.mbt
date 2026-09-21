@@ -9,7 +9,7 @@ priv struct ColumnScheduler {
   queued_columns : @hashmap.HashMap[String, Bool]
   mut column_queue : Array[String]
   mut queue_head : Int
-  mut active_infinite_column : @level.InfiniteChunkColumnGeneration?
+  mut active_column : @level.ChunkColumnGeneration?
 }
 
 ///|
@@ -25,13 +25,13 @@ fn ColumnScheduler::new(
     queued_columns: @hashmap.HashMap([]),
     column_queue: [],
     queue_head: 0,
-    active_infinite_column: None,
+    active_column: None,
   }
 }
 
 ///|
 fn ColumnScheduler::enqueue_column(self : ColumnScheduler, key : String) -> Unit {
-  let is_active = self.active_infinite_column.map_or(false, generation => {
+  let is_active = self.active_column.map_or(false, generation => {
     generation.column_key() == key
   })
   guard !self.loaded_columns.contains(key) &&

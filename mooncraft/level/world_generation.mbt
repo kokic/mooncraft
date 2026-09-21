@@ -21,7 +21,7 @@ pub fn World::generate_chunk(
   let chunk = Chunk::new(chunk_x, chunk_y, chunk_z)
   match world.kind {
     WorldType::Flat => fill_flat(world, chunk)
-    WorldType::Infinite => fill_infinite(world, chunk)
+    WorldType::Infinite => fill_terrain(world, chunk)
     WorldType::PreClassic =>
       if is_chunk_in_preclassic_world(chunk_x, chunk_y, chunk_z) {
         fill_preclassic(world, chunk)
@@ -49,8 +49,8 @@ pub fn World::generate_chunk_column(
   chunk_x : Int,
   chunk_z : Int,
 ) -> Array[Chunk] {
-  if world.kind is WorldType::Infinite {
-    return generate_infinite_chunk_column(world, chunk_x, chunk_z)
+  if world.kind is WorldType::Infinite || world.kind is WorldType::Finite {
+    return generate_terrain_chunk_column(world, chunk_x, chunk_z)
   }
   let chunks : Array[Chunk] = []
   let chunk_min_y = @util.floor_div(world.min_y(), CHUNK_Y_SIZE)

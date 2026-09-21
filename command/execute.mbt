@@ -37,6 +37,22 @@ pub fn execute_command(
       )
     ["/noise", ..] =>
       parse(tokens, noise_usage(), s => noise_command(player, chunk, s))
+    ["/heal", ..] =>
+      parse(tokens, "Usage: /heal [amount]", s => heal_command(player, s))
+    ["/damage", ..] =>
+      parse(tokens, "Usage: /damage [amount]", s => damage_command(player, s))
+    ["/gamemode", ..] =>
+      parse(tokens, "Usage: /gamemode <creative | survival | spectator>", s => {
+        gamemode_command(player, s)
+      })
+    ["/kill"] => {
+      ignore(player.kill())
+      Ok("Killed player")
+    }
+    ["/respawn"] => {
+      ignore(player.respawn())
+      Ok("Respawned")
+    }
     [cmd, ..] => Err("Unknown command: \{cmd}")
     [] => Err("Command cannot be empty")
   }

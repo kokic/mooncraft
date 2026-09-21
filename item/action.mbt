@@ -70,5 +70,6 @@ pub enum UseOnAction {
 pub enum UseAction {
   None
   BreakBlock(wx~ : Int, wy~ : Int, wz~ : Int)
+  Eat(nutrition~ : Double, saturation~ : Double)
   Batch(Array[UseAction])
 }

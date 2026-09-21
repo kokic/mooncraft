@@ -6,4 +6,5 @@ pub let items : Array[Item] = [
   Item::create("bucket", "item/bucket", profile=bucket_profile),
   Item::create("water_bucket", "item/water_bucket"),
   Item::create("lava_bucket", "item/lava_bucket"),
+  Item::create("apple", "item/apple", profile=apple_profile),
 ]

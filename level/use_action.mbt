@@ -34,5 +34,7 @@ pub fn apply_use_action(
       guard can_break_block(id) else { [] }
       set_block_id(chunk_map, size, wx, wy, wz, @schema.AIR_ID)
     }
+    // Eating affects the player, not the world, so it is handled by the client.
+    @item.UseAction::Eat(..) => []
   }
 }

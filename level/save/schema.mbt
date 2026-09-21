@@ -1,5 +1,5 @@
 ///|
-pub const SAVE_SCHEMA_VERSION : Int = 5
+pub const SAVE_SCHEMA_VERSION : Int = 6
 
 ///|
 pub struct SaveWorld {
@@ -22,6 +22,8 @@ pub struct SavePlayer {
   position : Array[Double]
   yaw : Double
   pitch : Double
+  velocity_y : Double
+  vitals : @player.Vitals
 } derive(Debug, ToJson, FromJson)
 
 ///|
@@ -62,6 +64,8 @@ pub fn SavePayload::new(
   position : Array[Double],
   yaw : Double,
   pitch : Double,
+  velocity_y : Double,
+  vitals : @player.Vitals,
   inventory : @player.PlayerInventorySnapshot,
   block_deltas : Array[@level.BlockDelta],
   entities : Array[@entity.EntitySave],
@@ -75,7 +79,7 @@ pub fn SavePayload::new(
     version: SAVE_SCHEMA_VERSION,
     saved_at,
     world: { seed, world_type, height, },
-    player: { position, yaw, pitch, },
+    player: { position, yaw, pitch, velocity_y, vitals, },
     inventory,
     block_deltas,
     entities,
@@ -112,6 +116,16 @@ pub fn SavePlayer::yaw(self : SavePlayer) -> Double {
 ///|
 pub fn SavePlayer::pitch(self : SavePlayer) -> Double {
   self.pitch
+}
+
+///|
+pub fn SavePlayer::velocity_y(self : SavePlayer) -> Double {
+  self.velocity_y
+}
+
+///|
+pub fn SavePlayer::vitals(self : SavePlayer) -> @player.Vitals {
+  self.vitals
 }
 
 ///|

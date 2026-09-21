@@ -13,3 +13,6 @@ package-lock.json
 dev/
 *.mbti
 AGENTS.md
+
+# Local development documentation
+/docs/

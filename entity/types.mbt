@@ -96,6 +96,7 @@ pub struct EntitySpawn {
   yaw : Double
 } derive(Debug)
 
+///|
 pub extend EntitySpawn with Debug::{to_repr}
 
 ///|
@@ -133,8 +134,8 @@ pub struct EntitySnapshot {
   upside_down : Bool
 } derive(Debug)
 
+///|
 pub extend EntitySnapshot with Debug::{to_repr}
-
 
 ///|
 /// Persistent movement state for an entity that was moving when the world was saved.
@@ -144,10 +145,13 @@ pub struct EntityMovementSave {
   started : Bool
 } derive(Debug, ToJson, FromJson)
 
+///|
 pub extend EntityMovementSave with Debug::{to_repr}
 
+///|
 pub extend EntityMovementSave with ToJson::{to_json}
 
+///|
 pub extend EntityMovementSave with FromJson::{from_json}
 
 ///|

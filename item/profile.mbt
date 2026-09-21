@@ -47,3 +47,9 @@ let bucket_profile : ItemProfile = {
   use_action: generic_use_action,
   use_on_action: bucket_use_on,
 }
+
+///|
+let apple_profile : ItemProfile = {
+  use_action: apple_use_action,
+  use_on_action: generic_use_on_action,
+}

@@ -52,6 +52,32 @@ pub fn is_water_at(
 }
 
 ///|
+pub fn is_lava_at(
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
+  size : Int,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Bool {
+  get_block_id(chunk_map, size, wx, wy, wz)
+  .bind(id => @block.lookup_by_internal_id(id))
+  .map_or(false, block => block.is_lava())
+}
+
+///|
+pub fn is_cactus_at(
+  chunk_map : @hashmap.HashMap[String, Array[UInt]],
+  size : Int,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Bool {
+  get_block_id(chunk_map, size, wx, wy, wz)
+  .bind(id => @block.lookup_by_internal_id(id))
+  .map_or(false, block => block.is_cactus())
+}
+
+///|
 /// Update the block internal_id at world coordinates (wx, wy, wz).
 /// Returns the list of chunk keys that need mesh rebuilds (self + neighbors).
 pub fn set_block_id(

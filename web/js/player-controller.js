@@ -24,6 +24,8 @@ function createPlayerController({
   let isRun = false;
   let lastWUpTime = 0;
   let wDown = false;
+  let spaceDown = false;
+  let lastSpaceUpTime = 0;
 
   const syncSnapshot = (snapshot) => {
     const position = Array.from(snapshot?.position ?? []).map(Number);
@@ -56,6 +58,10 @@ function createPlayerController({
         wDown = false;
         lastWUpTime = performance.now();
       }
+      if (key === "Space") {
+        spaceDown = false;
+        lastSpaceUpTime = performance.now();
+      }
       return;
     }
     if (document.pointerLockElement !== canvas) return;
@@ -64,6 +70,14 @@ function createPlayerController({
       const now = performance.now();
       if (now - lastWUpTime < 300) isRun = true;
       wDown = true;
+    }
+    if (key === "Space" && !spaceDown) {
+      const now = performance.now();
+      if (now - lastSpaceUpTime < 300 &&
+        typeof window.mcTogglePlayerFlight === "function") {
+        window.mcTogglePlayerFlight();
+      }
+      spaceDown = true;
     }
   };
 

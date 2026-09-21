@@ -20,45 +20,25 @@ npm run serve
 
 ### World Type
 
-You can switch world type by editing `client.mbt`:
+The `launchGame` browser entry point selects the world type (`main.mbt`):
 
-```mbt
-let world = @level.World::new(world_type=@level.WorldType::Infinite)
+```js
+launchGame(seed, "Infinite", height, saveText)
 ```
 
-Replace `Infinite` with one of:
+Supported play-world names:
 
-- `@level.WorldType::Infinite`
-- `@level.WorldType::Finite`
-- `@level.WorldType::Flat`
-- `@level.WorldType::PreClassic`
+- `Infinite`
+- `Finite`
+- `Flat`
+- `PreClassic`
 
-## Progress
+## Code structure
 
-### Implemented
-
-- World types:
-  - `Infinite` (multi-biome terrain, oceans, desert lakes, trees)
-  - `Finite` (independent terrain profile with lower mountains, biome trees, `nether_spire` placement at world origin)
-  - `PreClassic` (pre-classic style terrain/materials, cave/water profile, tree generation enabled)
-  - `Flat` (default: `"grass", "dirt", "dirt", "bedrock"`)
-- Terrain generation:
-  - Biome-driven surface and underground generation
-  - Separate logic for `Infinite` / `Finite` / `PreClassic`
-  - Ore distribution in modern-style worlds
-- Rendering / gameplay core:
-  - Chunk generation and meshing pipeline
-  - Block selection / raycast and placement
-  - Basic lighting and world interaction loop
-
-### Next Steps
-
-- Anything interesting! 
-  - We welcome all PRs, even those that do not pertain to the design of Minecraft. 
-- Improve biome transition blending near borders (reduce abrupt visual seams)
-- Add more structure / feature variety beyond current tree + nether spire coverage
-- Continue optimizing chunk update / light update hot paths under frequent block edits
-- Expand pre-classic specific content (materials / structure presets) for stronger era identity
+MoonBit owns world generation, simulation, mesh preparation, and glTF rendering.
+`client/` exposes browser APIs; `web/` contains browser integration and assets.
+`chunk/`, `level/`, `player/`, `entity/`, and `mob/` own runtime behavior.
+`block/`, `item/`, `mesh/`, and `gltf/` own content and rendering rules.
 
 ## Asset Copyright Notice (Minecraft EULA)
 
@@ -66,7 +46,7 @@ Replace `Infinite` with one of:
 - Minecraft and all related assets and intellectual property are owned by Mojang Studios / Microsoft.
 - This project is an unofficial fan project and is not affiliated with, endorsed by, or sponsored by Mojang Studios or Microsoft.
 - Use and redistribution of these assets must comply with the Minecraft EULA.
-- If you plan to publish or commercialize this project, replace `dist/assets` resources with original or properly licensed assets.
+- If you plan to publish or commercialize this project, replace `web/assets` resources with original or properly licensed assets.
 
 Reference: https://www.minecraft.net/eula
 

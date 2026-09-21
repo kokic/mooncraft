@@ -75,6 +75,7 @@ pub fn register_runtime_api(
     )
   })
   register_player_api(game)
+  register_survival_api(game)
   register_game_tick_api(game)
   match mode {
     LaunchMode::Play => register_save_api(game)
@@ -176,11 +177,7 @@ fn register_world_api(game : GameRuntime) -> Unit {
     )
   })
   @ffi.cast_global_set("mcApplyUseAction", (action : @item.UseAction) => {
-    @level.apply_use_action(
-      game.chunk_runtime.chunk_map(),
-      game.chunk_size,
-      action,
-    )
+    game.apply_use_action(action)
   })
   @ffi.cast_global_set("mcApplyUseOnAction", (
     action : @item.UseOnAction,
@@ -219,6 +216,9 @@ fn register_player_api(game : GameRuntime) -> Unit {
   })
   @ffi.cast_global_set("mcSetPlayerGameMode", fn(mode : String) {
     game.set_game_mode(mode)
+  })
+  @ffi.cast_global_set("mcTogglePlayerFlight", fn() {
+    ignore(game.player_runtime.toggle_flight())
   })
   @ffi.cast_global_set("mcSelectPlayerHotbar", fn(index : Int) {
     game.select_hotbar(index)

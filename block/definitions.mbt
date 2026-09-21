@@ -442,3 +442,13 @@ pub fn Block::is_air(block : Block) -> Bool {
 pub fn Block::is_water(block : Block) -> Bool {
   block.material.is_water()
 }
+
+///|
+pub fn Block::is_lava(block : Block) -> Bool {
+  block.name == "lava"
+}
+
+///|
+pub fn Block::is_cactus(block : Block) -> Bool {
+  block.name == "cactus" || block.name == "classic.cactus"
+}

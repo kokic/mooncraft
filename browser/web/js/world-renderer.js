@@ -145,6 +145,7 @@ function renderTestChunk({
   const waterProgram = createProgram(gl, "water");
   const leafProgram = createProgram(gl, "leaf");
   const outlineProgram = createProgram(gl, "outline");
+  const skyProgram = createProgram(gl, "sky");
   const outlineCube = createOutlineBuffer(gl);
   const outlineCache = new Map();
   const getOutlineBuffer = (bounds) => {
@@ -492,6 +493,76 @@ function renderTestChunk({
   const outlineOffset = gl.getUniformLocation(outlineProgram, "uOffset");
   const outlineViewOffset = gl.getUniformLocation(outlineProgram, "uViewOffset");
   const outlineColor = gl.getUniformLocation(outlineProgram, "uColor");
+  const skyPosition = gl.getAttribLocation(skyProgram, "aPosition");
+  const skyCameraRight = gl.getUniformLocation(skyProgram, "uSkyCameraRight");
+  const skyCameraUp = gl.getUniformLocation(skyProgram, "uSkyCameraUp");
+  const skyCameraForward = gl.getUniformLocation(skyProgram, "uSkyCameraForward");
+  const skyTanHalfFov = gl.getUniformLocation(skyProgram, "uSkyTanHalfFov");
+  const skyAspect = gl.getUniformLocation(skyProgram, "uSkyAspect");
+  const skyZenith = gl.getUniformLocation(skyProgram, "uSkyZenith");
+  const skyHorizon = gl.getUniformLocation(skyProgram, "uSkyHorizon");
+  const skyVoid = gl.getUniformLocation(skyProgram, "uSkyVoid");
+  // Sky palette. The horizon matches the fog color so distant geometry fades
+  // into the sky; below the horizon the gradient darkens into the void.
+  const skyZenithColor = [0.30, 0.52, 0.92];
+  const skyHorizonColor = [0.6, 0.8, 1.0];
+  const skyVoidColor = [0.0, 0.0, 0.0];
+  const skyUnderwaterZenithColor = [0.02, 0.05, 0.14];
+  const skyUnderwaterHorizonColor = [0.10, 0.25, 0.48];
+  const skyVao = gl.createVertexArray();
+  const skyBuffer = gl.createBuffer();
+  if (!skyVao || !skyBuffer) {
+    throw new Error("failed to allocate the sky pass buffers");
+  }
+  gl.bindVertexArray(skyVao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, skyBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 3, -1, -1, 3]),
+    gl.STATIC_DRAW,
+  );
+  gl.enableVertexAttribArray(skyPosition);
+  gl.vertexAttribPointer(skyPosition, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  // Draw the screen-covering sky triangle before the world. It writes no depth,
+  // so later world geometry overwrites it and gaps keep the gradient/void.
+  const drawSky = (camera, fov, aspect, underwater) => {
+    const dir = camera.direction;
+    let rx = -dir[2];
+    let rz = dir[0];
+    const rlen = Math.hypot(rx, rz);
+    if (rlen < 1e-5) {
+      rx = 1;
+      rz = 0;
+    } else {
+      rx /= rlen;
+      rz /= rlen;
+    }
+    const ux = -rz * dir[1];
+    const uy = rz * dir[0] - rx * dir[2];
+    const uz = rx * dir[1];
+    const zenith = underwater ? skyUnderwaterZenithColor : skyZenithColor;
+    const horizon = underwater ? skyUnderwaterHorizonColor : skyHorizonColor;
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.useProgram(skyProgram);
+    gl.uniform3f(skyCameraRight, rx, 0, rz);
+    gl.uniform3f(skyCameraUp, ux, uy, uz);
+    gl.uniform3f(skyCameraForward, dir[0], dir[1], dir[2]);
+    gl.uniform1f(skyTanHalfFov, Math.tan(fov * 0.5));
+    gl.uniform1f(skyAspect, aspect);
+    gl.uniform3f(skyZenith, zenith[0], zenith[1], zenith[2]);
+    gl.uniform3f(skyHorizon, horizon[0], horizon[1], horizon[2]);
+    gl.uniform3f(skyVoid, skyVoidColor[0], skyVoidColor[1], skyVoidColor[2]);
+    gl.bindVertexArray(skyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+  };
   const ensureWorldVao = (meshPart) => {
     if (meshPart.vaoWorld) return meshPart.vaoWorld;
     const vao = gl.createVertexArray();
@@ -1193,11 +1264,12 @@ function renderTestChunk({
     const aspect = canvasSize.width / canvasSize.height;
     const fov = (window.mcFov ?? 60) * (Math.PI / 180);
     const renderDistance = getRenderDistance();
-    const skyFogColor = [0.6, 0.8, 1.0];
-    const underwaterFogColor = [0.10, 0.25, 0.48];
-    const activeFogColor = cameraUnderwater ? underwaterFogColor : skyFogColor;
-    gl.clearColor(activeFogColor[0], activeFogColor[1], activeFogColor[2], 1.0);
+    const activeFogColor = cameraUnderwater
+      ? skyUnderwaterHorizonColor
+      : skyHorizonColor;
+    gl.clearColor(skyVoidColor[0], skyVoidColor[1], skyVoidColor[2], 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    drawSky(camera, fov, aspect, cameraUnderwater);
     const fogFar = cameraUnderwater
       ? Math.max(8, size * 1.65)
       : (renderDistance + 0.6) * size;

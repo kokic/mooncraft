@@ -59,6 +59,7 @@ pub fn create_builtin_program(
   name : String,
 ) -> @webgl.WebGLProgram {
   let (vertex, fragment) = match name {
+    "sky" => (sky_vertex_shader, sky_fragment_shader)
     "world" => (world_vertex_shader, world_fragment_shader)
     "water" => (world_vertex_shader, water_fragment_shader)
     "leaf" => (leaf_vertex_shader, leaf_fragment_shader)

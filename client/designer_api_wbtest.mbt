@@ -1,7 +1,7 @@
 ///|
-fn design_chunk_map() -> @hashmap.HashMap[String, Array[UInt]] {
+/// Generate every Design-world chunk into `map`.
+fn fill_design_columns(map : @hashmap.HashMap[String, Array[UInt]]) -> Unit {
   let world = @level.World::new(seed=1U, world_type=@level.WorldType::Design)
-  let map : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
   let min_y = world.min_y()
   let max_y = world.max_y()
   for cz in -4..<4 {
@@ -15,7 +15,24 @@ fn design_chunk_map() -> @hashmap.HashMap[String, Array[UInt]] {
       }
     }
   }
+}
+
+///|
+fn design_chunk_map() -> @hashmap.HashMap[String, Array[UInt]] {
+  let map : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([])
+  fill_design_columns(map)
   map
+}
+
+///|
+/// A chunk runtime with every Design column resident so blueprint edits can
+/// target any test coordinate.
+fn design_runtime() -> @chunk.ChunkRuntime {
+  let world = @level.World::new(seed=1U, world_type=@level.WorldType::Design)
+  let initial = world.generate_chunk(0, 0, 0)
+  let runtime = @chunk.ChunkRuntime::new(world, initial.tile_map)
+  fill_design_columns(runtime.chunk_map())
+  runtime
 }
 
 ///|
@@ -49,7 +66,8 @@ test "capture extracts placed blocks above the grass floor" {
 
 ///|
 test "capture decodes block state into palette suffix" {
-  let map = design_chunk_map()
+  let runtime = design_runtime()
+  let map = runtime.chunk_map()
   let log_id = @block.lookup_by_name("classic.oak_log")
     .unwrap()
     .internal_id(state=1)
@@ -68,14 +86,7 @@ test "capture decodes block state into palette suffix" {
   )
   @test.assert_eq(bp.palette.length(), 1)
   @test.assert_eq(bp.palette[0], "classic.oak_log:1")
-  let placed = load_blueprint_into_world(
-    map,
-    @level.CHUNK_X_SIZE,
-    bp.encode(),
-    5,
-    5,
-    5,
-  )
+  let placed = load_blueprint_into_world(runtime, bp.encode(), 5, 5, 5)
   @test.assert_eq(placed, Ok(()))
   let back = @level.get_block_id(map, @level.CHUNK_X_SIZE, 5, 5, 5).unwrap()
   @test.assert_eq(back, log_id)
@@ -83,20 +94,14 @@ test "capture decodes block state into palette suffix" {
 
 ///|
 test "load_blueprint_into_world places at the requested anchor" {
-  let map = design_chunk_map()
+  let runtime = design_runtime()
+  let map = runtime.chunk_map()
   let bp = @designer.Blueprint::new("box", [2, 1, 1], [1, 0, 0], palette=[
     "stone",
   ])
   bp.set_cell(0, 0, 0, 0)
   bp.set_cell(1, 0, 0, 0)
-  let result = load_blueprint_into_world(
-    map,
-    @level.CHUNK_X_SIZE,
-    bp.encode(),
-    10,
-    20,
-    30,
-  )
+  let result = load_blueprint_into_world(runtime, bp.encode(), 10, 20, 30)
   @test.assert_eq(result, Ok(()))
   let stone_id = @block.lookup_by_name("stone").unwrap().internal_id()
   // Anchor (1,0,0) lands on (10,20,30); local x=0 lands one behind it.

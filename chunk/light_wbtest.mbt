@@ -18,7 +18,7 @@ fn tunnel_runtime() -> ChunkRuntime {
   runtime.chunk_map[@level.chunk_key_by_chunk_xyz(1, 0, 0)] = Array::make(
     4096, stone,
   )
-  runtime.light_cache.update_column(runtime.chunk_map, 1, 0)
+  runtime.lighting.light_cache.update_column(runtime.chunk_map, 1, 0)
   for x in 4..<=20 {
     ignore(runtime.set_block(x, 4, 4, @schema.AIR_ID))
   }
@@ -88,7 +88,7 @@ test "unloading a neighboring light source darkens the surviving cave" {
   ignore(runtime.set_block(16, 4, 4, torch))
   ignore(settle_lights(runtime))
   @test.assert_eq(runtime.light_at(15, 4, 4), 13)
-  runtime.refresh_desired(0, 0)
+  runtime.streaming.refresh_desired(0, 0, runtime.render_distance)
   ignore(runtime.evict_undesired())
   ignore(settle_lights(runtime))
   @test.assert_eq(runtime.light_at(15, 4, 4), 0)
@@ -103,9 +103,9 @@ fn settle_lights(runtime : ChunkRuntime) -> Array[String] {
     for key in runtime.refresh_lights() {
       updated.push(key)
     }
-    if runtime.dirty_lights.length() == 0 &&
-      runtime.pending_light_chunks.length() == 0 &&
-      runtime.active_light is None {
+    if runtime.lighting.dirty_lights.length() == 0 &&
+      runtime.lighting.pending_light_chunks.length() == 0 &&
+      runtime.lighting.active_light is None {
       return updated
     }
   }
@@ -119,21 +119,21 @@ test "an edit during an in-flight solve does not publish obsolete light" {
   let torch = @block.lookup_by_name("torch").unwrap().internal_id()
   ignore(runtime.set_block(14, 4, 4, torch))
   let key = @level.chunk_key_by_chunk_xyz(0, 0, 0)
-  let job = runtime.light_cache.begin([key])
+  let job = runtime.lighting.light_cache.begin([key])
   ignore(job.advance(1))
-  runtime.dirty_lights.clear()
-  runtime.active_light = Some((key, job))
+  runtime.lighting.dirty_lights.clear()
+  runtime.lighting.active_light = Some((key, job))
   ignore(runtime.set_block(14, 4, 4, @schema.AIR_ID))
   for _ in 0..<1000 {
     ignore(runtime.refresh_lights())
     @test.assert_eq(runtime.light_at(16, 4, 4), 0)
-    if runtime.pending_light_chunks.length() == 0 &&
-      runtime.active_light is None {
+    if runtime.lighting.pending_light_chunks.length() == 0 &&
+      runtime.lighting.active_light is None {
       break
     }
   }
-  @test.assert_eq(runtime.active_light is None, true)
-  @test.assert_eq(runtime.pending_light_chunks.length(), 0)
+  @test.assert_eq(runtime.lighting.active_light is None, true)
+  @test.assert_eq(runtime.lighting.pending_light_chunks.length(), 0)
 }
 
 ///|
@@ -164,14 +164,14 @@ test "recolor uploads are budgeted and geometry rebuilds supersede them" {
       z: 0,
     }),
   )
-  runtime.dirty_sections.clear()
+  runtime.meshes.dirty_sections.clear()
   let first = runtime.build_recolor_commands(
     @block.render_registry,
     [key, other_key],
     [],
   )
   @test.assert_eq(first.length(), runtime.mesh_budget)
-  let remaining = runtime.dirty_colors.values().to_array()[0]
+  let remaining = runtime.meshes.dirty_colors.values().to_array()[0]
   runtime.mark_section_dirty(
     remaining.chunk_key,
     remaining.x,
@@ -189,7 +189,7 @@ test "recolor uploads are budgeted and geometry rebuilds supersede them" {
     .length(),
     0,
   )
-  @test.assert_eq(runtime.dirty_colors.length(), 0)
+  @test.assert_eq(runtime.meshes.dirty_colors.length(), 0)
 }
 
 ///|

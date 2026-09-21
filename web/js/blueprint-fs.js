@@ -13,7 +13,7 @@ function designWorldBounds() {
   ];
 }
 
-function createBlueprintFs({ getPlacementTarget, notifyBlocksChanged }) {
+function createBlueprintFs({ getPlacementTarget }) {
   let fileHandle = null;
   let openPath = null;
 
@@ -50,9 +50,6 @@ function createBlueprintFs({ getPlacementTarget, notifyBlocksChanged }) {
     const ok = globalThis.mcLoadBlueprint(text, target[0], target[1], target[2]);
     if (!ok) {
       return { success: false, message: "Blueprint failed to load" };
-    }
-    if (typeof notifyBlocksChanged === "function") {
-      notifyBlocksChanged();
     }
     fileHandle = handle;
     openPath = handle.name;
@@ -93,20 +90,19 @@ function createBlueprintFs({ getPlacementTarget, notifyBlocksChanged }) {
   }
 
   function handleCommand(text) {
-    const trimmed = text.trim();
-    if (trimmed === "/open") {
-      return openBlueprint("");
+    // Command parsing is owned by MoonBit (`parseBlueprintCommand`); this layer
+    // only performs the browser file-system side effect.
+    const parse = globalThis.mcParseBlueprintCommand;
+    if (typeof parse !== "function") {
+      return null;
     }
-    if (trimmed.startsWith("/open ")) {
-      return openBlueprint(trimmed.slice("/open ".length).trim());
+    const command = parse(text);
+    if (!command) {
+      return null;
     }
-    if (trimmed === "/save") {
-      return saveBlueprint("");
-    }
-    if (trimmed.startsWith("/save ")) {
-      return saveBlueprint(trimmed.slice("/save ".length).trim());
-    }
-    return null;
+    return command.kind === "open"
+      ? openBlueprint(command.name)
+      : saveBlueprint(command.name);
   }
 
   return { handleCommand };

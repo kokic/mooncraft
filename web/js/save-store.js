@@ -1,3 +1,5 @@
+import { decodeSaveSummary } from "virtual:mooncraft-runtime";
+
 const DATABASE_NAME = "mooncraft";
 const SAVE_STORE_NAME = "saves";
 
@@ -81,30 +83,17 @@ function slotActivityTime(slot) {
 
 function parseSavePayload(text) {
   if (typeof text !== "string" || text.length === 0) return null;
-  try {
-    const payload = JSON.parse(text);
-    const seed = Number(payload?.world?.seed);
-    const worldType = payload?.world?.world_type;
-    const height = Number(payload?.world?.height);
-    const savedAt = Number(payload?.saved_at);
-    const blockDeltas = payload?.block_deltas;
-    if (payload?.version !== globalThis.mcSaveSchemaVersion ||
-      !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff ||
-      typeof worldType !== "string" || worldType.length === 0 ||
-      !Number.isSafeInteger(height) || height <= 0 ||
-      !Array.isArray(blockDeltas)) {
-      return null;
-    }
-    return {
-      seed,
-      worldType,
-      height,
-      savedAt: Number.isFinite(savedAt) ? savedAt : null,
-      blockDeltaCount: blockDeltas.length,
-    };
-  } catch (_) {
-    return null;
-  }
+  // Schema validation is owned by MoonBit (`level/save`); this only adapts the
+  // decoded summary to the save-menu shape.
+  const summary = decodeSaveSummary(text);
+  if (!summary) return null;
+  return {
+    seed: Number(summary.seed),
+    worldType: summary.world_type,
+    height: Number(summary.height),
+    savedAt: Number(summary.saved_at),
+    blockDeltaCount: Number(summary.block_delta_count),
+  };
 }
 
 async function listSaveSlots() {

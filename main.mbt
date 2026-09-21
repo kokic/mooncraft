@@ -76,6 +76,14 @@ pub fn launch_designer() -> Unit {
 }
 
 ///|
+/// Decode a serialized save into the summary the save menu and launch path
+/// need. Exported as a module function because it runs before `launchGame`.
+#export_name("decodeSaveSummary")
+pub fn decode_save_summary(text : String) -> @save.SaveSummary? {
+  @save.decode_save_summary(text)
+}
+
+///|
 fn launch_world(
   seed : UInt,
   world_type_name : String,

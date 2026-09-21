@@ -10,29 +10,36 @@ fn can_break_block(internal_id : UInt) -> Bool {
 }
 
 ///|
+/// Apply world effects in order and return the chunk keys needing remeshing.
+/// Player effects are handled by the game runtime.
 pub fn apply_use_action(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   action : @item.UseAction,
 ) -> Array[String] {
-  // STATUS: COMPLETE - applies the current break-block action contract.
-  // STATUS: INCOMPLETE - item durability, harvest rules, drops, and event hooks
-  // are intentionally absent from this first interaction layer.
+  BlockInteraction::new(chunk_map, size).apply_use_action(action)
+}
+
+///|
+fn BlockInteraction::apply_use_action(
+  self : BlockInteraction,
+  action : @item.UseAction,
+) -> Array[String] {
   match action {
     @item.UseAction::None => []
     @item.UseAction::Batch(actions) => {
       let out : Array[String] = []
       for sub in actions {
-        for key in apply_use_action(chunk_map, size, sub) {
+        for key in self.apply_use_action(sub) {
           out.push(key)
         }
       }
       out
     }
     @item.UseAction::BreakBlock(wx~, wy~, wz~) => {
-      guard get_block_id(chunk_map, size, wx, wy, wz) is Some(id) else { [] }
+      guard self.block_at(wx, wy, wz) is Some(id) else { [] }
       guard can_break_block(id) else { [] }
-      set_block_id(chunk_map, size, wx, wy, wz, @schema.AIR_ID)
+      self.set_block(wx, wy, wz, @schema.AIR_ID)
     }
     // Eating affects the player, not the world, so it is handled by the client.
     @item.UseAction::Eat(..) => []

@@ -30,107 +30,7 @@ fn resolve_block_internal_id_by_selector(
 }
 
 ///|
-fn is_air_at(
-  chunk_map : @hashmap.HashMap[String, Array[UInt]],
-  size : Int,
-  wx : Int,
-  wy : Int,
-  wz : Int,
-) -> Bool {
-  get_block_id(chunk_map, size, wx, wy, wz).map_or(false, id => {
-    id == @schema.AIR_ID
-  })
-}
-
-///|
-fn can_replace_at(
-  chunk_map : @hashmap.HashMap[String, Array[UInt]],
-  size : Int,
-  wx : Int,
-  wy : Int,
-  wz : Int,
-) -> Bool {
-  get_block_id(chunk_map, size, wx, wy, wz)
-  .map(id => {
-    id == @schema.AIR_ID ||
-    @block.lookup_by_internal_id(id)
-    .map(block => block.shape is @block.Shape::Liquid)
-    .unwrap_or(false)
-  })
-  .unwrap_or(false)
-}
-
-///|
-fn intersects(
-  a_min_x : Double,
-  a_min_y : Double,
-  a_min_z : Double,
-  a_max_x : Double,
-  a_max_y : Double,
-  a_max_z : Double,
-  b_min_x : Double,
-  b_min_y : Double,
-  b_min_z : Double,
-  b_max_x : Double,
-  b_max_y : Double,
-  b_max_z : Double,
-) -> Bool {
-  a_max_x > b_min_x &&
-  a_min_x < b_max_x &&
-  a_max_y > b_min_y &&
-  a_min_y < b_max_y &&
-  a_max_z > b_min_z &&
-  a_min_z < b_max_z
-}
-
-///|
-fn can_place_block(
-  internal_id : UInt,
-  player_pos : Array[Double],
-  entity_height : Double,
-  entity_radius : Double,
-  wx : Int,
-  wy : Int,
-  wz : Int,
-) -> Bool {
-  if internal_id == @schema.AIR_ID {
-    return true
-  }
-  if player_pos.length() < 3 {
-    return true
-  }
-  match @block.get_shape_desc(internal_id) {
-    None => false
-    Some(desc) => {
-      let px = player_pos[0]
-      let py = player_pos[1]
-      let pz = player_pos[2]
-      let ent_min_x = px - entity_radius
-      let ent_max_x = px + entity_radius
-      let ent_min_y = py
-      let ent_max_y = py + entity_height
-      let ent_min_z = pz - entity_radius
-      let ent_max_z = pz + entity_radius
-      for box in desc.boxes {
-        let b_min_x = wx.to_double() + box.min[0].to_double()
-        let b_max_x = wx.to_double() + box.max[0].to_double()
-        let b_min_y = wy.to_double() + box.min[1].to_double()
-        let b_max_y = wy.to_double() + box.max[1].to_double()
-        let b_min_z = wz.to_double() + box.min[2].to_double()
-        let b_max_z = wz.to_double() + box.max[2].to_double()
-        if intersects(
-            ent_min_x, ent_min_y, ent_min_z, ent_max_x, ent_max_y, ent_max_z, b_min_x,
-            b_min_y, b_min_z, b_max_x, b_max_y, b_max_z,
-          ) {
-          return false
-        }
-      }
-      true
-    }
-  }
-}
-
-///|
+/// Apply placement/replacement actions, retaining actor context within batches.
 pub fn apply_use_on_action(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
@@ -139,17 +39,22 @@ pub fn apply_use_on_action(
   entity_height? : Double = 0,
   entity_radius? : Double = 0,
 ) -> Array[String] {
-  // STATUS: COMPLETE - applies current place/replace actions and updates dirty
-  // chunk keys for the JS renderer.
-  // STATUS: NEEDS_ADJUSTMENT - Batch recursion currently omits player collision
-  // context for sub-actions; pass player args through before batching actions
-  // that can place solid blocks.
+  BlockInteraction::new(
+    chunk_map, size, player_pos~, entity_height~, entity_radius~,
+  ).apply_use_on_action(action)
+}
+
+///|
+fn BlockInteraction::apply_use_on_action(
+  self : BlockInteraction,
+  action : @item.UseOnAction,
+) -> Array[String] {
   match action {
     @item.UseOnAction::None => []
     @item.UseOnAction::Batch(actions) => {
       let out : Array[String] = []
       for sub in actions {
-        for key in apply_use_on_action(chunk_map, size, sub) {
+        for key in self.apply_use_on_action(sub) {
           out.push(key)
         }
       }
@@ -163,16 +68,16 @@ pub fn apply_use_on_action(
       neo=new_predicate,
       require_above_air~
     ) => {
-      let current = get_block_id(chunk_map, size, wx, wy, wz)
+      let current = self.block_at(wx, wy, wz)
       guard current is Some(current_id) else { [] }
-      guard !require_above_air || is_air_at(chunk_map, size, wx, wy + 1, wz) else {
+      guard !require_above_air || self.is_air_at(wx, wy + 1, wz) else {
         []
       }
       guard block_name_matches(current_id, expected_predicate) else { [] }
       guard resolve_block_internal_id_by_selector(new_predicate) is Some(new_id) else {
         []
       }
-      set_block_id(chunk_map, size, wx, wy, wz, new_id)
+      self.set_block(wx, wy, wz, new_id)
     }
     @item.UseOnAction::PlaceBlock(
       target_wx~,
@@ -186,7 +91,7 @@ pub fn apply_use_on_action(
       click~
     ) => {
       guard !require_air ||
-        can_replace_at(chunk_map, size, place_wx, place_wy, place_wz) else {
+        self.can_replace_at(place_wx, place_wy, place_wz) else {
         []
       }
       guard resolve_block_internal_id(name) is Some(base_id) else { [] }
@@ -196,18 +101,23 @@ pub fn apply_use_on_action(
         base_id,
         block,
         prev,
-        player_pos~,
+        player_pos=self.player_pos,
         click~,
       )
       let raw_id = @schema.decode_block_id(base_id)
       let internal_id = @schema.encode_variant(raw_id, placement_state)
-      guard can_place_block(
-        internal_id, player_pos, entity_height, entity_radius, place_wx, place_wy,
+      guard @block.can_place_block(
+        internal_id,
+        self.player_pos,
+        self.entity_height,
+        self.entity_radius,
+        place_wx,
+        place_wy,
         place_wz,
       ) else {
         []
       }
-      set_block_id(chunk_map, size, place_wx, place_wy, place_wz, internal_id)
+      self.set_block(place_wx, place_wy, place_wz, internal_id)
     }
   }
 }

@@ -98,9 +98,8 @@ fn EntityState::advance(
       break
     }
     let distance = distance_to(self.position, target)
-    match target_yaw(self.position, target) {
-      Some(yaw) => self.turn_toward(yaw, remaining)
-      None => ()
+    if target_yaw(self.position, target) is Some(yaw) {
+      self.turn_toward(yaw, remaining)
     }
     if distance <= POSITION_EPSILON {
       self.position = target
@@ -195,4 +194,16 @@ fn EntityState::from_save(save : EntitySave) -> EntityState {
     upside_down: save.upside_down,
     movement,
   }
+}
+
+///|
+fn EntityState::tick(self : EntityState, delta : Double) -> Array[EntityEvent] {
+  guard self.movement is Some(plan) else { [] }
+  let events : Array[EntityEvent] = []
+  if !plan.started {
+    plan.started = true
+    events.push(EntityEvent::MovementStarted(self.id))
+  }
+  events.append(self.advance(delta))
+  events
 }

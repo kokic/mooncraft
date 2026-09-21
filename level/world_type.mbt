@@ -44,3 +44,16 @@ pub fn get_world_type_names() -> FixedArray[String] {
 pub fn default_world_type_name() -> String {
   get_world_type_names()[0]
 }
+
+///|
+/// Whether `name` is one of the canonical world type names. Derived from
+/// `get_world_type_names` so the accepted set has a single definition.
+#export_name("isWorldTypeName")
+pub fn is_world_type_name(name : String) -> Bool {
+  for candidate in get_world_type_names() {
+    if candidate == name {
+      return true
+    }
+  }
+  false
+}

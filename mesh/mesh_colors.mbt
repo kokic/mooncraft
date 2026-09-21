@@ -13,7 +13,7 @@ pub fn build_chunk_colors_split(
       translucent: [],
     }
   }
-  let targets = ColorTargets::new()
+  let targets = RenderBuckets::new(() => [])
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
@@ -34,7 +34,7 @@ pub fn build_chunk_colors_split(
 /// procedural cube faces.
 fn emit_split_block_colors(
   chunk : PaddedChunk,
-  targets : ColorTargets,
+  targets : RenderBuckets[Array[Float]],
   x : Int,
   y : Int,
   z : Int,

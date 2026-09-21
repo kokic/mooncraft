@@ -55,18 +55,8 @@ pub fn EntityRuntime::tick(
   delta : Double,
 ) -> Array[EntityEvent] {
   let events = []
-  for id in self.entities.keys() {
-    guard self.entities.get(id) is Some(entity) else { continue }
-    match entity.movement {
-      Some(plan) => {
-        if !plan.started {
-          plan.started = true
-          events.push(EntityEvent::MovementStarted(id))
-        }
-        events.append(entity.advance(delta))
-      }
-      None => ()
-    }
+  for entity in self.entities.values() {
+    events.append(entity.tick(delta))
   }
   events
 }

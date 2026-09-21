@@ -13,12 +13,12 @@ test "descending only schedules sections newly entering the mesh window" {
     }
   }
   runtime.refresh_mesh_window(8)
-  runtime.dirty_sections.clear()
+  runtime.meshes.dirty_sections.clear()
   runtime.refresh_mesh_window(9)
-  @test.assert_eq(runtime.dirty_sections.length(), 0)
+  @test.assert_eq(runtime.meshes.dirty_sections.length(), 0)
   runtime.refresh_mesh_window(7)
-  @test.assert_eq(runtime.dirty_sections.length(), 4)
-  for section in runtime.dirty_sections.values() {
+  @test.assert_eq(runtime.meshes.dirty_sections.length(), 4)
+  for section in runtime.meshes.dirty_sections.values() {
     let (_, cy, _) = @level.chunk_xyz_by_chunk_key(section.chunk_key)
     @test.assert_eq(cy * 16 + section.y * 8, -48)
   }

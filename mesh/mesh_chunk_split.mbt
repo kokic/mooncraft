@@ -6,9 +6,9 @@ pub fn build_chunk_mesh_split(
   size : Int,
 ) -> MeshSplit {
   guard PaddedChunk::new(registry, chunk_data, chunk_light, size) is Some(chunk) else {
-    return MeshSplitTargets::new().into_mesh_split()
+    return RenderBuckets::new(MeshFaceArrays::new).into_mesh_split()
   }
-  let targets = MeshSplitTargets::new()
+  let targets = RenderBuckets::new(MeshFaceArrays::new)
   for x in 0..<size {
     for y in 0..<size {
       for z in 0..<size {
@@ -24,7 +24,7 @@ pub fn build_chunk_mesh_split(
 /// cube faces.
 fn emit_split_block_mesh(
   chunk : PaddedChunk,
-  targets : MeshSplitTargets,
+  targets : RenderBuckets[MeshFaceArrays],
   x : Int,
   y : Int,
   z : Int,

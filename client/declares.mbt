@@ -18,5 +18,4 @@ pub struct GameRuntime {
   chunk_runtime : @chunk.ChunkRuntime
   player_runtime : @player.PlayerRuntime
   mob_runtime : @mob.MobRuntime
-  chunk_size : Int
 }

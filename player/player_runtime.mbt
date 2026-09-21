@@ -1,24 +1,4 @@
 ///|
-pub struct PlayerSnapshot {
-  position : Array[Double]
-  yaw : Double
-  pitch : Double
-  game_mode : String
-  entity_height : Double
-  entity_radius : Double
-  velocity_y : Double
-  on_ground : Bool
-  flying : Bool
-  health : Double
-  hunger : Double
-  air : Double
-  dead : Bool
-} derive(Debug)
-
-///|
-pub extend PlayerSnapshot with Debug::{to_repr}
-
-///|
 pub struct PlayerRuntime {
   chunk_map : @hashmap.HashMap[String, Array[UInt]]
   chunk_size : Int
@@ -99,25 +79,6 @@ fn clamp_pitch(pitch : Double) -> Double {
 }
 
 ///|
-pub fn PlayerRuntime::snapshot(self : PlayerRuntime) -> PlayerSnapshot {
-  {
-    position: self.position.copy(),
-    yaw: self.yaw,
-    pitch: self.pitch,
-    game_mode: self.inventory.snapshot().game_mode,
-    entity_height: self.entity_height,
-    entity_radius: self.entity_radius,
-    velocity_y: self.velocity_y,
-    on_ground: self.on_ground,
-    flying: self.flying,
-    health: self.vitals.health,
-    hunger: self.vitals.hunger,
-    air: self.vitals.air,
-    dead: self.vitals.dead,
-  }
-}
-
-///|
 pub fn PlayerRuntime::set_move_intent(
   self : PlayerRuntime,
   intent : MoveInput,
@@ -149,9 +110,7 @@ pub fn PlayerRuntime::restore(
   }
   self.yaw = yaw
   self.pitch = clamp_pitch(pitch)
-  self.move_intent = idle_move_input()
-  self.yaw_intent = 0.0
-  self.pitch_intent = 0.0
+  self.clear_input()
   self.velocity_y = velocity_y
   self.fall_distance = 0.0
   self.flying = false
@@ -170,9 +129,7 @@ pub fn PlayerRuntime::teleport(
   z : Double,
 ) -> PlayerSnapshot {
   self.position = [x, y, z]
-  self.move_intent = idle_move_input()
-  self.yaw_intent = 0.0
-  self.pitch_intent = 0.0
+  self.clear_input()
   self.snapshot()
 }
 
@@ -229,146 +186,4 @@ pub fn PlayerRuntime::tick(
   )
   self.vitals = self.vitals.tick(ctx, delta)
   self.snapshot()
-}
-
-///|
-pub fn PlayerRuntime::position(self : PlayerRuntime) -> Array[Double] {
-  self.position.copy()
-}
-
-///|
-pub fn PlayerRuntime::yaw(self : PlayerRuntime) -> Double {
-  self.yaw
-}
-
-///|
-pub fn PlayerRuntime::pitch(self : PlayerRuntime) -> Double {
-  self.pitch
-}
-
-///|
-pub fn PlayerRuntime::velocity_y(self : PlayerRuntime) -> Double {
-  self.velocity_y
-}
-
-///|
-pub fn PlayerRuntime::vitals(self : PlayerRuntime) -> Vitals {
-  self.vitals
-}
-
-///|
-/// Apply a discrete hit and return the resulting snapshot.
-pub fn PlayerRuntime::apply_damage(
-  self : PlayerRuntime,
-  amount : Double,
-) -> PlayerSnapshot {
-  self.vitals = self.vitals.apply_hit(amount)
-  self.snapshot()
-}
-
-///|
-/// Restore health and return the resulting snapshot.
-pub fn PlayerRuntime::heal(
-  self : PlayerRuntime,
-  amount : Double,
-) -> PlayerSnapshot {
-  self.vitals = self.vitals.heal(amount)
-  self.snapshot()
-}
-
-///|
-/// Feed the player and return the resulting snapshot.
-pub fn PlayerRuntime::eat(
-  self : PlayerRuntime,
-  nutrition : Double,
-  saturation : Double,
-) -> PlayerSnapshot {
-  self.vitals = self.vitals.eat(nutrition, saturation)
-  self.snapshot()
-}
-
-///|
-/// Kill the player and return the resulting snapshot.
-pub fn PlayerRuntime::kill(self : PlayerRuntime) -> PlayerSnapshot {
-  self.vitals = self.vitals.kill()
-  self.snapshot()
-}
-
-///|
-/// Return to the spawn point with full health and food.
-pub fn PlayerRuntime::respawn(self : PlayerRuntime) -> PlayerSnapshot {
-  self.position = self.spawn_position.copy()
-  self.velocity_y = 0.0
-  self.fall_distance = 0.0
-  self.on_ground = false
-  self.flying = false
-  self.vitals = Vitals::full()
-  self.move_intent = idle_move_input()
-  self.yaw_intent = 0.0
-  self.pitch_intent = 0.0
-  self.snapshot()
-}
-
-///|
-pub fn PlayerRuntime::inventory_snapshot(
-  self : PlayerRuntime,
-) -> PlayerInventorySnapshot {
-  self.inventory.snapshot()
-}
-
-///|
-pub fn PlayerRuntime::restore_inventory(
-  self : PlayerRuntime,
-  snapshot : PlayerInventorySnapshot,
-) -> PlayerInventorySnapshot {
-  self.inventory.restore(snapshot)
-}
-
-///|
-pub fn PlayerRuntime::set_game_mode(
-  self : PlayerRuntime,
-  mode : String,
-) -> PlayerInventorySnapshot {
-  let snapshot = self.inventory.set_game_mode(mode)
-  if snapshot.game_mode != "creative" {
-    self.flying = false
-  }
-  snapshot
-}
-
-///|
-/// Toggle creative flight. Has no effect outside creative mode.
-pub fn PlayerRuntime::toggle_flight(self : PlayerRuntime) -> PlayerSnapshot {
-  guard self.inventory.snapshot().game_mode == "creative" else {
-    return self.snapshot()
-  }
-  self.flying = !self.flying
-  self.velocity_y = 0.0
-  self.fall_distance = 0.0
-  self.snapshot()
-}
-
-///|
-pub fn PlayerRuntime::select_hotbar(
-  self : PlayerRuntime,
-  index : Int,
-) -> PlayerInventorySnapshot {
-  self.inventory.select_hotbar(index)
-}
-
-///|
-pub fn PlayerRuntime::set_hotbar_slot(
-  self : PlayerRuntime,
-  index : Int,
-  slot : HotbarSlot?,
-) -> PlayerInventorySnapshot {
-  self.inventory.set_hotbar_slot(index, slot)
-}
-
-///|
-pub fn PlayerRuntime::set_inventory_open(
-  self : PlayerRuntime,
-  open : Bool,
-) -> PlayerInventorySnapshot {
-  self.inventory.set_inventory_open(open)
 }

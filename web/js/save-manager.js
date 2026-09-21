@@ -4,11 +4,12 @@ import {
   listSaveSlots,
   parseSavePayload,
 } from "./save-store.js";
-import { getWorldTypeNames, defaultWorldTypeName } from "virtual:mooncraft-level";
-
-function isValidWorldType(wt) {
-  return getWorldTypeNames().includes(wt);
-}
+import {
+  getWorldTypeNames,
+  defaultWorldTypeName,
+  isWorldTypeName,
+  normalizeInfiniteWorldHeight,
+} from "virtual:mooncraft-level";
 
 function infiniteWorldHeightConfig() {
   const min = Number(globalThis.mcInfiniteWorldMinHeight);
@@ -24,9 +25,10 @@ function infiniteWorldHeightConfig() {
 
 function selectedInfiniteWorldHeight(input, config) {
   const height = Number(input.value);
-  return Number.isSafeInteger(height) && height >= config.min && height <= config.max
-    ? height
-    : config.min;
+  // Range normalization is owned by MoonBit (`normalizeInfiniteWorldHeight`).
+  return Number.isSafeInteger(height)
+    ? normalizeInfiniteWorldHeight(height)
+    : config.defaultHeight;
 }
 
 function parseSaveInfo(text) {
@@ -385,7 +387,7 @@ async function createSaveMenu({ onOpen }) {
     syncWorldHeightInput();
 
     const create = createButton("New Save", "mc-save-new", () => {
-      const worldType = isValidWorldType(worldTypeSelect.value)
+      const worldType = isWorldTypeName(worldTypeSelect.value)
         ? worldTypeSelect.value
         : defaultWorldTypeName();
       if (worldType === "Design") {

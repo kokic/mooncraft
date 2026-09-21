@@ -103,25 +103,27 @@ pub fn capture_design_world(
 /// Place a blueprint encoded as JSON into the world, aligned so its anchor sits
 /// at (wx, wy, wz). Returns an error message when the text is not a blueprint.
 pub fn load_blueprint_into_world(
-  chunk_map : @hashmap.HashMap[String, Array[UInt]],
-  size : Int,
+  chunk : @chunk.ChunkRuntime,
   text : String,
   wx : Int,
   wy : Int,
   wz : Int,
 ) -> Result[Unit, String] {
+  // Route placement through the chunk runtime so section and lighting
+  // invalidation stays owned by MoonBit.
   let set_block = (x : Int, y : Int, z : Int, id : UInt) => {
-    ignore(@level.set_block_id(chunk_map, size, x, y, z, id))
+    ignore(chunk.set_block(x, y, z, id))
   }
   @designer.place_blueprint_text(set_block, text, wx, wy, wz)
 }
 
 ///|
-/// Clear every design-world block except the grass floor layer.
-pub fn reset_design_world(
-  chunk_map : @hashmap.HashMap[String, Array[UInt]],
-  size : Int,
-) -> Unit {
+/// Clear every design-world block except the grass floor layer, then rebuild
+/// the resident meshes and lighting for the whole canvas.
+pub fn reset_design_world(chunk : @chunk.ChunkRuntime) -> Unit {
+  chunk.clear_block_edits()
+  let chunk_map = chunk.chunk_map()
+  let size = chunk.chunk_size
   let half_x = @level.DESIGN_WORLD_X_SIZE / 2
   let half_z = @level.DESIGN_WORLD_Z_SIZE / 2
   for wy in @level.DESIGN_MIN_Y..<=@level.DESIGN_MAX_Y {
@@ -132,11 +134,16 @@ pub fn reset_design_world(
       }
     }
   }
+  chunk.invalidate_loaded_sections()
 }
 
 ///|
 /// Publish the browser-side blueprint authoring API for the design world.
 pub fn register_designer_api(game : GameRuntime) -> Unit {
+  @ffi.cast_global_set(
+    "mcParseBlueprintCommand",
+    @designer.parse_blueprint_command,
+  )
   @ffi.cast_global_set("mcExportBlueprint", (
     name : String,
     x0 : Int,
@@ -149,7 +156,7 @@ pub fn register_designer_api(game : GameRuntime) -> Unit {
     capture_design_world(
       name,
       game.chunk_runtime.chunk_map(),
-      game.chunk_size,
+      game.chunk_runtime.chunk_size,
       x0,
       y0,
       z0,
@@ -165,17 +172,10 @@ pub fn register_designer_api(game : GameRuntime) -> Unit {
     wy : Int,
     wz : Int,
   ) => {
-    load_blueprint_into_world(
-      game.chunk_runtime.chunk_map(),
-      game.chunk_size,
-      text,
-      wx,
-      wy,
-      wz,
-    )
+    load_blueprint_into_world(game.chunk_runtime, text, wx, wy, wz)
     is Ok(_)
   })
   @ffi.cast_global_set("mcResetDesignWorld", () => {
-    reset_design_world(game.chunk_runtime.chunk_map(), game.chunk_size)
+    reset_design_world(game.chunk_runtime)
   })
 }

@@ -55,7 +55,7 @@ fn normalize_game_mode(mode : String) -> String {
 }
 
 ///|
-fn clamp_hotbar_index(index : Int) -> Int {
+pub fn clamp_hotbar_index(index : Int) -> Int {
   if index < 0 {
     0
   } else if index >= HOTBAR_SLOT_COUNT {
@@ -103,10 +103,8 @@ pub fn PlayerInventoryRuntime::set_game_mode(
 ) -> PlayerInventorySnapshot {
   let snapshot = self.snapshot
   self.snapshot = {
+    ..snapshot,
     game_mode: normalize_game_mode(game_mode),
-    selected_hotbar_index: snapshot.selected_hotbar_index,
-    hotbar_slots: snapshot.hotbar_slots,
-    inventory_open: snapshot.inventory_open,
   }
   self.snapshot
 }
@@ -118,10 +116,8 @@ pub fn PlayerInventoryRuntime::select_hotbar(
 ) -> PlayerInventorySnapshot {
   let snapshot = self.snapshot
   self.snapshot = {
-    game_mode: snapshot.game_mode,
+    ..snapshot,
     selected_hotbar_index: clamp_hotbar_index(index),
-    hotbar_slots: snapshot.hotbar_slots,
-    inventory_open: snapshot.inventory_open,
   }
   self.snapshot
 }
@@ -143,9 +139,7 @@ pub fn PlayerInventoryRuntime::set_inventory_open(
 ) -> PlayerInventorySnapshot {
   let snapshot = self.snapshot
   self.snapshot = {
-    game_mode: snapshot.game_mode,
-    selected_hotbar_index: snapshot.selected_hotbar_index,
-    hotbar_slots: snapshot.hotbar_slots,
+    ..snapshot,
     inventory_open: open,
   }
   self.snapshot

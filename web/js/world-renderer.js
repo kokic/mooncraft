@@ -17,11 +17,6 @@ import {
 
 const UPDATE_LABEL = window.mcUpdateLabel;
 const DEFAULT_MESH_SECTION_SIZE = 8;
-const HOTBAR_SLOT_COUNT = 9;
-
-function normalizeGameMode(mode) {
-  return mode === "survival" || mode === "spectator" ? mode : "creative";
-}
 
 function getBlockOutlineDesc(internalId) {
   return window.mcGetBlockOutlineDesc(internalId);
@@ -164,6 +159,9 @@ function renderTestChunk({
     throw new Error("Save and quit callback is unavailable");
   }
   const size = chunkSize ?? 16;
+  // Hotbar size and index clamping are owned by the MoonBit player runtime.
+  const hotbarSlotCount = Number(window.mcHotbarSlotCount ?? 9);
+  const clampHotbarIndex = (index) => window.mcClampHotbarIndex(index);
   const chunkMeshes = new Map();
   const rawAirLongId = Number(window.mcAirInternalId ?? 0);
   const airLongId = Number.isFinite(rawAirLongId) ? rawAirLongId : 0;
@@ -581,18 +579,9 @@ function renderTestChunk({
       ? value
       : (window.mcRenderDistance ?? 2);
   };
-  const getGameMode = () => normalizeGameMode(getInventorySnapshot()?.game_mode);
-  const setGameMode = (mode) => {
-    const next = normalizeGameMode(mode);
-    const prev = getGameMode();
-    if (prev === next) {
-      return next;
-    }
-    const snapshot = typeof window.mcSetPlayerGameMode === "function"
-      ? window.mcSetPlayerGameMode(next)
-      : null;
-    return normalizeGameMode(snapshot?.game_mode ?? next);
-  };
+  // Game mode is normalized by the MoonBit player runtime; the snapshot is the
+  // single source of truth.
+  const getGameMode = () => getInventorySnapshot()?.game_mode ?? "creative";
 
   const debugHud = document.createElement("div");
   debugHud.style.position = "fixed";
@@ -702,7 +691,7 @@ function renderTestChunk({
   };
 
   const normalizeUiHotbarItems = (items) =>
-    padItems(Array.isArray(items) ? items.map(cloneUiItem) : [], HOTBAR_SLOT_COUNT);
+    padItems(Array.isArray(items) ? items.map(cloneUiItem) : [], hotbarSlotCount);
 
   const reportMissingTextures = (items, scope) => {
     if (!textures?.textureIndex) return;
@@ -737,7 +726,7 @@ function renderTestChunk({
     hasRestoredHotbar
       ? restoredHotbarSlots
       : (window.mcCollectHotbarItems?.() ?? []),
-    HOTBAR_SLOT_COUNT,
+    hotbarSlotCount,
   );
   const isInventoryOpen = () => getInventorySnapshot()?.inventory_open === true;
   window.mcInventoryOpen = isInventoryOpen();
@@ -783,17 +772,6 @@ function renderTestChunk({
       const prev = hit.prev;
       return prev ? Array.from(prev).map(Number) : null;
     },
-    notifyBlocksChanged: () => {
-      if (typeof window.mcMarkChunkBlockChanged !== "function") return;
-      const step = Number(window.mcChunkSectionSize) || 8;
-      for (let x = -64; x <= 63; x += step) {
-        for (let y = -64; y <= 63; y += step) {
-          for (let z = -64; z <= 63; z += step) {
-            window.mcMarkChunkBlockChanged(x, y, z);
-          }
-        }
-      }
-    },
   });
   const uiItemsByName = new Map();
   const uiItemKey = (name, category) => `${category ?? "none"}:${name ?? ""}`;
@@ -832,11 +810,6 @@ function renderTestChunk({
     if (byItem) return cloneUiItem(byItem);
     const byNone = uiItemsByName.get(uiItemKey(name, "none"));
     return byNone ? cloneUiItem(byNone) : null;
-  };
-
-  const clampHotbarIndex = (index) => {
-    if (!Number.isFinite(Number(index))) return 0;
-    return Math.max(0, Math.min(HOTBAR_SLOT_COUNT - 1, Math.floor(Number(index))));
   };
 
   const getSelectedHotbarIndex = () =>
@@ -955,7 +928,7 @@ function renderTestChunk({
   const initialInventory = getInventorySnapshot();
   syncInventorySnapshot = (snapshot) => {
     const next = snapshot ?? initialInventory;
-    const items = padItems(next?.hotbar_slots ?? [], HOTBAR_SLOT_COUNT);
+    const items = padItems(next?.hotbar_slots ?? [], hotbarSlotCount);
     const changed = items.some((item, index) => {
       const current = hotbarViewItems[index];
       return item?.name !== current?.name || item?.category !== current?.category;
@@ -1111,7 +1084,9 @@ function renderTestChunk({
         return;
       }
       if (category !== "item" && category !== "block") return;
-      const includeLiquidHit = selectedItem.name === "bucket";
+      const includesLiquid = window.mcItemIncludesLiquid;
+      const includeLiquidHit = typeof includesLiquid === "function" &&
+        includesLiquid(selectedItem.name, category) === true;
       const hit = raycastBlocks(
         raycastCamera.position,
         raycastCamera.direction,

@@ -10,3 +10,16 @@ pub fn decode_save_payload(text : String) -> SavePayload? {
     _ => None
   }
 }
+
+///|
+/// Decode the summary a save slot needs without exposing the full payload.
+pub fn decode_save_summary(text : String) -> SaveSummary? {
+  guard decode_save_payload(text) is Some(payload) else { None }
+  Some({
+    seed: payload.world.seed,
+    world_type: payload.world.world_type,
+    height: payload.world.height,
+    saved_at: payload.saved_at,
+    block_delta_count: payload.block_deltas.length(),
+  })
+}

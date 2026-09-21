@@ -24,6 +24,7 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
   ) => @block.compute_placement_state(internal_id, block, previous))
   @ffi.cast_global_set("mcUseItemOn", @item.use_item_on)
   @ffi.cast_global_set("mcUseItem", @item.use_item)
+  @ffi.cast_global_set("mcItemIncludesLiquid", @item.item_includes_liquid)
   @ffi.cast_global_set("mcGetItemDisplayName", @i18n.item_display_name)
   @ffi.cast_global_set("mcGetBiomeName", (wx : Int, wz : Int) => {
     @biome.name(@biome.biome_at(world.noise, wx, wz))

@@ -2,6 +2,17 @@
 pub const SAVE_SCHEMA_VERSION : Int = 6
 
 ///|
+/// Browser-facing summary of a serialized save. The full payload remains owned
+/// by `SavePayload`; this exposes only what the save menu and launch path need.
+pub struct SaveSummary {
+  seed : UInt
+  world_type : String
+  height : Int
+  saved_at : Double
+  block_delta_count : Int
+}
+
+///|
 pub struct SaveWorld {
   seed : UInt
   world_type : String

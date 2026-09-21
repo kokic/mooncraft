@@ -9,21 +9,13 @@ pub fn collect_render_chunk_keys(
   chunk_max_y : Int,
 ) -> Array[String] {
   let keys : Array[String] = []
-  for ring in 0..<=render_distance {
-    for dx in -ring..<=ring {
-      for dz in -ring..<=ring {
-        guard dx.abs() == ring || dz.abs() == ring else { continue }
-        for cy in chunk_min_y..<=chunk_max_y {
-          keys.push(
-            @level.chunk_key_by_chunk_xyz(center_x + dx, cy, center_z + dz),
-          )
-        }
-      }
+  for_render_columns(center_x, center_z, render_distance, (x, z) => {
+    for y in chunk_min_y..<=chunk_max_y {
+      keys.push(@level.chunk_key_by_chunk_xyz(x, y, z))
     }
-  }
+  })
   keys
 }
-
 ///|
 pub fn collect_render_column_keys(
   center_x : Int,
@@ -31,78 +23,22 @@ pub fn collect_render_column_keys(
   render_distance : Int,
 ) -> Array[String] {
   let keys : Array[String] = []
-  for ring in 0..<=render_distance {
-    for dx in -ring..<=ring {
-      for dz in -ring..<=ring {
-        guard dx.abs() == ring || dz.abs() == ring else { continue }
-        keys.push(
-          @level.chunk_column_key_by_chunk_xz(center_x + dx, center_z + dz),
-        )
-      }
-    }
-  }
+  for_render_columns(center_x, center_z, render_distance, (x, z) => {
+    keys.push(@level.chunk_column_key_by_chunk_xz(x, z))
+  })
   keys
 }
-
-///|
-/// A mesh section addressed relative to its owning level chunk.
-pub struct ChunkSection {
-  chunk_key : String
-  x : Int
-  y : Int
-  z : Int
-} derive(Debug, ToJson)
-
-///|
-pub extend ChunkSection with Debug::{to_repr}
-
-///|
-pub extend ChunkSection with ToJson::{to_json}
-
-///|
-/// One MoonBit-prepared mesh upload for a level section.
-pub struct ChunkMeshCommand {
-  chunk_key : String
-  x : Int
-  y : Int
-  z : Int
-  center_x : Double
-  center_y : Double
-  center_z : Double
-  mesh : @mesh.MeshSplit
-}
-
-///|
-/// One MoonBit-prepared color-buffer update for a rendered section.
-pub struct ChunkRecolorCommand {
-  chunk_key : String
-  x : Int
-  y : Int
-  z : Int
-  colors : @mesh.MeshColorsSplit
-}
-
-///|
-/// Work emitted by one world-runtime tick. The browser executes these commands
-/// only by creating, replacing, recoloring, or disposing WebGL resources.
-pub struct ChunkRenderFrame {
-  generated : Array[String]
-  evicted : Array[String]
-  mesh_updates : Array[ChunkMeshCommand]
-  recolors : Array[ChunkRecolorCommand]
-}
-
 ///|
 fn ChunkRuntime::take_dirty_sections(
   self : ChunkRuntime,
 ) -> Array[ChunkSection] {
-  guard self.dirty_sections.length() > 0 else { return [] }
+  guard self.meshes.dirty_sections.length() > 0 else { return [] }
   let sections : Array[ChunkSection] = []
   let mut remaining = self.mesh_budget
   for
     chunk_key in collect_render_chunk_keys(
-      self.desired_center_x,
-      self.desired_center_z,
+      self.streaming.desired_center_x,
+      self.streaming.desired_center_z,
       self.render_distance,
       self.chunk_min_y,
       self.chunk_max_y,
@@ -115,8 +51,8 @@ fn ChunkRuntime::take_dirty_sections(
             return sections
           }
           let key = section_key(chunk_key, sx, sy, sz)
-          guard self.dirty_sections.get(key) is Some(section) else { continue }
-          self.dirty_sections.remove(key)
+          guard self.meshes.dirty_sections.get(key) is Some(section) else { continue }
+          self.meshes.dirty_sections.remove(key)
           guard self.section_in_mesh_window(section) else { continue }
           sections.push(section)
           remaining = remaining - 1
@@ -138,7 +74,7 @@ pub fn ChunkRuntime::tick(
   center_y? : Int = 0,
 ) -> ChunkRenderFrame {
   self.refresh_mesh_window(center_y)
-  self.refresh_desired(center_x, center_z)
+  self.streaming.refresh_desired(center_x, center_z, self.render_distance)
   let generated = self.generate_queued()
   let evicted = self.evict_undesired()
   let relit = self.refresh_lights()
@@ -148,4 +84,21 @@ pub fn ChunkRuntime::tick(
   })
   let recolors = self.build_recolor_commands(registry, relit, mesh_updates)
   { generated, evicted, mesh_updates, recolors, }
+}
+///|
+/// Visit columns from the center outward in the shared scheduling order.
+fn for_render_columns(
+  center_x : Int,
+  center_z : Int,
+  render_distance : Int,
+  visit : (Int, Int) -> Unit,
+) -> Unit {
+  for ring in 0..<=render_distance {
+    for dx in -ring..<=ring {
+      for dz in -ring..<=ring {
+        guard dx.abs() == ring || dz.abs() == ring else { continue }
+        visit(center_x + dx, center_z + dz)
+      }
+    }
+  }
 }

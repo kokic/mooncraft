@@ -10,7 +10,7 @@ pub fn get_chunk_data(
 
 ///|
 /// Read the block internal_id at world coordinates (wx, wy, wz).
-/// Returns None if the chunk is missing or coordinates are out of bounds.
+/// Returns None if the owning chunk is not loaded.
 pub fn get_block_id(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
@@ -18,26 +18,9 @@ pub fn get_block_id(
   wy : Int,
   wz : Int,
 ) -> UInt? {
-  let cx = @util.floor_div(wx, size)
-  let cy = @util.floor_div(wy, size)
-  let cz = @util.floor_div(wz, size)
-  let key = chunk_key_by_chunk_xyz(cx, cy, cz)
-  match get_chunk_data(chunk_map, key) {
-    None => None
-    Some(data) => {
-      let lx = wx - cx * size
-      let ly = wy - cy * size
-      let lz = wz - cz * size
-      if lx < 0 || lx >= size || ly < 0 || ly >= size || lz < 0 || lz >= size {
-        None
-      } else {
-        let idx = (ly * size + lz) * size + lx
-        Some(data[idx])
-      }
-    }
-  }
+  let address = BlockAddress::new(size, wx, wy, wz)
+  chunk_map.get(address.chunk_key()).map(data => data[address.index(size)])
 }
-
 ///|
 pub fn is_water_at(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
@@ -88,48 +71,30 @@ pub fn set_block_id(
   wz : Int,
   id : UInt,
 ) -> Array[String] {
-  let cx = @util.floor_div(wx, size)
-  let cy = @util.floor_div(wy, size)
-  let cz = @util.floor_div(wz, size)
-  let key = chunk_key_by_chunk_xyz(cx, cy, cz)
-  match get_chunk_data(chunk_map, key) {
-    None => []
-    Some(data) => {
-      let lx = wx - cx * size
-      let ly = wy - cy * size
-      let lz = wz - cz * size
-      if lx < 0 || lx >= size || ly < 0 || ly >= size || lz < 0 || lz >= size {
-        []
-      } else {
-        let idx = (ly * size + lz) * size + lx
-        if data[idx] == id {
-          []
-        } else {
-          data[idx] = id
-          @ffi.notify_block_changed(wx, wy, wz, id)
-          let keys : Array[String] = [key]
-          let push_neighbor = fn(nx : Int, ny : Int, nz : Int) -> Unit {
-            let nkey = chunk_key_by_chunk_xyz(nx, ny, nz)
-            if chunk_map.contains(nkey) {
-              keys.push(nkey)
-            }
-          }
-          match () {
-            _ if lx == 0 => push_neighbor(cx - 1, cy, cz)
-            _ if lx == size - 1 => push_neighbor(cx + 1, cy, cz)
-            _ if ly == 0 => push_neighbor(cx, cy - 1, cz)
-            _ if ly == size - 1 => push_neighbor(cx, cy + 1, cz)
-            _ if lz == 0 => push_neighbor(cx, cy, cz - 1)
-            _ if lz == size - 1 => push_neighbor(cx, cy, cz + 1)
-            _ => ()
-          }
-          keys
-        }
-      }
+  let address = BlockAddress::new(size, wx, wy, wz)
+  let key = address.chunk_key()
+  guard chunk_map.get(key) is Some(data) else { [] }
+  let index = address.index(size)
+  guard data[index] != id else { [] }
+  data[index] = id
+  @ffi.notify_block_changed(wx, wy, wz, id)
+  let keys = [key]
+  for (at_boundary, dx, dy, dz) in [
+    (address.x == 0, -1, 0, 0),
+    (address.x == size - 1, 1, 0, 0),
+    (address.y == 0, 0, -1, 0),
+    (address.y == size - 1, 0, 1, 0),
+    (address.z == 0, 0, 0, -1),
+    (address.z == size - 1, 0, 0, 1),
+  ] {
+    guard at_boundary else { continue }
+    let neighbor = chunk_key_by_chunk_xyz(address.cx + dx, address.cy + dy, address.cz + dz)
+    if chunk_map.contains(neighbor) {
+      keys.push(neighbor)
     }
   }
+  keys
 }
-
 ///|
 /// Build padded block data for one chunk (size+2)^3.
 /// Border voxels are sampled from neighbor chunks; missing chunks use `air_id`.

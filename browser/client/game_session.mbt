@@ -5,19 +5,20 @@ fn GameRuntime::new(
   chunk_data : Array[UInt],
   mob_runtime : @mob.MobRuntime,
 ) -> GameRuntime {
+  let (spawn_chunk_x, spawn_chunk_z) = world.spawn_chunk_xz()
   let chunk_runtime = @chunk.ChunkRuntime::new(
     world,
     chunk_data,
-    spawn_chunk_x=@player.SPAWN_CHUNK_X,
-    spawn_chunk_z=@player.SPAWN_CHUNK_Z,
+    spawn_chunk_x~,
+    spawn_chunk_z~,
   )
   let spawn = @player.compute_spawn_position(
     chunk_runtime.chunk_map(),
     @level.CHUNK_X_SIZE,
     @util.floor_div(world.min_y(), @level.CHUNK_X_SIZE),
     @util.floor_div(world.max_y(), @level.CHUNK_X_SIZE),
-    @player.SPAWN_CHUNK_X,
-    @player.SPAWN_CHUNK_Z,
+    spawn_chunk_x,
+    spawn_chunk_z,
     @player.SPAWN_LOCAL_X,
     @player.SPAWN_LOCAL_Z,
     @player.SPAWN_SURFACE_OFFSET,

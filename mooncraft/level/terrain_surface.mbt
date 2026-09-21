@@ -2,42 +2,6 @@
 const DETAIL_SCALE : Double = 26.0
 
 ///|
-const PV_FREQ : Double = 0.0105
-
-///|
-const RIVER_CARVE_WIDTH : Double = 0.038
-
-///|
-const PLAINS_WAVE_FREQ : Double = 0.0075
-
-///|
-const PLAINS_WAVE_AMP : Double = 3.2
-
-///|
-const HILL_FREQ : Double = 0.0038
-
-///|
-const HILL_AMP : Double = 8.0
-
-///|
-const PLAINS_WARP_FREQ : Double = 0.0028
-
-///|
-const PLAINS_WARP_AMP : Double = 28.0
-
-///|
-const MOUNTAIN_WARP_FREQ : Double = 0.0024
-
-///|
-const MOUNTAIN_WARP_AMP : Double = 42.0
-
-///|
-const MOUNTAIN_RIDGE_FREQ_A : Double = 0.0078
-
-///|
-const MOUNTAIN_RIDGE_FREQ_B : Double = 0.016
-
-///|
 const DESERT_SAND_DEPTH_MIN : Int = 4
 
 ///|
@@ -50,443 +14,59 @@ const DESERT_SAND_SCALE : Double = 24.0
 pub const DESERT_SANDSTONE_DEPTH : Int = 4
 
 ///|
-const WATER_CONTEXT_MAX_HINT : Double = 75.0
-
-///|
-const WATER_CONTEXT_FADE : Double = 22.0
-
-///|
-const WATER_CONTEXT_ENABLE_THRESHOLD : Double = 0.28
-
-///|
-const FALLBACK_DESERT_TEMP_THRESHOLD : Double = 0.34
-
-///|
-const FALLBACK_DESERT_HUMID_MAX : Double = -0.03
-
-///|
-const FALLBACK_DESERT_LAKES_EROSION_MIN : Double = 0.08
-
-///|
-const FALLBACK_DESERT_LAKES_CONTINENTAL_MAX : Double = 0.26
-
-///|
-const FALLBACK_FOREST_HUMID_MIN : Double = 0.12
-
-///|
 fn smoothstep(edge0 : Double, edge1 : Double, value : Double) -> Double {
-  if edge0 >= edge1 {
-    if value < edge0 {
-      0.0
-    } else {
-      1.0
-    }
-  } else {
-    let t = @util.clamp01((value - edge0) / (edge1 - edge0))
-    t * t * (3.0 - 2.0 * t)
-  }
+  let t = @util.clamp01((value - edge0) / (edge1 - edge0))
+  t * t * (3.0 - 2.0 * t)
 }
 
 ///|
-fn fallback_land_biome(sample : @biome.BiomeSample) -> @biome.Biome {
-  if sample.temperature > FALLBACK_DESERT_TEMP_THRESHOLD &&
-    sample.humidity < FALLBACK_DESERT_HUMID_MAX {
-    if sample.erosion > FALLBACK_DESERT_LAKES_EROSION_MIN &&
-      sample.continental < FALLBACK_DESERT_LAKES_CONTINENTAL_MAX {
-      @biome.DesertLakes
-    } else {
-      @biome.Desert
-    }
-  } else if sample.humidity > FALLBACK_FOREST_HUMID_MIN {
-    @biome.Forest
-  } else {
-    @biome.Plains
-  }
+/// River corridors follow the valleys of the same weirdness field as mountains.
+/// Smooth banks merge into the continental shelf without a biome height switch.
+fn river_valley_weight(sample : @biome.BiomeSample) -> Double {
+  river_channel_weight(sample) * smoothstep(-0.22, -0.11, sample.continental)
 }
 
 ///|
-fn fallback_dry_land_biome(sample : @biome.BiomeSample) -> @biome.Biome {
-  if sample.temperature > FALLBACK_DESERT_TEMP_THRESHOLD &&
-    sample.humidity < FALLBACK_DESERT_HUMID_MAX {
-    @biome.Desert
-  } else if sample.humidity > FALLBACK_FOREST_HUMID_MIN {
-    @biome.Forest
-  } else {
-    @biome.Plains
-  }
+fn river_channel_weight(sample : @biome.BiomeSample) -> Double {
+  1.0 - smoothstep(0.04, 0.12, sample.river)
 }
 
 ///|
-fn terrain_biome_for_height(
+fn preliminary_surface_height(shape : TerrainShape, world : World) -> Int {
+  (128.0 + shape.offset * 128.0)
+  .round()
+  .to_int()
+  .max(world.min_y() + 5)
+  .min(world.max_y() - 16)
+}
+
+///|
+/// Select surface cover only after the continuous terrain shape is known.
+fn infinite_surface_biome(
   sample : @biome.BiomeSample,
-  surface_biome : @biome.Biome,
+  height : Int,
 ) -> @biome.Biome {
-  match surface_biome {
-    @biome.River | @biome.FrozenRiver => fallback_dry_land_biome(sample)
-    @biome.DesertLakes => @biome.Desert
-    _ => surface_biome
+  match () {
+    _ if sample.continental < -0.455 => @biome.DeepOcean
+    _ if sample.continental < -0.19 => @biome.Ocean
+    _ if sample.river < 0.045 && height < SEA_LEVEL =>
+      if sample.temperature < -0.45 {
+        @biome.FrozenRiver
+      } else {
+        @biome.River
+      }
+    _ if sample.continental < -0.11 && height <= SEA_LEVEL + 3 => @biome.Beach
+    _ if height >= 140 => @biome.Mountains
+    _ if height >= 95 && sample.erosion < -0.35 => @biome.WindsweptHills
+    _ if sample.temperature > 0.2 && sample.humidity < 0.1 => @biome.Desert
+    _ if sample.humidity > 0.0 => @biome.Forest
+    _ => @biome.Plains
   }
 }
 
 ///|
-fn surface_noise(world : World) -> @util.PerlinNoise {
-  if world.kind is WorldType::Infinite {
-    world.terrain_noise.surface
-  } else {
-    world.noise
-  }
-}
-
-///|
-fn detail_noise(world : World) -> @util.PerlinNoise {
-  if world.kind is WorldType::Infinite {
-    world.terrain_noise.detail
-  } else {
-    world.noise
-  }
-}
-
-///|
-fn water_height_hint(sample : @biome.BiomeSample) -> Double {
-  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
-  let continental_lift = if sample.continental < 0.0 {
-    sample.continental * 20.0
-  } else {
-    sample.continental * 48.0
-  }
-  SEA_LEVEL.to_double() +
-  2.0 +
-  continental_lift +
-  (1.0 - erosion_t) * 7.0 +
-  sample.ridge * 24.0 +
-  sample.weirdness.abs() * 5.0
-}
-
-///|
-fn water_context_factor(sample : @biome.BiomeSample) -> Double {
-  let hint = water_height_hint(sample)
-  let near_sea = @util.clamp01(
-    (WATER_CONTEXT_MAX_HINT - hint) / WATER_CONTEXT_FADE,
-  )
-  let rugged = @util.clamp01(
-    sample.ridge * 1.25 + @util.max0(sample.continental) * 0.95 - 0.70,
-  )
-  @util.clamp01(near_sea * (1.0 - rugged))
-}
-
-///|
-fn surface_biome_from_column(
-  world : World,
-  sample : @biome.BiomeSample,
-  biome : @biome.Biome,
-) -> @biome.Biome {
-  if world.kind is WorldType::Infinite &&
-    (biome is @biome.Ocean || biome is @biome.DeepOcean) &&
-    water_context_factor(sample) < WATER_CONTEXT_ENABLE_THRESHOLD {
-    fallback_land_biome(sample)
-  } else {
-    biome
-  }
-}
-
-///|
-fn plains_wave_height(
-  noise : @util.PerlinNoise,
-  x : Double,
-  z : Double,
-  biome : @biome.Biome,
-) -> Double {
-  if biome is @biome.Ocean ||
-    biome is @biome.DeepOcean ||
-    biome is @biome.River ||
-    biome is @biome.FrozenRiver {
-    0.0
-  } else {
-    let warp_x = noise.gen2d(x * PLAINS_WARP_FREQ, z * PLAINS_WARP_FREQ) *
-      PLAINS_WARP_AMP
-    let warp_z = noise.gen2d(
-        (x + 401.0) * PLAINS_WARP_FREQ,
-        (z - 397.0) * PLAINS_WARP_FREQ,
-      ) *
-      PLAINS_WARP_AMP
-    @biome.fbm2d(
-      noise,
-      (x + warp_x) * PLAINS_WAVE_FREQ,
-      (z + warp_z) * PLAINS_WAVE_FREQ,
-      3,
-      2.0,
-      0.5,
-    ) *
-    PLAINS_WAVE_AMP
-  }
-}
-
-///|
-fn clamp_plain_height(
-  h : Int,
-  world : World,
-  params : @biome.BiomeParams,
-) -> Int {
-  let min_h = world.min_y() + 3
-  let configured_max_h = params.max_height - 6
-  let world_max_h = world.max_y() - 6
-  let max_h = if configured_max_h < min_h {
-    min_h
-  } else if configured_max_h > world_max_h {
-    world_max_h
-  } else {
-    configured_max_h
-  }
-  if h < min_h {
-    min_h
-  } else if h > max_h {
-    max_h
-  } else {
-    h
-  }
-}
-
-///|
-fn plain_height_with_biome(
-  world : World,
-  wx : Int,
-  wz : Int,
-  sample : @biome.BiomeSample,
-  biome : @biome.Biome,
-  params : @biome.BiomeParams,
-) -> Int {
-  let x = wx.to_double()
-  let z = wz.to_double()
-  let noise = surface_noise(world)
-  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
-  let continental_lift = if sample.continental < 0.0 {
-    sample.continental * 26.0
-  } else {
-    sample.continental * 42.0
-  }
-  let macro_hill = @biome.fbm2d(
-      noise,
-      x * HILL_FREQ,
-      z * HILL_FREQ,
-      4,
-      2.0,
-      0.5,
-    ).abs() *
-    HILL_AMP
-  let plains_wave = plains_wave_height(noise, x, z, biome)
-  let climate_shift = sample.humidity * 0.7 - sample.temperature.abs() * 0.35
-  let height = SEA_LEVEL.to_double() +
-    params.base_offset +
-    continental_lift +
-    (1.0 - erosion_t) * 5.5 +
-    macro_hill +
-    plains_wave +
-    climate_shift
-  clamp_plain_height(height.round().to_int(), world, params)
-}
-
-///|
-/// Ocean and deep-ocean seabed lowering below the plain height.
-fn ocean_seabed(
-  noise : @util.PerlinNoise,
-  x : Double,
-  z : Double,
-  terrain_biome : @biome.Biome,
-) -> Double {
-  let seabed = @biome.fbm2d(noise, x * 0.012, z * 0.012, 3, 2.0, 0.5).abs() *
-    3.5
-  if terrain_biome is @biome.DeepOcean {
-    seabed * 1.8
-  } else {
-    seabed
-  }
-}
-
-///|
-/// The height delta added to the plain height by foothills, mountain cores,
-/// summits, jaggedness, and river carving. Mountains clamp the delta at zero
-/// so relief only ever raises them above their base.
-fn mountain_relief(
-  noise : @util.PerlinNoise,
-  x : Double,
-  z : Double,
-  sample : @biome.BiomeSample,
-  terrain_biome : @biome.Biome,
-  surface_biome : @biome.Biome,
-  surface_params : @biome.BiomeParams,
-  is_mountain_surface : Bool,
-) -> Double {
-  let warp_x = noise.gen2d(x * MOUNTAIN_WARP_FREQ, z * MOUNTAIN_WARP_FREQ) *
-    MOUNTAIN_WARP_AMP
-  let warp_z = noise.gen2d(
-      (x + 911.0) * MOUNTAIN_WARP_FREQ,
-      (z - 733.0) * MOUNTAIN_WARP_FREQ,
-    ) *
-    MOUNTAIN_WARP_AMP
-  let ridge_a = 1.0 -
-    @biome.fbm2d(
-      noise,
-      (x + warp_x) * MOUNTAIN_RIDGE_FREQ_A,
-      (z + warp_z) * MOUNTAIN_RIDGE_FREQ_A,
-      4,
-      2.0,
-      0.5,
-    ).abs()
-  let ridge_b = 1.0 -
-    @biome.fbm2d(
-      noise,
-      (x - warp_z * 0.35) * MOUNTAIN_RIDGE_FREQ_B,
-      (z + warp_x * 0.35) * MOUNTAIN_RIDGE_FREQ_B,
-      3,
-      2.0,
-      0.5,
-    ).abs()
-  let ridge = @util.clamp01(ridge_a * 0.68 + ridge_b * 0.32)
-  let peaks = @biome.fbm2d(noise, x * PV_FREQ, z * PV_FREQ, 3, 2.0, 0.5).abs()
-  let mountain_signal = sample.ridge * 1.34 +
-    peaks * 0.26 +
-    @util.max0(sample.continental) * 0.18 -
-    0.86
-  let foothill_mask = smoothstep(0.08, 0.42, mountain_signal)
-  let mountain_mask = smoothstep(0.30, 0.92, mountain_signal)
-  let erosion_t = @util.clamp01((sample.erosion + 1.0) * 0.5)
-  let ridged_shape = @util.clamp01(ridge * 0.72 + sample.ridge * 0.28)
-  let biome_uplift = if terrain_biome is @biome.Mountains ||
-    terrain_biome is @biome.WindsweptHills {
-    1.0
-  } else if terrain_biome is @biome.Forest {
-    0.58
-  } else {
-    0.48
-  }
-  let foothill_base = if is_mountain_surface { 0.02 } else { 0.11 }
-  let foothill = foothill_mask *
-    (1.0 - mountain_mask) *
-    surface_params.mountain_amp *
-    (foothill_base + ridged_shape * 0.10)
-  let mountain_shape = mountain_mask * (0.55 + mountain_mask * 0.45)
-  let mountain_core = mountain_shape *
-    (ridged_shape * ridged_shape * 0.86 + ridged_shape * 0.14) *
-    surface_params.mountain_amp *
-    (0.50 + (1.0 - erosion_t) * 0.82) *
-    biome_uplift
-  let summit_mask = mountain_mask * mountain_mask
-  let summit_boost = if is_mountain_surface {
-    summit_mask *
-    surface_params.mountain_amp *
-    (0.06 + ridged_shape * 0.18 + peaks * 0.14) *
-    (0.45 + (1.0 - erosion_t) * 0.45)
-  } else {
-    0.0
-  }
-  let jagged = noise.gen2d((x - warp_x) * 0.024, (z + warp_z) * 0.024) *
-    (foothill_mask * 0.45 + mountain_mask * 0.55) *
-    1.45
-  let river_t = @util.clamp01(
-    (RIVER_CARVE_WIDTH - sample.river) / RIVER_CARVE_WIDTH,
-  )
-  let river_strength = if surface_biome is @biome.Beach {
-    surface_params.river_carve.to_double() * 0.22
-  } else {
-    0.0
-  }
-  let river_carve = river_t * river_t * river_strength
-  let relief = foothill + mountain_core + summit_boost + jagged - river_carve
-  if is_mountain_surface {
-    if relief > 0.0 {
-      relief
-    } else {
-      0.0
-    }
-  } else {
-    relief
-  }
-}
-
-///|
-/// Cap land height below the sea by biome so beaches, oceans, and deep oceans
-/// stay at their intended elevation bands.
-fn apply_surface_height_cap(
-  surface_biome : @biome.Biome,
-  height : Double,
-) -> Double {
-  if surface_biome is @biome.Beach {
-    let beach_cap = SEA_LEVEL.to_double() + 2.0
-    if height > beach_cap {
-      beach_cap
-    } else {
-      height
-    }
-  } else if surface_biome is @biome.Ocean {
-    let ocean_cap = SEA_LEVEL.to_double() - 5.0
-    if height > ocean_cap {
-      ocean_cap
-    } else {
-      height
-    }
-  } else if surface_biome is @biome.DeepOcean {
-    let deep_ocean_cap = SEA_LEVEL.to_double() - 15.0
-    if height > deep_ocean_cap {
-      deep_ocean_cap
-    } else {
-      height
-    }
-  } else {
-    height
-  }
-}
-
-///|
-fn surface_height_with_params(
-  world : World,
-  wx : Int,
-  wz : Int,
-  sample : @biome.BiomeSample,
-  surface_biome : @biome.Biome,
-) -> Int {
-  let x = wx.to_double()
-  let z = wz.to_double()
-  let noise = surface_noise(world)
-  let terrain_biome = terrain_biome_for_height(sample, surface_biome)
-  let surface_params = @biome.params(terrain_biome)
-  let is_mountain_surface = terrain_biome is @biome.Mountains ||
-    terrain_biome is @biome.WindsweptHills
-  let mut height = if is_mountain_surface {
-    let ground_biome = fallback_dry_land_biome(sample)
-    let ground_params = @biome.params(ground_biome)
-    plain_height_with_biome(world, wx, wz, sample, ground_biome, ground_params).to_double() +
-    1.0
-  } else {
-    plain_height_with_biome(
-      world, wx, wz, sample, terrain_biome, surface_params,
-    ).to_double()
-  }
-  if terrain_biome is @biome.Ocean || terrain_biome is @biome.DeepOcean {
-    height = height - ocean_seabed(noise, x, z, terrain_biome)
-  } else {
-    height = height +
-      mountain_relief(
-        noise, x, z, sample, terrain_biome, surface_biome, surface_params, is_mountain_surface,
-      )
-  }
-  let h = apply_surface_height_cap(surface_biome, height).round().to_int()
-  let max_h = if surface_params.max_height > world.max_y() - 1 {
-    world.max_y() - 1
-  } else {
-    surface_params.max_height
-  }
-  if h < world.min_y() + 1 {
-    world.min_y() + 1
-  } else if h > max_h {
-    max_h
-  } else {
-    h
-  }
-}
-
-///|
-/// The Y of the top solid block at a world column, matching that world type's
-/// actual generation instead of the Infinite noise pipeline.
+/// Highest generated solid terrain block, excluding trees and other decoration.
+/// Infinite uses the same interpolated field as filling, including river ice.
 pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
   match world.kind {
     WorldType::Flat => flat_surface_height()
@@ -494,10 +74,13 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
     WorldType::Finite => finite_terrain_column(world, wx, wz).surface
     WorldType::Design => design_surface_height()
     WorldType::Infinite => {
-      let sample = world.terrain_noise.sample_climate(wx, wz)
-      let biome = @biome.biome_from_sample(sample)
-      let surface_biome = surface_biome_from_column(world, sample, biome)
-      surface_height_with_params(world, wx, wz, sample, surface_biome)
+      let terrain = terrain_column(world, wx, wz)
+      let top = highest_solid_y(world, sample_column_densities(world, terrain))
+      if terrain.surface_biome is @biome.FrozenRiver && top < SEA_LEVEL {
+        SEA_LEVEL
+      } else {
+        top
+      }
     }
   }
 }
@@ -506,7 +89,7 @@ pub fn surface_height(world : World, wx : Int, wz : Int) -> Int {
 fn surface_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let detail = detail_noise(world)
+  let detail = world.terrain_noise.detail
     .gen2d(x / DETAIL_SCALE, z / DETAIL_SCALE)
     .abs()
   3 + (detail * 2.5).floor().to_int()
@@ -516,7 +99,7 @@ fn surface_dirt_depth(world : World, wx : Int, wz : Int) -> Int {
 fn desert_sand_depth(world : World, wx : Int, wz : Int) -> Int {
   let x = wx.to_double()
   let z = wz.to_double()
-  let t = detail_noise(world)
+  let t = world.terrain_noise.detail
     .gen2d(x / DESERT_SAND_SCALE, z / DESERT_SAND_SCALE)
     .abs()
   DESERT_SAND_DEPTH_MIN +

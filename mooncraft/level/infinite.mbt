@@ -3,22 +3,11 @@
 pub const INFINITE_MIN_Y : Int = WORLD_MIN_Y
 
 ///|
-const DESERT_LAKE_CELL : Int = 32
-
-///|
-const DESERT_LAKE_RADIUS_MIN : Int = 5
-
-///|
-const DESERT_LAKE_RADIUS_MAX : Int = 11
-
-///|
-const DESERT_LAKE_DEPTH_MIN : Int = 4
-
-///|
-const DESERT_LAKE_DEPTH_MAX : Int = 10
-
-///|
 const DENSITY_SAMPLE_STEP : Int = 4
+
+///|
+/// Tree anchors stop below high mountain peaks; canopies may extend above it.
+const INFINITE_TREE_LINE : Int = 144
 
 ///|
 priv struct InfiniteColumnSample {
@@ -26,7 +15,6 @@ priv struct InfiniteColumnSample {
   dirt_depth : Int
   sand_depth : Int
   top_solid_wy : Int
-  inland_min_wy : Int
   densities : Array[Double]
   fluids : Array[TerrainFluid]
 }
@@ -38,6 +26,8 @@ priv struct InfiniteBlockPalette {
   deepslate : UInt
   grass : UInt
   snow : UInt
+  gravel : UInt
+  ice : UInt
   dirt : UInt
   sand : UInt
   sandstone : UInt
@@ -60,6 +50,8 @@ fn InfiniteBlockPalette::new() -> InfiniteBlockPalette {
     deepslate: @block.lookup_by_name("deepslate").unwrap().internal_id(),
     grass: @block.lookup_by_name("grass").unwrap().internal_id(),
     snow: @block.lookup_by_name("classic.snow").unwrap().internal_id(),
+    gravel: @block.lookup_by_name("classic.gravel").unwrap().internal_id(),
+    ice: @block.lookup_by_name("classic.ice").unwrap().internal_id(),
     dirt: @block.lookup_by_name("dirt").unwrap().internal_id(),
     sand: @block.lookup_by_name("sand").unwrap().internal_id(),
     sandstone: @block.lookup_by_name("sandstone").unwrap().internal_id(),
@@ -90,23 +82,39 @@ fn sample_column_densities(
   let max_y = world.max_y()
   let height = max_y - min_y + 1
   let densities = Array::make(height, -1.0)
+  let shape = TerrainShape::at_column(world, terrain)
   let mut lower_y = min_y
-  let mut lower_density = density_at_column(world, terrain, lower_y)
+  let mut lower_density = terrain_shape_density(world, terrain, lower_y, shape)
   while lower_y < max_y {
     let candidate_y = lower_y + DENSITY_SAMPLE_STEP
     let upper_y = if candidate_y < max_y { candidate_y } else { max_y }
-    let upper_density = density_at_column(world, terrain, upper_y)
+    let upper_density = terrain_shape_density(world, terrain, upper_y, shape)
     let span = (upper_y - lower_y).to_double()
     for wy in lower_y..<upper_y {
       let t = (wy - lower_y).to_double() / span
-      densities[wy - min_y] = lower_density +
-        (upper_density - lower_density) * t
+      let base_density = lower_density + (upper_density - lower_density) * t
+      // Interpolate the continuous base field, then carve at block resolution.
+      // Interpolating a -1 cave marker against deep positive rock closes tunnels.
+      densities[wy - min_y] = carve_terrain_density(
+        world, terrain, wy, base_density,
+      )
     }
     lower_y = upper_y
     lower_density = upper_density
   }
-  densities[max_y - min_y] = lower_density
+  densities[max_y - min_y] = carve_terrain_density(
+    world, terrain, max_y, lower_density,
+  )
   densities
+}
+
+///|
+fn highest_solid_y(world : World, densities : Array[Double]) -> Int {
+  for wy = world.max_y(); wy > world.min_y(); wy = wy - 1 {
+    guard densities[wy - world.min_y()] > 0.0 else { continue }
+    return wy
+  }
+  world.min_y()
 }
 
 ///|
@@ -131,22 +139,6 @@ fn noise01(value : Double) -> Double {
 }
 
 ///|
-fn lerp_int(min : Int, max : Int, t : Double) -> Int {
-  min + ((max - min).to_double() * @util.clamp01(t)).round().to_int()
-}
-
-///|
-fn clamp_depth(depth : Int) -> Int {
-  if depth < 2 {
-    2
-  } else if depth > 15 {
-    15
-  } else {
-    depth
-  }
-}
-
-///|
 fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
   let layer = wy - world.min_y()
   guard layer >= 0 && layer < 5 else { false }
@@ -156,68 +148,6 @@ fn is_infinite_bedrock(world : World, wx : Int, wy : Int, wz : Int) -> Bool {
     wz * 912931 +
     world.seed.reinterpret_as_int()
   noise01(@util.Noise::fast(coordinate_seed)) < (5 - layer).to_double() / 5.0
-}
-
-///|
-fn desert_lake_fill_depth(
-  world : World,
-  wx : Int,
-  wz : Int,
-  top_solid_wy : Int,
-) -> Int {
-  guard top_solid_wy >= SEA_LEVEL - 12 && top_solid_wy <= SEA_LEVEL + 18 else {
-    0
-  }
-  let cell_x = @util.floor_div(wx, DESERT_LAKE_CELL)
-  let cell_z = @util.floor_div(wz, DESERT_LAKE_CELL)
-  let local_x = wx - cell_x * DESERT_LAKE_CELL
-  let local_z = wz - cell_z * DESERT_LAKE_CELL
-  let cx = cell_x.to_double()
-  let cz = cell_z.to_double()
-  let chance = noise01(
-    world.noise.gen2d((cx * 47.0 + 3.0) * 0.23, (cz * 37.0 - 5.0) * 0.23),
-  )
-  guard chance >= 0.58 else { 0 }
-  let center_x = lerp_int(
-    7,
-    DESERT_LAKE_CELL - 7,
-    noise01(
-      world.noise.gen2d((cx * 31.0 + 9.0) * 0.25, (cz * 29.0 - 4.0) * 0.25),
-    ),
-  )
-  let center_z = lerp_int(
-    7,
-    DESERT_LAKE_CELL - 7,
-    noise01(
-      world.noise.gen2d((cx * 11.0 - 7.0) * 0.25, (cz * 41.0 + 2.0) * 0.25),
-    ),
-  )
-  let radius_x = lerp_int(
-    DESERT_LAKE_RADIUS_MIN,
-    DESERT_LAKE_RADIUS_MAX,
-    noise01(
-      world.noise.gen2d((cx * 13.0 + 8.0) * 0.21, (cz * 59.0 - 1.0) * 0.21),
-    ),
-  )
-  let radius_z = lerp_int(
-    DESERT_LAKE_RADIUS_MIN,
-    DESERT_LAKE_RADIUS_MAX,
-    noise01(
-      world.noise.gen2d((cx * 61.0 - 8.0) * 0.21, (cz * 17.0 + 7.0) * 0.21),
-    ),
-  )
-  let nx = (local_x - center_x).to_double() / radius_x.to_double()
-  let nz = (local_z - center_z).to_double() / radius_z.to_double()
-  let basin = 1.0 - (nx * nx + nz * nz)
-  guard basin > 0.0 else { 0 }
-  let base_depth = lerp_int(
-    DESERT_LAKE_DEPTH_MIN,
-    DESERT_LAKE_DEPTH_MAX,
-    noise01(
-      world.noise.gen2d((cx * 23.0 + 10.0) * 0.19, (cz * 67.0 - 3.0) * 0.19),
-    ),
-  )
-  clamp_depth(2 + (base_depth.to_double() * basin).round().to_int())
 }
 
 ///|
@@ -232,18 +162,7 @@ fn prepare_infinite_column(
   let densities = sample_column_densities(world, terrain)
   let min_y = world.min_y()
   let max_y = world.max_y()
-  let mut top_solid_wy = min_y
-  for wy = max_y; wy > min_y; wy = wy - 1 {
-    if densities[wy - min_y] > 0.0 {
-      top_solid_wy = wy
-      break
-    }
-  }
-  let inland_depth = match terrain.surface_biome {
-    @biome.DesertLakes => desert_lake_fill_depth(world, wx, wz, top_solid_wy)
-    _ => 0
-  }
-  let inland_min_wy = top_solid_wy - inland_depth + 1
+  let top_solid_wy = highest_solid_y(world, densities)
   let fluids : Array[TerrainFluid] = []
   for wy in min_y..<=max_y {
     let density = densities[wy - min_y]
@@ -260,7 +179,6 @@ fn prepare_infinite_column(
     dirt_depth: surface_dirt_depth(world, wx, wz),
     sand_depth: desert_sand_depth(world, wx, wz),
     top_solid_wy,
-    inland_min_wy,
     densities,
     fluids,
   }
@@ -270,28 +188,21 @@ fn prepare_infinite_column(
 /// The block at the top of a solid column: sand for arid and ocean biomes,
 /// snow at mountain elevations, grass otherwise.
 fn top_surface_block(
-  biome : @biome.Biome,
+  column : TerrainColumn,
   wy : Int,
   palette : InfiniteBlockPalette,
 ) -> UInt {
+  let biome = column.surface_biome
+  let snow_line = 140.0 + column.sample.temperature * 40.0
+  guard wy.to_double() < snow_line else { palette.snow }
   match biome {
     @biome.Ocean
     | @biome.DeepOcean
     | @biome.Desert
     | @biome.DesertLakes
     | @biome.Beach => palette.sand
-    @biome.Mountains =>
-      if wy >= SEA_LEVEL + 23 {
-        palette.snow
-      } else {
-        palette.grass
-      }
-    @biome.WindsweptHills =>
-      if wy >= SEA_LEVEL + 15 {
-        palette.snow
-      } else {
-        palette.grass
-      }
+    @biome.River | @biome.FrozenRiver => palette.gravel
+    @biome.Mountains => palette.stone
     _ => palette.grass
   }
 }
@@ -307,7 +218,7 @@ fn fluid_block(fluid : TerrainFluid, palette : InfiniteBlockPalette) -> UInt {
 }
 
 ///|
-/// Rock block for a solid below-surface cell: deepslate below sea level, ore
+/// Rock block for a solid below-surface cell: deepslate below Y=0, ore
 /// by layered noise bands above.
 fn underground_rock(
   world : World,
@@ -352,15 +263,18 @@ fn fill_infinite_block(
   }
   let biome = column.terrain.surface_biome
   let density = column.density_at(wy)
-  let use_inland_water = column.inland_min_wy <= wy && wy <= column.top_solid_wy
   let block = if is_infinite_bedrock(world, wx, wy, wz) {
     palette.bedrock
-  } else if use_inland_water {
-    palette.water
   } else if density <= 0.0 {
-    fluid_block(column.fluid_at(wy), palette)
+    if biome is @biome.FrozenRiver &&
+      wy == SEA_LEVEL &&
+      column.fluid_at(wy) is Water {
+      palette.ice
+    } else {
+      fluid_block(column.fluid_at(wy), palette)
+    }
   } else if wy == column.top_solid_wy {
-    top_surface_block(biome, wy, palette)
+    top_surface_block(column.terrain, wy, palette)
   } else if (
       biome is @biome.Desert ||
       biome is @biome.DesertLakes ||
@@ -373,7 +287,8 @@ fn fill_infinite_block(
   } else if (biome is @biome.Desert || biome is @biome.DesertLakes) &&
     wy >= column.top_solid_wy - column.sand_depth - DESERT_SANDSTONE_DEPTH {
     palette.sandstone
-  } else if wy >= column.top_solid_wy - column.dirt_depth {
+  } else if wy >= column.top_solid_wy - column.dirt_depth &&
+    !(biome is @biome.Mountains) {
     palette.dirt
   } else {
     underground_rock(world, wx, wy, wz, biome, palette)
@@ -400,7 +315,8 @@ fn place_biome_trees_in_generated_chunk(
   columns : Array[InfiniteColumnSample],
   grass : UInt,
 ) -> Unit {
-  guard chunk_has_infinite_surface(chunk, columns) else {
+  guard chunk.y * CHUNK_Y_SIZE < INFINITE_TREE_LINE &&
+    chunk_has_infinite_surface(chunk, columns) else {
     apply_pending_to_chunk(chunk)
     return
   }

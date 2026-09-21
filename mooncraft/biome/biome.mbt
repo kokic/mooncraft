@@ -11,7 +11,10 @@ pub(all) enum Biome {
   FrozenRiver
   Ocean
   DeepOcean
-}
+} derive(Eq)
+
+///|
+pub extend Biome with Eq::{equal, not_equal}
 
 ///|
 pub(all) struct BiomeSample {

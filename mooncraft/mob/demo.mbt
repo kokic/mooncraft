@@ -2,11 +2,10 @@
 const ZOMBIE_0_ID : String = "zombie_0"
 
 ///|
-fn demo_spawn_base_xz() -> (Int, Int) {
-  let base_x = @player.SPAWN_CHUNK_X * @level.CHUNK_X_SIZE +
-    @player.SPAWN_LOCAL_X
-  let base_z = @player.SPAWN_CHUNK_Z * @level.CHUNK_Z_SIZE +
-    @player.SPAWN_LOCAL_Z
+fn demo_spawn_base_xz(world : @level.World) -> (Int, Int) {
+  let (chunk_x, chunk_z) = world.spawn_chunk_xz()
+  let base_x = chunk_x * @level.CHUNK_X_SIZE + @player.SPAWN_LOCAL_X
+  let base_z = chunk_z * @level.CHUNK_Z_SIZE + @player.SPAWN_LOCAL_Z
   (base_x, base_z)
 }
 
@@ -26,7 +25,7 @@ fn demo_position(
 
 ///|
 fn default_demo_requests(world : @level.World) -> Array[MobSpawnRequest] {
-  let (base_x, base_z) = demo_spawn_base_xz()
+  let (base_x, base_z) = demo_spawn_base_xz(world)
   let (zombie_0_x, zombie_0_y, zombie_0_z) = demo_position(
     world,
     (base_x + 8).to_double() + 0.5,

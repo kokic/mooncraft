@@ -34,12 +34,19 @@ fn terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
     finite_terrain_column(world, wx, wz)
   }
   let sample = world.climate_sample(wx, wz)
-  let biome = @biome.biome_from_sample(sample)
-  let surface_biome = surface_biome_from_column(world, sample, biome)
-  let params = @biome.params(surface_biome)
-  let plain = plain_height_with_biome(
-    world, wx, wz, sample, surface_biome, params,
-  )
-  let surface = surface_height_with_params(world, wx, wz, sample, surface_biome)
+  let shape = TerrainShape::from_climate(sample)
+  let surface = preliminary_surface_height(shape, world)
+  let biome = infinite_surface_biome(sample, surface)
+  let surface_biome = biome
+  let plain = surface
   TerrainColumn::{ wx, wz, sample, biome, surface_biome, plain, surface, }
+}
+
+///|
+/// Surface biome used by this world's terrain palette and vegetation.
+pub fn World::biome_at(self : World, wx : Int, wz : Int) -> @biome.Biome {
+  match self.kind {
+    Infinite | Finite => terrain_column(self, wx, wz).surface_biome
+    _ => @biome.biome_from_sample(self.climate_sample(wx, wz))
+  }
 }

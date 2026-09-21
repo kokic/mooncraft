@@ -383,3 +383,14 @@ fn fill_finite(world : World, chunk : Chunk) -> Chunk {
   }
   chunk
 }
+
+///|
+fn fallback_dry_land_biome(sample : @biome.BiomeSample) -> @biome.Biome {
+  if sample.temperature > 0.34 && sample.humidity < -0.03 {
+    @biome.Desert
+  } else if sample.humidity > 0.12 {
+    @biome.Forest
+  } else {
+    @biome.Plains
+  }
+}

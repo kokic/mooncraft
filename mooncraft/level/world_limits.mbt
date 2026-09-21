@@ -13,7 +13,7 @@ pub const INFINITE_WORLD_MIN_HEIGHT : Int = 192
 
 ///|
 /// Default selectable Infinite-world height.
-pub const INFINITE_WORLD_DEFAULT_HEIGHT : Int = 192
+pub const INFINITE_WORLD_DEFAULT_HEIGHT : Int = 384
 
 ///|
 /// Maximum selectable Infinite-world height. Taller worlds increase the amount

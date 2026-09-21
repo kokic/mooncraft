@@ -48,9 +48,9 @@ pub fn compute_spawn_position(
   )
   let base_y = surface_y.unwrap_or(fallback_y)
   let spawn_y = base_y + surface_offset
-  let px = local_x.to_double() + 0.5
+  let px = (chunk_x * size + local_x).to_double() + 0.5
   let py = spawn_y.to_double()
-  let pz = local_z.to_double() + 0.5
+  let pz = (chunk_z * size + local_z).to_double() + 0.5
   let surface_out = surface_y.unwrap_or(-1)
   @level.SpawnResult::{ position: [px, py, pz], surface_y: surface_out, }
 }

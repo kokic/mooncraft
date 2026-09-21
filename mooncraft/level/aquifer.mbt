@@ -9,20 +9,13 @@ priv enum TerrainFluid {
 const AQUIFER_BASE_LEVEL : Int = SEA_LEVEL - 24
 
 ///|
-fn is_ocean_surface(biome : @biome.Biome) -> Bool {
-  biome is @biome.Ocean || biome is @biome.DeepOcean || biome is @biome.Beach
-}
-
-///|
 fn aquifer_fluid_at(
   world : World,
   column : TerrainColumn,
   wy : Int,
   top_solid_wy : Int,
 ) -> TerrainFluid {
-  if is_ocean_surface(column.surface_biome) &&
-    wy > top_solid_wy &&
-    wy <= SEA_LEVEL {
+  if wy > top_solid_wy && wy <= SEA_LEVEL {
     return Water
   }
   guard wy < top_solid_wy - 5 else { Air }

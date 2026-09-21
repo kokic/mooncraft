@@ -1,12 +1,4 @@
 ///|
-/// Maximum distance that 3D terrain shaping may raise solid terrain above the
-/// preliminary 2D surface. This bound also makes the global surface scan cheap.
-const TERRAIN_SHAPE_RISE : Int = 12
-
-///|
-const TERRAIN_SHAPE_FREQ : Double = 0.021
-
-///|
 const CHEESE_CAVE_FREQ : Double = 0.028
 
 ///|
@@ -25,28 +17,24 @@ fn terrain_shape_density(
   world : World,
   column : TerrainColumn,
   wy : Int,
+  shape : TerrainShape,
 ) -> Double {
   let x = column.wx.to_double()
   let y = wy.to_double()
   let z = column.wz.to_double()
-  let surface = column.surface.to_double()
-  let vertical = surface - y
-  let terrain_shape = world.terrain_noise.terrain_shape.gen3d(
-    (x + 113.0) * TERRAIN_SHAPE_FREQ,
-    y * 0.016,
-    (z - 83.0) * TERRAIN_SHAPE_FREQ,
+  let river = river_channel_weight(column.sample)
+  let base_3d = world.terrain_noise.terrain.sample(x, y, z) *
+    (1.0 - river * 0.92)
+  let depth = (128.0 - y) / 128.0 + shape.offset
+  let slope = depth * shape.factor
+  let density = (if slope < 0.0 { slope } else { slope * 4.0 }) + base_3d
+  // Fade to air below the world ceiling, including the optional shorter worlds.
+  let top_slide = smoothstep(
+    world.max_y().to_double() - 24.0,
+    world.max_y().to_double() - 4.0,
+    y,
   )
-  let ridge_shape = world.terrain_noise.terrain_ridge.gen3d(
-    (x - 419.0) * 0.037,
-    y * 0.021,
-    (z + 271.0) * 0.037,
-  )
-  let ruggedness = @util.clamp01(
-    column.sample.ridge * 0.75 + column.sample.weirdness.abs() * 0.35,
-  )
-  vertical +
-  terrain_shape * (2.8 + ruggedness * 4.2) +
-  ridge_shape * ruggedness * 1.8
+  density * (1.0 - top_slide) - top_slide
 }
 
 ///|
@@ -56,9 +44,9 @@ fn should_carve_cave(world : World, column : TerrainColumn, wy : Int) -> Bool {
   let z = column.wz.to_double()
   let surface = column.surface.to_double()
   let surface_clearance = if is_wet_surface_biome(column.surface_biome) {
-    14.0
-  } else {
     8.0
+  } else {
+    -12.0
   }
   guard y < surface - surface_clearance else { false }
   guard y > world.min_y().to_double() + 4.0 else { false }
@@ -94,10 +82,13 @@ fn should_carve_cave(world : World, column : TerrainColumn, wy : Int) -> Bool {
 ///|
 /// Canonical solid-density query for Infinite terrain. Positive values are
 /// solid; non-positive values are air candidates that aquifers may fill.
-fn density_at_column(world : World, column : TerrainColumn, wy : Int) -> Double {
-  guard wy <= column.surface + TERRAIN_SHAPE_RISE else { -1.0 }
+fn carve_terrain_density(
+  world : World,
+  column : TerrainColumn,
+  wy : Int,
+  density : Double,
+) -> Double {
   guard wy > world.min_y() + 1 else { 1.0 }
-  let density = terrain_shape_density(world, column, wy)
   guard density > 0.0 else { -1.0 }
   if should_carve_cave(world, column, wy) {
     -1.0

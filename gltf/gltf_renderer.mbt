@@ -2,6 +2,7 @@
 priv struct GltfDrawEntry {
   primitive : GltfPrimitiveInstance
   model : @ffi.Float32Array
+  mirrored : Bool
   texture : @webgl.WebGLTexture
   has_texture : Bool
   factor_r : Float
@@ -12,6 +13,7 @@ priv struct GltfDrawEntry {
   alpha_cutoff : Float
   double_sided : Bool
   distance_squared : Float
+  light_scale : Float
 }
 
 ///|
@@ -126,9 +128,11 @@ fn GltfRenderer::create_instance(
 pub fn create_gltf_renderer(
   gl : @webgl.WebGLRenderingContext,
   configs : Array[GltfEntityConfig],
+  sample_light? : (Double, Double, Double) -> Float,
 ) -> GltfRenderer raise GltfError {
   let renderer = GltfRenderer::{
     gl,
+    sample_light,
     program: create_gltf_program(gl, GLTF_VS_SOURCE, GLTF_FS_SOURCE),
     white_texture: create_white_texture(gl),
     assets: @hashmap.HashMap([]),
@@ -136,9 +140,7 @@ pub fn create_gltf_renderer(
     instances: [],
   }
   for config in configs {
-    renderer.load_asset(config.url, asset => {
-      renderer.create_instance(config, asset)
-    })
+    renderer.add_entity(config)
   }
   renderer
 }
@@ -216,6 +218,12 @@ fn GltfRenderer::collect_draw_entries(
       ignore(
         @camera.mat4_mul(model, instance.model, instance.node_world[node_index]),
       )
+      let m = model.values()
+      let determinant = m[0] * (m[5] * m[10] - m[9] * m[6]) -
+        m[4] * (m[1] * m[10] - m[9] * m[2]) +
+        m[8] * (m[1] * m[6] - m[5] * m[2])
+      // Zero scale hides the mesh and has no invertible normal transform.
+      guard determinant != 0.0 else { continue }
       for primitive in mesh.primitives {
         let (material, texture, has_texture) = instance.material_for(primitive)
         ignore(
@@ -231,6 +239,7 @@ fn GltfRenderer::collect_draw_entries(
         let entry = GltfDrawEntry::{
           primitive,
           model,
+          mirrored: determinant < 0.0,
           texture,
           has_texture,
           factor_r: material.factor_r,
@@ -241,8 +250,11 @@ fn GltfRenderer::collect_draw_entries(
           alpha_cutoff: material.alpha_cutoff,
           double_sided: material.double_sided,
           distance_squared: dx * dx + dy * dy + dz * dz,
+          light_scale: self.sample_light.map_or(1.0F, sample => {
+            sample(world_center[0], world_center[1], world_center[2])
+          }),
         }
-        if material.alpha_mode == "BLEND" || material.factor_a < 0.999F {
+        if material.alpha_mode == "BLEND" {
           blend.push(entry)
         } else {
           solid_entries.push(entry)
@@ -269,8 +281,11 @@ fn draw_gltf_entries(
     gl.disable(@webgl.GL_BLEND)
     gl.depth_mask(true)
   }
+  gl.uniform_1i(program.u_alpha_blend, if blend { 1 } else { 0 })
   for entry in entries {
+    gl.front_face(if entry.mirrored { @webgl.GL_CW } else { @webgl.GL_CCW })
     gl.uniform_matrix4fv(program.u_model, false, entry.model)
+    gl.uniform_1f(program.u_light_scale, entry.light_scale)
     gl.uniform_1i(program.u_has_texture, if entry.has_texture { 1 } else { 0 })
     gl.uniform_4f(
       program.u_color,
@@ -308,19 +323,19 @@ fn draw_gltf_entries(
 }
 
 ///|
-pub fn render_gltf_renderer(
-  renderer : GltfRenderer,
+fn GltfRenderer::draw_entries(
+  self : GltfRenderer,
+  entries : Array[GltfDrawEntry],
+  blend : Bool,
   view : @ffi.Float32Array,
   view_projection : @ffi.Float32Array,
-  camera_position : Array[Double],
   fog_color : Array[Double],
   fog_near : Double,
   fog_far : Double,
 ) -> Unit {
-  guard renderer.instances.length() > 0 else { () }
-  let (solid_entries, blend) = renderer.collect_draw_entries(camera_position)
-  let gl = renderer.gl
-  let program = renderer.program
+  guard entries.length() > 0 else { () }
+  let gl = self.gl
+  let program = self.program
   gl.use_program(program.program)
   gl.uniform_matrix4fv(program.u_view, false, view)
   gl.uniform_matrix4fv(program.u_view_proj, false, view_projection)
@@ -334,11 +349,49 @@ pub fn render_gltf_renderer(
   gl.uniform_1f(program.u_fog_far, Float::from_double(fog_far))
   gl.uniform_1i(program.u_tex, 0)
   gl.front_face(@webgl.GL_CCW)
-  draw_gltf_entries(gl, program, solid_entries, false)
-  draw_gltf_entries(gl, program, blend, true)
+  draw_gltf_entries(gl, program, entries, blend)
   gl.unbind_texture_2d()
   gl.front_face(@webgl.GL_CW)
   gl.enable(@webgl.GL_CULL_FACE)
+}
+
+///|
+/// Draw opaque entities now; optionally enqueue blended primitives into the
+/// world's transparent pass, which orders water, blocks, and entities together.
+pub fn render_gltf_renderer(
+  renderer : GltfRenderer,
+  view : @ffi.Float32Array,
+  view_projection : @ffi.Float32Array,
+  camera_position : Array[Double],
+  fog_color : Array[Double],
+  fog_near : Double,
+  fog_far : Double,
+  submit_blend? : (Double, () -> Unit) -> Unit,
+) -> Unit {
+  guard renderer.instances.length() > 0 else { () }
+  let (solid_entries, blend) = renderer.collect_draw_entries(camera_position)
+  renderer.draw_entries(
+    solid_entries, false, view, view_projection, fog_color, fog_near, fog_far,
+  )
+  if submit_blend is Some(submit) {
+    for entry in blend {
+      submit(entry.distance_squared.to_double(), () => {
+        renderer.draw_entries(
+          [entry],
+          true,
+          view,
+          view_projection,
+          fog_color,
+          fog_near,
+          fog_far,
+        )
+      })
+    }
+  } else {
+    renderer.draw_entries(
+      blend, true, view, view_projection, fog_color, fog_near, fog_far,
+    )
+  }
 }
 
 ///|
@@ -510,8 +563,7 @@ pub fn gltf_get_position(
   renderer : GltfRenderer,
   id : String,
 ) -> Array[Double]? {
-  guard renderer.find_instance(id) is Some(instance) else { None }
-  Some(instance.model_position.copy())
+  renderer.find_instance(id).map(instance => instance.model_position.copy())
 }
 
 ///|
@@ -522,13 +574,10 @@ pub fn gltf_set_position(
   y : Double,
   z : Double,
 ) -> Bool {
-  for instance in renderer.instances {
-    guard instance.id == id else { continue }
-    instance.model_position[0] = x
-    instance.model_position[1] = y
-    instance.model_position[2] = z
-    instance.refresh_model()
-    return true
-  }
-  false
+  guard renderer.find_instance(id) is Some(instance) else { false }
+  instance.model_position[0] = x
+  instance.model_position[1] = y
+  instance.model_position[2] = z
+  instance.refresh_model()
+  true
 }

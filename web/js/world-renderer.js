@@ -1,3 +1,4 @@
+import { createProgram } from "virtual:mooncraft-shader";
 import {
   createPlayerController,
 } from "./player-controller.js";
@@ -26,35 +27,6 @@ function getBlockOutlineDesc(internalId) {
   return window.mcGetBlockOutlineDesc(internalId);
 }
 
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const info = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(info || "shader compile failed");
-  }
-  return shader;
-}
-
-function createProgram(gl, vertexSource, fragmentSource) {
-  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-  const program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  gl.deleteShader(vertexShader);
-  gl.deleteShader(fragmentShader);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const info = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(info || "program link failed");
-  }
-  return program;
-}
-
 function getBlockIdAtOrDefault(wx, wy, wz, fallbackId) {
   const value = window.mcGetBlockId(wx, wy, wz);
   const num = Number(value);
@@ -69,7 +41,7 @@ function setBlockIdAt(wx, wy, wz, id) {
   return value;
 }
 
-function normalizeWaterTintSample(value) {
+function normalizeBiomeTintSample(value) {
   if (!Array.isArray(value) || value.length < 4) return [1, 1, 1, 1];
   return value.map((v) => { const n = Number(v); return Number.isFinite(n) ? n : 1; });
 }
@@ -78,27 +50,6 @@ function toColorByte(value) {
   const v = Number.isFinite(value) ? value : 1;
   const scaled = Math.round(Math.min(1, Math.max(0, v)) * 255);
   return scaled & 0xff;
-}
-
-function createOutlineProgram(gl) {
-  const vertexSource = `#version 300 es
-    in vec3 aPosition;
-    uniform mat4 uMvp;
-    uniform vec3 uOffset;
-    uniform vec3 uViewOffset;
-    void main() {
-      gl_Position = uMvp * vec4(aPosition + uOffset + uViewOffset, 1.0);
-    }
-  `;
-  const fragmentSource = `#version 300 es
-    precision mediump float;
-    uniform vec4 uColor;
-    out vec4 outColor;
-    void main() {
-      outColor = uColor;
-    }
-  `;
-  return createProgram(gl, vertexSource, fragmentSource);
 }
 
 function createOutlineBuffer(gl, bounds = { min: [0, 0, 0], max: [1, 1, 1] }, pad = {
@@ -195,99 +146,10 @@ function renderTestChunk({
   });
   if (!gl) throw new Error("webgl2 not supported");
 
-  const vertexSource = `#version 300 es
-    precision highp float;
-    precision highp int;
-    in vec3 aPosition;
-    in vec4 aColor;
-    in vec2 aUv;
-    uniform mat4 uMvp;
-    uniform vec3 uCameraPosition;
-    out vec4 vColor;
-    out float vFogDistance;
-    out vec2 vUv;
-    out vec2 vWorldXZ;
-    void main() {
-      vUv = aUv;
-      vColor = aColor;
-      vWorldXZ = aPosition.xz;
-      vec4 pos = vec4(aPosition, 1.0);
-      vFogDistance = distance(aPosition, uCameraPosition);
-      gl_Position = uMvp * pos;
-    }
-  `;
-
-  const fragmentSource = `#version 300 es
-    precision highp float;
-    in vec2 vUv;
-    in float vFogDistance;
-    in vec4 vColor;
-    uniform sampler2D uTex;
-    uniform float uDebugSolid;
-    uniform vec3 uFogColor;
-    uniform float uFogNear;
-    uniform float uFogFar;
-    out vec4 outColor;
-    void main() {
-      if (uDebugSolid > 0.5) {
-        outColor = vec4(1.0, 0.2, 0.2, 1.0);
-        return;
-      }
-      vec4 color = texture(uTex, vUv);
-      if (color.a * vColor.a <= 0.3) {
-        discard;
-      }
-      float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
-      vec3 mixed = mix(vColor.rgb * color.rgb, uFogColor, fogAmount);
-      outColor = vec4(mixed, color.a * vColor.a);
-    }
-  `;
-
-  const waterFragmentSource = `#version 300 es
-    precision highp float;
-    in vec2 vUv;
-    in float vFogDistance;
-    in vec4 vColor;
-    in vec2 vWorldXZ;
-    uniform sampler2D uTex;
-    uniform sampler2D uWaterTintTex;
-    uniform vec3 uFogColor;
-    uniform float uFogNear;
-    uniform float uFogFar;
-    uniform vec2 uWaterTintOrigin;
-    uniform vec2 uWaterTintInvSize;
-    uniform float uWaterTintStep;
-    uniform float uUnderwater;
-    out vec4 outColor;
-    void main() {
-      vec4 color = texture(uTex, vUv);
-      if (color.a <= 0.01) {
-        discard;
-      }
-      vec3 waterTint = vec3(0.25, 0.46, 0.90);
-      if (uWaterTintStep > 0.0) {
-        vec2 cell = floor((vWorldXZ - uWaterTintOrigin) / uWaterTintStep + 0.5);
-        vec2 uv = (cell + 0.5) * uWaterTintInvSize;
-        uv = clamp(uv, vec2(0.0), vec2(1.0));
-        waterTint = texture(uWaterTintTex, uv).rgb;
-      }
-      float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
-      vec3 lit = vColor.rgb * color.rgb * waterTint;
-      vec3 mixed = mix(lit, uFogColor, fogAmount);
-      float alpha = clamp(color.a * vColor.a * mix(1.0, 1.35, uUnderwater), 0.0, 0.82);
-      outColor = vec4(mixed, alpha);
-    }
-  `;
-
-  const program = createProgram(gl, vertexSource, fragmentSource);
-  const waterProgram = createProgram(gl, vertexSource, waterFragmentSource);
-  const leafVertexSource = window.mcOakLeavesVertexShader;
-  const leafFragmentSource = window.mcOakLeavesFragmentShader;
-  if (typeof leafVertexSource !== "string" || typeof leafFragmentSource !== "string") {
-    throw new Error("oak leaves shaders unavailable from MoonBit");
-  }
-  const leafProgram = createProgram(gl, leafVertexSource, leafFragmentSource);
-  const outlineProgram = createOutlineProgram(gl);
+  const program = createProgram(gl, "world");
+  const waterProgram = createProgram(gl, "water");
+  const leafProgram = createProgram(gl, "leaf");
+  const outlineProgram = createProgram(gl, "outline");
   const outlineCube = createOutlineBuffer(gl);
   const outlineCache = new Map();
   const getOutlineBuffer = (bounds) => {
@@ -452,6 +314,7 @@ function renderTestChunk({
   const gltfEntityRenderer = window.mcCreateGltfRenderer(
     gl,
     Array.isArray(window.mcGltfEntities) ? window.mcGltfEntities : [],
+    window.mcSampleWorldLight,
   );
   window.mcGltfEntityApi = {
     setAnimation(entityId, clip) {
@@ -495,7 +358,13 @@ function renderTestChunk({
     : 4;
   const hasWaterTintLookup = !!getWaterTintAt && waterLayer >= 0;
   const waterTintTexture = hasWaterTintLookup ? gl.createTexture() : null;
-  const waterTintState = {
+  const getLeafTintAt = window.mcGetLeafTint;
+  const leafTintTexture = typeof getLeafTintAt === "function" ? gl.createTexture() : null;
+  const biomeTintLayers = [
+    { texture: waterTintTexture, unit: gl.TEXTURE1, sample: getWaterTintAt, filter: gl.NEAREST },
+    { texture: leafTintTexture, unit: gl.TEXTURE2, sample: getLeafTintAt, filter: gl.LINEAR },
+  ].filter((layer) => layer.texture);
+  const biomeTintState = {
     centerCx: Number.NaN,
     centerCz: Number.NaN,
     renderDistance: -1,
@@ -506,8 +375,8 @@ function renderTestChunk({
     step: waterTintGridStep,
     valid: false,
   };
-  const rebuildWaterTintTexture = (centerCx, centerCz, renderDistance) => {
-    if (!waterTintTexture || typeof getWaterTintAt !== "function") return;
+  const rebuildBiomeTintTextures = (centerCx, centerCz, renderDistance) => {
+    if (biomeTintLayers.length === 0) return;
     const marginChunks = 2;
     const minChunkX = centerCx - renderDistance - marginChunks;
     const maxChunkX = centerCx + renderDistance + marginChunks;
@@ -519,49 +388,51 @@ function renderTestChunk({
     const maxZ = (maxChunkZ + 1) * size - 1;
     const width = Math.max(1, Math.floor((maxX - originX) / waterTintGridStep) + 1);
     const height = Math.max(1, Math.floor((maxZ - originZ) / waterTintGridStep) + 1);
-    const pixels = new Uint8Array(width * height * 4);
-    let ptr = 0;
-    for (let z = 0; z < height; z += 1) {
-      const wz = originZ + z * waterTintGridStep;
-      for (let x = 0; x < width; x += 1) {
-        const wx = originX + x * waterTintGridStep;
-        const tint = normalizeWaterTintSample(getWaterTintAt(wx, wz));
-        pixels[ptr] = toColorByte(tint[0]);
-        pixels[ptr + 1] = toColorByte(tint[1]);
-        pixels[ptr + 2] = toColorByte(tint[2]);
-        pixels[ptr + 3] = toColorByte(tint[3]);
-        ptr += 4;
+    for (const layer of biomeTintLayers) {
+      const pixels = new Uint8Array(width * height * 4);
+      let ptr = 0;
+      for (let z = 0; z < height; z += 1) {
+        const wz = originZ + z * waterTintGridStep;
+        for (let x = 0; x < width; x += 1) {
+          const wx = originX + x * waterTintGridStep;
+          const tint = normalizeBiomeTintSample(layer.sample(wx, wz));
+          pixels[ptr] = toColorByte(tint[0]);
+          pixels[ptr + 1] = toColorByte(tint[1]);
+          pixels[ptr + 2] = toColorByte(tint[2]);
+          pixels[ptr + 3] = toColorByte(tint[3]);
+          ptr += 4;
+        }
       }
+      gl.activeTexture(layer.unit);
+      gl.bindTexture(gl.TEXTURE_2D, layer.texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        width,
+        height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        pixels,
+      );
+      gl.activeTexture(gl.TEXTURE0);
     }
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      width,
-      height,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      pixels,
-    );
-    gl.activeTexture(gl.TEXTURE0);
-    waterTintState.centerCx = centerCx;
-    waterTintState.centerCz = centerCz;
-    waterTintState.renderDistance = renderDistance;
-    waterTintState.originX = originX;
-    waterTintState.originZ = originZ;
-    waterTintState.width = width;
-    waterTintState.height = height;
-    waterTintState.step = waterTintGridStep;
-    waterTintState.valid = true;
+    biomeTintState.centerCx = centerCx;
+    biomeTintState.centerCz = centerCz;
+    biomeTintState.renderDistance = renderDistance;
+    biomeTintState.originX = originX;
+    biomeTintState.originZ = originZ;
+    biomeTintState.width = width;
+    biomeTintState.height = height;
+    biomeTintState.step = waterTintGridStep;
+    biomeTintState.valid = true;
   };
-  if (waterTintTexture) {
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  for (const layer of biomeTintLayers) {
+    gl.activeTexture(layer.unit);
+    gl.bindTexture(gl.TEXTURE_2D, layer.texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, layer.filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, layer.filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(
@@ -613,6 +484,10 @@ function renderTestChunk({
   const leafFogNear = gl.getUniformLocation(leafProgram, "uFogNear");
   const leafFogFar = gl.getUniformLocation(leafProgram, "uFogFar");
   const leafTint = gl.getUniformLocation(leafProgram, "uLeafTint");
+  const leafTintSampler = gl.getUniformLocation(leafProgram, "uLeafTintTex");
+  const leafTintOrigin = gl.getUniformLocation(leafProgram, "uTintOrigin");
+  const leafTintInvSize = gl.getUniformLocation(leafProgram, "uTintInvSize");
+  const leafTintStep = gl.getUniformLocation(leafProgram, "uTintStep");
 
   const outlinePosition = gl.getAttribLocation(outlineProgram, "aPosition");
   const outlineMvp = gl.getUniformLocation(outlineProgram, "uMvp");
@@ -767,11 +642,11 @@ function renderTestChunk({
     const cx = Math.floor(player.state.position[0] / size);
     const cz = Math.floor(player.state.position[2] / size);
     const renderDistance = getRenderDistance();
-    if (hasWaterTintLookup &&
-      (waterTintState.centerCx !== cx ||
-        waterTintState.centerCz !== cz ||
-        waterTintState.renderDistance !== renderDistance)) {
-      rebuildWaterTintTexture(cx, cz, renderDistance);
+    if (biomeTintLayers.length > 0 &&
+      (biomeTintState.centerCx !== cx ||
+        biomeTintState.centerCz !== cz ||
+        biomeTintState.renderDistance !== renderDistance)) {
+      rebuildBiomeTintTextures(cx, cz, renderDistance);
     }
     for (const key of frame.chunk.evicted ?? []) {
       const mesh = chunkMeshes.get(key);
@@ -884,9 +759,6 @@ function renderTestChunk({
       const handled = blueprintFs.handleCommand(text);
       if (handled) return handled;
       const executeCommand = window.mcExecuteCommand;
-      // if (typeof executeCommand !== "function") {
-      //   return { success: false, message: "Command runtime is unavailable" };
-      // }
       const result = executeCommand(text);
       return {
         success: result?.success === true,
@@ -1295,16 +1167,13 @@ function renderTestChunk({
   const visibleMeshes = [];
   const normalMeshes = [];
   const leafMeshes = [];
-  const translucentMeshes = [];
-  const waterMeshes = [];
+  const transparentDraws = [];
   let animationFrame = null;
   let disposed = false;
 
   function draw() {
     if (disposed) return;
     const canvasSize = resizeCanvas(gl, canvas);
-    gl.clearColor(0.6, 0.8, 1.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
@@ -1312,11 +1181,11 @@ function renderTestChunk({
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, blockAtlas);
-    if (waterTintTexture) {
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, waterTintTexture);
-      gl.activeTexture(gl.TEXTURE0);
+    for (const layer of biomeTintLayers) {
+      gl.activeTexture(layer.unit);
+      gl.bindTexture(gl.TEXTURE_2D, layer.texture);
     }
+    gl.activeTexture(gl.TEXTURE0);
 
     const now = performance.now();
     const delta = Math.min(0.05, (now - lastFrameTime) / 1000);
@@ -1328,7 +1197,6 @@ function renderTestChunk({
         window.mcTickEntityRuntime(gltfEntityRenderer, delta);
       }
     }
-
 
     const eyeHeight = 1.65;
     const camera = cameraFromYawPitch(
@@ -1349,7 +1217,19 @@ function renderTestChunk({
     const outlineBlock = updateOutline(camera);
     const aspect = canvasSize.width / canvasSize.height;
     const fov = (window.mcFov ?? 60) * (Math.PI / 180);
-    mat4Perspective(projMatrix, fov, aspect, 0.1, 200.0);
+    const renderDistance = getRenderDistance();
+    const skyFogColor = [0.6, 0.8, 1.0];
+    const underwaterFogColor = [0.10, 0.25, 0.48];
+    const activeFogColor = cameraUnderwater ? underwaterFogColor : skyFogColor;
+    gl.clearColor(activeFogColor[0], activeFogColor[1], activeFogColor[2], 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    const fogFar = cameraUnderwater
+      ? Math.max(8, size * 1.65)
+      : (renderDistance + 0.6) * size;
+    const fogNear = cameraUnderwater ? fogFar * 0.18 : fogFar * 0.55;
+    // Fully fogged geometry must remain inside the camera's far plane.
+    const farClip = fogFar + meshSectionSize * Math.sqrt(3);
+    mat4Perspective(projMatrix, fov, aspect, 0.1, farClip);
     mat4LookAt(viewMatrix, camera.position, camera.center, UP_VECTOR);
     mat4Mul(mvpMatrix, projMatrix, viewMatrix);
     gl.useProgram(program);
@@ -1361,14 +1241,6 @@ function renderTestChunk({
       camera.position[1],
       camera.position[2],
     );
-    const renderDistance = getRenderDistance();
-    const skyFogColor = [0.6, 0.8, 1.0];
-    const underwaterFogColor = [0.10, 0.25, 0.48];
-    const activeFogColor = cameraUnderwater ? underwaterFogColor : skyFogColor;
-    const fogFar = cameraUnderwater
-      ? Math.max(8, size * 1.65)
-      : (renderDistance + 0.6) * size;
-    const fogNear = cameraUnderwater ? fogFar * 0.18 : fogFar * 0.55;
     gl.uniform3f(uFogColor, activeFogColor[0], activeFogColor[1], activeFogColor[2]);
     gl.uniform1f(uFogNear, fogNear);
     gl.uniform1f(uFogFar, fogFar);
@@ -1379,8 +1251,7 @@ function renderTestChunk({
     visibleMeshes.length = 0;
     normalMeshes.length = 0;
     leafMeshes.length = 0;
-    translucentMeshes.length = 0;
-    waterMeshes.length = 0;
+    transparentDraws.length = 0;
     for (const chunkMesh of chunkMeshes.values()) {
       if (!(chunkMesh?.sections instanceof Map)) continue;
       for (const mesh of chunkMesh.sections.values()) {
@@ -1401,12 +1272,10 @@ function renderTestChunk({
         if (mesh.normal?.count > 0) normalMeshes.push(mesh.normal);
         if (mesh.leaf?.count > 0) leafMeshes.push(mesh.leaf);
         if (mesh.translucent?.count > 0) {
-          mesh.translucent.renderDistanceSq = distSq;
-          translucentMeshes.push(mesh.translucent);
+          transparentDraws.push({ distanceSquared: distSq, kind: "block", mesh: mesh.translucent });
         }
         if (mesh.water?.count > 0) {
-          mesh.water.renderDistanceSq = distSq;
-          waterMeshes.push(mesh.water);
+          transparentDraws.push({ distanceSquared: distSq, kind: "water", mesh: mesh.water });
         }
       }
     }
@@ -1436,6 +1305,10 @@ function renderTestChunk({
     gl.uniform1f(leafFogNear, fogNear);
     gl.uniform1f(leafFogFar, fogFar);
     gl.uniform3f(leafTint, leafTintValue[0], leafTintValue[1], leafTintValue[2]);
+    gl.uniform1i(leafTintSampler, 2);
+    gl.uniform2f(leafTintOrigin, biomeTintState.originX, biomeTintState.originZ);
+    gl.uniform2f(leafTintInvSize, 1 / biomeTintState.width, 1 / biomeTintState.height);
+    gl.uniform1f(leafTintStep, leafTintTexture && biomeTintState.valid ? biomeTintState.step : 0);
 
     for (const leaf of leafMeshes) {
       const vao = ensureLeafVao(leaf);
@@ -1444,25 +1317,6 @@ function renderTestChunk({
       gl.drawArrays(gl.TRIANGLES, 0, leaf.count);
     }
     gl.bindVertexArray(null);
-
-    gl.useProgram(program);
-    assertCurrentProgram("translucent mvp", program);
-
-    if (translucentMeshes.length > 0) {
-      translucentMeshes.sort((a, b) => b.renderDistanceSq - a.renderDistanceSq);
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      gl.depthMask(false);
-      for (const translucent of translucentMeshes) {
-        const vao = ensureWorldVao(translucent);
-        if (!vao) continue;
-        gl.bindVertexArray(vao);
-        gl.drawArrays(gl.TRIANGLES, 0, translucent.count);
-      }
-      gl.bindVertexArray(null);
-      gl.depthMask(true);
-      gl.disable(gl.BLEND);
-    }
 
     gl.useProgram(waterProgram);
     assertCurrentProgram("water mvp", waterProgram);
@@ -1477,35 +1331,19 @@ function renderTestChunk({
     gl.uniform1f(waterFogNear, fogNear);
     gl.uniform1f(waterFogFar, fogFar);
     gl.uniform1f(waterUnderwater, cameraUnderwater ? 1.0 : 0.0);
-    if (waterTintState.valid && waterTintState.width > 0 && waterTintState.height > 0) {
-      gl.uniform2f(waterTintOrigin, waterTintState.originX, waterTintState.originZ);
+    if (biomeTintState.valid && biomeTintState.width > 0 && biomeTintState.height > 0) {
+      gl.uniform2f(waterTintOrigin, biomeTintState.originX, biomeTintState.originZ);
       gl.uniform2f(
         waterTintInvSize,
-        1 / waterTintState.width,
-        1 / waterTintState.height,
+        1 / biomeTintState.width,
+        1 / biomeTintState.height,
       );
-      gl.uniform1f(waterTintStep, waterTintState.step);
+      gl.uniform1f(waterTintStep, biomeTintState.step);
     } else {
       gl.uniform2f(waterTintOrigin, 0, 0);
       gl.uniform2f(waterTintInvSize, 1, 1);
       gl.uniform1f(waterTintStep, 0);
     }
-    if (waterMeshes.length > 0) {
-      waterMeshes.sort((a, b) => b.renderDistanceSq - a.renderDistanceSq);
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      gl.depthMask(false);
-      for (const water of waterMeshes) {
-        const vao = ensureWaterVao(water);
-        if (!vao) continue;
-        gl.bindVertexArray(vao);
-        gl.drawArrays(gl.TRIANGLES, 0, water.count);
-      }
-      gl.bindVertexArray(null);
-      gl.depthMask(true);
-      gl.disable(gl.BLEND);
-    }
-
     window.mcRenderGltfRenderer(
       gltfEntityRenderer,
       viewMatrix,
@@ -1514,7 +1352,33 @@ function renderTestChunk({
       activeFogColor,
       fogNear,
       fogFar,
+      (distanceSquared, draw) => transparentDraws.push({ distanceSquared, draw }),
     );
+
+    // All opaque geometry has populated depth before any alpha blending.
+    transparentDraws.sort((a, b) => b.distanceSquared - a.distanceSquared);
+    for (const entry of transparentDraws) {
+      if (entry.draw) {
+        entry.draw();
+        continue;
+      }
+      const isWater = entry.kind === "water";
+      const vao = isWater ? ensureWaterVao(entry.mesh) : ensureWorldVao(entry.mesh);
+      if (!vao) continue;
+      gl.useProgram(isWater ? waterProgram : program);
+      gl.frontFace(gl.CW);
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, blockAtlas);
+      gl.bindVertexArray(vao);
+      gl.drawArrays(gl.TRIANGLES, 0, entry.mesh.count);
+    }
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
 
     if (outlineBlock) {
       gl.useProgram(outlineProgram);
@@ -1594,7 +1458,7 @@ function renderTestChunk({
       outlineCache.clear();
       gl.deleteBuffer(outlineCube.buffer);
       gl.deleteTexture(blockAtlas);
-      if (waterTintTexture) gl.deleteTexture(waterTintTexture);
+      for (const layer of biomeTintLayers) gl.deleteTexture(layer.texture);
       gl.deleteProgram(program);
       gl.deleteProgram(waterProgram);
       gl.deleteProgram(leafProgram);

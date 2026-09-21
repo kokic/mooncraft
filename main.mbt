@@ -46,10 +46,6 @@ pub fn initialize_global_constants() -> Unit {
   @ffi.cast_global_set("mcSpawnFallbackY", @player.SPAWN_FALLBACK_Y)
   @ffi.cast_global_set("mcSpawnYaw", @player.SPAWN_YAW)
   @ffi.cast_global_set("mcSpawnPitch", @player.SPAWN_PITCH)
-  @ffi.cast_global_set("mcOakLeavesVertexShader", @shader.leaf_vertex_shader)
-  @ffi.cast_global_set(
-    "mcOakLeavesFragmentShader", @shader.leaf_fragment_shader,
-  )
   @ffi.cast_global_set("mcOakLeavesDefaultTint", @block_genus.default_tint)
 }
 

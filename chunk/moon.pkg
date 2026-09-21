@@ -6,3 +6,7 @@ import {
   "kokic/mooncraft/level",
   "kokic/mooncraft/mesh",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "wbtest"

@@ -56,10 +56,7 @@ pub extern "js" fn Uint32Array::get(self : Uint32Array, index : Int) -> Int =
 
 ///|
 pub fn typed_array_to_floats(ua : Uint8Array) -> Array[Float] {
-  let len = ua.length()
-  let out : Array[Float] = []
-  for i in 0..<len {
-    out.push(Float::from_int(ua.get(i)))
-  }
-  out
+  [
+    for i in 0..<ua.length() => Float::from_int(ua.get(i))
+  ]
 }

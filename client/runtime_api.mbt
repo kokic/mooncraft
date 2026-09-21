@@ -61,6 +61,19 @@ pub fn register_runtime_api(
   let game = build_game_runtime(world, chunk_data, mob_runtime)
   load_initial_save(game, world, save_text)
   register_world_api(game)
+  @ffi.cast_global_set("mcSampleWorldLight", (
+    x : Double,
+    y : Double,
+    z : Double,
+  ) => {
+    @util.light_level_scale(
+      game.chunk_runtime.light_at(
+        x.floor().to_int(),
+        y.floor().to_int(),
+        z.floor().to_int(),
+      ),
+    )
+  })
   register_player_api(game)
   register_game_tick_api(game)
   match mode {

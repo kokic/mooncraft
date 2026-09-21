@@ -29,9 +29,15 @@ pub fn register_gameplay_api(world : @level.World) -> Unit {
     @biome.name(@biome.biome_at(world.noise, wx, wz))
   })
   @ffi.cast_global_set("mcGetWaterTint", (wx : Int, wz : Int) => {
-    let sample = @biome.sample(world.noise, wx, wz)
+    let sample = world.climate_sample(wx, wz)
     let biome = @biome.biome_from_sample(sample)
     let (r, g, b, a) = @genus.Water::tint_for_sample(biome, sample)
+    [r.to_double(), g.to_double(), b.to_double(), a.to_double()]
+  })
+  @ffi.cast_global_set("mcGetLeafTint", (wx : Int, wz : Int) => {
+    let (r, g, b, a) = @genus.OakLeaves::tint_for_sample(
+      world.climate_sample(wx, wz),
+    )
     [r.to_double(), g.to_double(), b.to_double(), a.to_double()]
   })
 }

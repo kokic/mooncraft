@@ -145,19 +145,14 @@ pub fn Blueprint::encode(self : Blueprint) -> String {
 
 ///|
 pub fn Blueprint::decode(text : String) -> Blueprint? {
-  try @json.parse(text) catch {
+  try {
+    let bp : Blueprint = @json.from_json(@json.parse(text))
+    guard bp.size.length() == 3 && bp.anchor.length() == 3 else { None }
+    guard bp.cells.length() == bp.width() * bp.height() * bp.depth() else {
+      None
+    }
+    Some(bp)
+  } catch {
     _ => None
-  } noraise {
-    root =>
-      try {
-        let bp : Blueprint = @json.from_json(root)
-        guard bp.size.length() == 3 && bp.anchor.length() == 3 else { None }
-        guard bp.cells.length() == bp.width() * bp.height() * bp.depth() else {
-          None
-        }
-        Some(bp)
-      } catch {
-        _ => None
-      }
   }
 }

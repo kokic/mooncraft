@@ -89,6 +89,7 @@ struct GltfInstance {
 
 ///|
 pub struct GltfRenderer {
+  sample_light : ((Double, Double, Double) -> Float)?
   gl : @webgl.WebGLRenderingContext
   program : GltfProgramInfo
   white_texture : @webgl.WebGLTexture

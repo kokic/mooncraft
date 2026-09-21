@@ -199,9 +199,7 @@ fn finite_plain_height(surface_i : Int, surface_biome : @biome.Biome) -> Int {
 
 ///|
 fn finite_terrain_column(world : World, wx : Int, wz : Int) -> TerrainColumn {
-  let sx = finite_scaled_coord(wx)
-  let sz = finite_scaled_coord(wz)
-  let sample = @biome.sample(world.noise, sx, sz)
+  let sample = world.climate_sample(wx, wz)
   let biome = @biome.biome_from_sample(sample)
   let surface_biome = finite_surface_biome(sample, biome)
   let x = wx.to_double()

@@ -59,13 +59,11 @@ fn GltfRenderer::decode_asset_response(
   url : String,
   buffer : @ffi.ArrayBuffer,
 ) -> Unit {
-  let (json_text, glb_bin) = try decode_glb_or_json_text(buffer) catch {
+  let (json_text, glb_bin) = decode_glb_or_json_text(buffer) catch {
     error => {
       self.fail_asset(url, error.message())
       return
     }
-  } noraise {
-    result => result
   }
   try @json.parse(json_text) catch {
     error => self.fail_asset(url, error.to_string())
@@ -147,9 +145,11 @@ fn load_gltf_buffers(
       load.accept(index, decode_data_uri(uri))
     } else {
       let resolved = resolve_asset_url(url, uri)
-      fetch_array_buffer(resolved, buffer => load.accept(index, buffer), message => {
-        on_error(message)
-      })
+      fetch_array_buffer(
+        resolved,
+        buffer => load.accept(index, buffer),
+        on_error,
+      )
     }
   }
 }
@@ -176,19 +176,15 @@ fn read_accessor_from(
   let count = json_int(json_field(accessor, "count"))
   let type_name = json_string(json_field(accessor, "type"))
   Some(
-    try
-      read_accessor_values(
-        buffer, component_type, type_name, count, offset, stride,
-      )
-    catch {
+    read_accessor_values(
+      buffer, component_type, type_name, count, offset, stride,
+    ) catch {
       error => {
         log_gltf_error(
           "skipping accessor \{accessor_index}: \{error.message()}",
         )
         return None
       }
-    } noraise {
-      values => values
     },
   )
 }
@@ -211,21 +207,17 @@ fn read_indices_from(
   let offset = json_int(json_field(view, "byteOffset")) +
     json_int(json_field(accessor, "byteOffset"))
   Some(
-    try
-      read_indices(
-        buffer,
-        json_int(json_field(accessor, "componentType")),
-        json_int(json_field(accessor, "count")),
-        offset,
-        json_int(json_field(view, "byteStride")),
-      )
-    catch {
+    read_indices(
+      buffer,
+      json_int(json_field(accessor, "componentType")),
+      json_int(json_field(accessor, "count")),
+      offset,
+      json_int(json_field(view, "byteStride")),
+    ) catch {
       error => {
         log_gltf_error("skipping indices \{accessor_index}: \{error.message()}")
         return None
       }
-    } noraise {
-      values => values
     },
   )
 }

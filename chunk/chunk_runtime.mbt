@@ -20,6 +20,10 @@ pub const CHUNK_GENERATION_WORK_BUDGET : Int = 8
 pub const CHUNK_MESH_BUDGET : Int = 8
 
 ///|
+/// Maximum voxel/queue operations spent advancing lighting in one frame.
+const LIGHT_WORK_BUDGET : Int = 262144
+
+///|
 /// Vertical block radius kept mesh-resident around the player. Terrain data
 /// remains in `chunk_map`; sections outside this window are built on demand.
 pub const VERTICAL_MESH_RADIUS : Int = 48
@@ -51,7 +55,12 @@ pub struct ChunkRuntime {
   mut mesh_max_y : Int
   dirty_sections : @hashmap.HashMap[String, ChunkSection]
   rendered_sections : @hashmap.HashMap[String, ChunkSection]
-  mut dirty_lights : @hashmap.HashMap[String, Bool]
+  dirty_colors : @hashmap.HashMap[String, ChunkSection]
+  dirty_lights : @hashmap.HashMap[String, Bool]
+  pending_light_chunks : @hashmap.HashMap[String, Bool]
+  mut active_light : (String, @level.WorldLightJob)?
+  light_cache : @level.LightCache
+  mut light_center_y : Int
   lights : @hashmap.HashMap[String, Bytes]
   fixed_section_light : Bytes
   block_deltas : @hashmap.HashMap[String, @level.BlockDelta]
@@ -145,6 +154,12 @@ pub fn ChunkRuntime::new(
     world, chunk_map, dirty_lights, loaded_columns, initial_chunk, chunk_min_y, chunk_max_y,
     spawn_chunk_x, spawn_chunk_z,
   )
+  let light_cache = @level.LightCache::new(
+    chunk_size,
+    world.min_y(),
+    world.max_y(),
+  )
+  light_cache.update_column(chunk_map, spawn_chunk_x, spawn_chunk_z)
   let runtime = {
     world,
     chunk_map,
@@ -185,7 +200,12 @@ pub fn ChunkRuntime::new(
     mesh_max_y: world.max_y(),
     dirty_sections: @hashmap.HashMap([]),
     rendered_sections: @hashmap.HashMap([]),
+    dirty_colors: @hashmap.HashMap([]),
     dirty_lights,
+    pending_light_chunks: @hashmap.HashMap([]),
+    active_light: None,
+    light_cache,
+    light_center_y: 0,
     lights: @hashmap.HashMap([]),
     fixed_section_light: Bytes::make(
       normalized_section_size *
@@ -285,6 +305,36 @@ pub fn ChunkRuntime::chunk_light(self : ChunkRuntime, key : String) -> Bytes? {
 }
 
 ///|
+/// Sample the current combined sky/block light at a world block coordinate.
+/// Unloaded lighting uses the same full-bright fallback as chunk meshes.
+pub fn ChunkRuntime::light_at(
+  self : ChunkRuntime,
+  wx : Int,
+  wy : Int,
+  wz : Int,
+) -> Int {
+  guard !@level.USE_FIXED_LIGHT else { 15 }
+  let size = self.chunk_size
+  let cx = @util.floor_div(wx, size)
+  let cy = @util.floor_div(wy, size)
+  let cz = @util.floor_div(wz, size)
+  let key = @level.chunk_key_by_chunk_xyz(cx, cy, cz)
+  guard self.lights.get(key) is Some(light) else { 15 }
+  let pad = size + 2
+  let (stride, offset) = if light.length() == size * size * size {
+    (size, 0)
+  } else if light.length() == pad * pad * pad {
+    (pad, 1)
+  } else {
+    return 15
+  }
+  let x = wx - cx * size + offset
+  let y = wy - cy * size + offset
+  let z = wz - cz * size + offset
+  light[(y * stride + z) * stride + x].to_int()
+}
+
+///|
 fn ChunkRuntime::enqueue_column(self : ChunkRuntime, key : String) -> Unit {
   let is_active = self.active_infinite_column.map_or(false, generation => {
     generation.column_key() == key
@@ -356,6 +406,7 @@ fn ChunkRuntime::publish_generated_column(
     generated.push(chunk_key)
   }
   self.loaded_columns[key] = true
+  self.light_cache.update_column(self.chunk_map, x, z)
   self.mark_loaded_neighbor_boundaries_dirty(x, z)
   generated
 }
@@ -517,6 +568,7 @@ fn ChunkRuntime::evict_undesired(self : ChunkRuntime) -> Array[String] {
     let (x, z) = @level.chunk_xz_by_chunk_column_key(key)
     self.mark_loaded_neighbor_boundaries_dirty(x, z)
     self.loaded_columns.remove(key)
+    self.light_cache.remove_column(x, z)
     for y in self.chunk_min_y..<=self.chunk_max_y {
       let chunk_key = @level.chunk_key_by_chunk_xyz(x, y, z)
       self.remove_chunk_sections(chunk_key)
@@ -540,6 +592,7 @@ fn ChunkRuntime::remove_chunk_sections(
         let key = section_key(chunk_key, sx, sy, sz)
         self.dirty_sections.remove(key)
         self.rendered_sections.remove(key)
+        self.dirty_colors.remove(key)
       }
     }
   }
@@ -547,38 +600,72 @@ fn ChunkRuntime::remove_chunk_sections(
 
 ///|
 fn ChunkRuntime::refresh_lights(self : ChunkRuntime) -> Array[String] {
-  guard self.dirty_lights.length() > 0 else { return [] }
-  if @level.USE_FIXED_LIGHT {
-    self.dirty_lights = @hashmap.HashMap([])
+  guard !@level.USE_FIXED_LIGHT else {
+    self.dirty_lights.clear()
     return []
   }
-  let keys : Array[String] = []
-  for column_key in self.desired_columns.keys() {
-    let (x, z) = @level.chunk_xz_by_chunk_column_key(column_key)
-    for y in self.chunk_min_y..<=self.chunk_max_y {
-      let chunk_min_y = y * self.chunk_size
-      let chunk_max_y = chunk_min_y + self.chunk_size - 1
-      guard chunk_max_y >= self.mesh_min_y && chunk_min_y <= self.mesh_max_y else {
-        continue
+  for key in self.dirty_lights.keys() {
+    let (x, y, z) = @level.chunk_xyz_by_chunk_key(key)
+    for dx in -1..<=1 {
+      for dy in -1..<=1 {
+        for dz in -1..<=1 {
+          let affected = @level.chunk_key_by_chunk_xyz(x + dx, y + dy, z + dz)
+          if self.chunk_map.contains(affected) {
+            self.pending_light_chunks[affected] = true
+          }
+        }
       }
-      keys.push(@level.chunk_key_by_chunk_xyz(x, y, z))
     }
   }
-  guard keys.length() > 0 else { return [] }
+  self.dirty_lights.clear()
   let updated : Array[String] = []
-  for
-    entry in @level.build_world_light(
-      self.chunk_map,
-      self.chunk_size,
-      keys,
-      self.world.min_y(),
-      self.world.max_y(),
-    ) {
-    let (key, light) = entry
-    self.lights[key] = light
-    updated.push(key)
+  for _ in 0..<self.mesh_budget {
+    guard self.active_light is None else { break }
+    let mut nearest : String? = None
+    let mut nearest_distance = 0
+    for key in self.pending_light_chunks.keys().to_array() {
+      guard self.chunk_map.contains(key) else {
+        self.pending_light_chunks.remove(key)
+        continue
+      }
+      let (x, y, z) = @level.chunk_xyz_by_chunk_key(key)
+      if y * self.chunk_size > self.mesh_max_y ||
+        (y + 1) * self.chunk_size <= self.mesh_min_y {
+        self.pending_light_chunks.remove(key)
+        continue
+      }
+      let distance = (x - self.desired_center_x).abs() +
+        (z - self.desired_center_z).abs() +
+        (y - @util.floor_div(self.light_center_y, self.chunk_size)).abs()
+      if nearest is None || distance < nearest_distance {
+        nearest = Some(key)
+        nearest_distance = distance
+      }
+    }
+    guard nearest is Some(key) else { return updated }
+    self.pending_light_chunks.remove(key)
+    if self.light_cache.uniform_light(key) is Some(light) {
+      if self.lights.get(key) != Some(light) {
+        self.lights[key] = light
+        updated.push(key)
+      }
+      continue
+    }
+    self.active_light = Some((key, self.light_cache.begin([key])))
   }
-  self.dirty_lights = @hashmap.HashMap([])
+  guard self.active_light is Some((_, job)) else { return updated }
+  guard job.advance(LIGHT_WORK_BUDGET) else { return updated }
+  for (key, light) in job.results() {
+    guard self.chunk_map.contains(key) &&
+      !self.pending_light_chunks.contains(key) else {
+      continue
+    }
+    if self.lights.get(key) != Some(light) {
+      self.lights[key] = light
+      updated.push(key)
+    }
+  }
+  self.active_light = None
   updated
 }
 
@@ -667,6 +754,7 @@ fn ChunkRuntime::refresh_mesh_window(
   self : ChunkRuntime,
   center_y : Int,
 ) -> Unit {
+  self.light_center_y = center_y
   let min_y = (center_y - VERTICAL_MESH_RADIUS).clamp(
     min=self.world.min_y(),
     max=self.world.max_y(),
@@ -676,8 +764,15 @@ fn ChunkRuntime::refresh_mesh_window(
     max=self.world.max_y(),
   )
   guard min_y != self.mesh_min_y || max_y != self.mesh_max_y else { return }
+  let old_min_section = @util.floor_div(self.mesh_min_y, self.section_size)
+  let old_max_section = @util.floor_div(self.mesh_max_y, self.section_size)
   self.mesh_min_y = min_y
   self.mesh_max_y = max_y
+  let min_section = @util.floor_div(min_y, self.section_size)
+  let max_section = @util.floor_div(max_y, self.section_size)
+  guard min_section != old_min_section || max_section != old_max_section else {
+    return
+  }
   for key in self.dirty_sections.keys().to_array() {
     guard self.dirty_sections.get(key) is Some(section) else { continue }
     if !self.section_in_mesh_window(section) {
@@ -686,8 +781,19 @@ fn ChunkRuntime::refresh_mesh_window(
   }
   for column_key in self.loaded_columns.keys() {
     let (x, z) = @level.chunk_xz_by_chunk_column_key(column_key)
-    for y in self.chunk_min_y..<=self.chunk_max_y {
-      self.mark_chunk_sections_dirty(@level.chunk_key_by_chunk_xyz(x, y, z))
+    for section_y in min_section..<=max_section {
+      guard section_y < old_min_section || section_y > old_max_section else {
+        continue
+      }
+      let cy = @util.floor_div(section_y, self.sections_per_axis)
+      let sy = section_y - cy * self.sections_per_axis
+      let key = @level.chunk_key_by_chunk_xyz(x, cy, z)
+      self.dirty_lights[key] = true
+      for sx in 0..<self.sections_per_axis {
+        for sz in 0..<self.sections_per_axis {
+          self.mark_section_dirty(key, sx, sy, sz)
+        }
+      }
     }
   }
 }
@@ -784,33 +890,29 @@ fn ChunkRuntime::section_light(
   self : ChunkRuntime,
   section : ChunkSection,
 ) -> Bytes {
-  let cell_count = self.section_size * self.section_size * self.section_size
+  let pad = self.section_size + 2
+  let cell_count = pad * pad * pad
   guard !@level.USE_FIXED_LIGHT else { return self.fixed_section_light }
   guard self.lights.get(section.chunk_key) is Some(chunk_light) else {
     return Bytes::make(cell_count, 15)
   }
-  let chunk_cell_count = self.chunk_size * self.chunk_size * self.chunk_size
   let chunk_pad = self.chunk_size + 2
   let chunk_pad_count = chunk_pad * chunk_pad * chunk_pad
-  guard chunk_light.length() == chunk_cell_count ||
-    chunk_light.length() == chunk_pad_count else {
+  guard chunk_light.length() == chunk_pad_count else {
     return Bytes::make(cell_count, 15)
   }
   let offset_x = section.x * self.section_size
   let offset_y = section.y * self.section_size
   let offset_z = section.z * self.section_size
   let light : Array[Byte] = []
-  for y in 0..<self.section_size {
-    for z in 0..<self.section_size {
-      for x in 0..<self.section_size {
+  // Preserve the neighbor layer used to shade faces on section boundaries.
+  for y in 0..<pad {
+    for z in 0..<pad {
+      for x in 0..<pad {
         let lx = offset_x + x
         let ly = offset_y + y
         let lz = offset_z + z
-        let index = if chunk_light.length() == chunk_cell_count {
-          (ly * self.chunk_size + lz) * self.chunk_size + lx
-        } else {
-          ((ly + 1) * chunk_pad + (lz + 1)) * chunk_pad + lx + 1
-        }
+        let index = (ly * chunk_pad + lz) * chunk_pad + lx
         light.push(chunk_light[index])
       }
     }
@@ -870,15 +972,28 @@ fn ChunkRuntime::build_recolor_commands(
   for key in relit_chunks {
     relit[key] = true
   }
-  let rebuilt : @hashmap.HashMap[String, Bool] = @hashmap.HashMap([])
+  if relit.length() > 0 {
+    for key, section in self.rendered_sections {
+      if relit.contains(section.chunk_key) {
+        self.dirty_colors[key] = section
+      }
+    }
+  }
   for command in mesh_updates {
-    rebuilt[section_key(command.chunk_key, command.x, command.y, command.z)] = true
+    self.dirty_colors.remove(
+      section_key(command.chunk_key, command.x, command.y, command.z),
+    )
   }
   let commands : Array[ChunkRecolorCommand] = []
-  for key, section in self.rendered_sections {
-    guard relit.contains(section.chunk_key) && !rebuilt.contains(key) else {
-      continue
+  for key in self.dirty_colors.keys().to_array() {
+    guard commands.length() + mesh_updates.length() < self.mesh_budget else {
+      break
     }
+    // A pending geometry rebuild will also supply fresh colors. Recoloring
+    // it now could upload a color buffer with a different vertex count.
+    guard !self.dirty_sections.contains(key) else { continue }
+    guard self.dirty_colors.get(key) is Some(section) else { continue }
+    self.dirty_colors.remove(key)
     let entry = self.section_entry(section)
     commands.push({
       chunk_key: section.chunk_key,
@@ -927,5 +1042,24 @@ pub fn ChunkRuntime::mark_block_changed(
     is Some(id) else {
     ()
   }
+  if self.light_cache.update_block(wx, wy, wz, id) {
+    let (cx, _, cz) = @level.chunk_xyz_by_chunk_key(key)
+    for cy in self.chunk_min_y..<=self.chunk_max_y {
+      self.dirty_lights[@level.chunk_key_by_chunk_xyz(cx, cy, cz)] = true
+    }
+  }
   self.record_block_delta(wx, wy, wz, id)
+}
+
+///|
+/// New geometry must never be published with fallback or obsolete light.
+/// Existing meshes stay visible while their replacement is prepared.
+fn ChunkRuntime::light_ready(self : ChunkRuntime, key : String) -> Bool {
+  @level.USE_FIXED_LIGHT ||
+  (
+    self.lights.contains(key) &&
+    !self.dirty_lights.contains(key) &&
+    !self.pending_light_chunks.contains(key) &&
+    !self.active_light.map_or(false, active => active.0 == key)
+  )
 }

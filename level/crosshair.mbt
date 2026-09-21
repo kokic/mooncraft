@@ -1,7 +1,5 @@
 ///|
 pub fn crosshair_block(
-  // game : @client.GameRuntime,
-  // player : PlayerRuntime,
   chunk_map~ : @hashmap.HashMap[String, Array[UInt]],
   chunk_size~ : Int,
   player_position~ : Array[Double],
@@ -9,9 +7,7 @@ pub fn crosshair_block(
   player_yaw~ : Double,
   player_pitch~ : Double,
   raycast_max_distance~ : Double,
-  // raycast_step~ : Double,
 ) -> @schema.BlockPos? {
-  // let position = player.position()
   let camera = @camera.camera_from_yaw_pitch(
     [
       player_position[0],
@@ -27,7 +23,6 @@ pub fn crosshair_block(
     camera.position,
     camera.direction,
     raycast_max_distance,
-    // raycast_step,
     @schema.AIR_ID,
     false,
   ).map(hit => BlockPos(hit.block[0], hit.block[1], hit.block[2]))

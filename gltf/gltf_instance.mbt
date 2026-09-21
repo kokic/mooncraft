@@ -10,7 +10,9 @@ pub struct GltfProgramInfo {
   u_tex : @webgl.WebGLUniformLocation
   u_has_texture : @webgl.WebGLUniformLocation
   u_color : @webgl.WebGLUniformLocation
+  u_light_scale : @webgl.WebGLUniformLocation
   u_alpha_mask : @webgl.WebGLUniformLocation
+  u_alpha_blend : @webgl.WebGLUniformLocation
   u_alpha_cutoff : @webgl.WebGLUniformLocation
   u_fog_color : @webgl.WebGLUniformLocation
   u_fog_near : @webgl.WebGLUniformLocation

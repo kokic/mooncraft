@@ -61,13 +61,11 @@ pub fn read_accessor_values(
   let view = @ffi.DataView::new(buffer)
   let out = @ffi.Float32Array::new(count * comps)
   let out_vals = out.values()
-  let mut ptr = 0
   for i in 0..<count {
     let base = byte_offset + i * stride
     for c in 0..<comps {
       let off = base + c * comp_bytes
-      out_vals[ptr] = read_component(view, off, component_type).to_double()
-      ptr += 1
+      out_vals[i * comps + c] = read_component(view, off, component_type).to_double()
     }
   }
   out

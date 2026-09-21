@@ -1,24 +1,6 @@
 ///|
-/// Vertex shader for leaf tinting (matches the world renderer attributes).
-pub let leaf_vertex_shader : String =
-  #| #version 300 es
-  #| precision highp float;
-  #| precision highp int;
-  #| in vec3 aPosition;
-  #| in vec4 aColor;
-  #| in vec2 aUv;
-  #| uniform mat4 uMvp;
-  #| uniform vec3 uCameraPosition;
-  #| out vec4 vColor;
-  #| out float vFogDistance;
-  #| out vec2 vUv;
-  #| void main() {
-  #|   vUv = aUv;
-  #|   vColor = aColor;
-  #|   vec4 pos = vec4(aPosition, 1.0);
-  #|   vFogDistance = distance(aPosition, uCameraPosition);
-  #|   gl_Position = uMvp * pos;
-  #| }
+/// Leaves and world geometry share the same vertex attributes and transforms.
+pub let leaf_vertex_shader : String = world_vertex_shader
 
 ///|
 /// Fragment shader for leaf tinting.
@@ -27,10 +9,15 @@ pub let leaf_fragment_shader : String =
   #| #version 300 es
   #| precision highp float;
   #| in vec2 vUv;
+  #| in vec2 vWorldXZ;
   #| in float vFogDistance;
   #| in vec4 vColor;
   #| uniform sampler2D uTex;
   #| uniform vec3 uLeafTint;
+  #| uniform sampler2D uLeafTintTex;
+  #| uniform vec2 uTintOrigin;
+  #| uniform vec2 uTintInvSize;
+  #| uniform float uTintStep;
   #| uniform float uDebugSolid;
   #| uniform vec3 uFogColor;
   #| uniform float uFogNear;
@@ -46,7 +33,12 @@ pub let leaf_fragment_shader : String =
   #|     discard;
   #|   }
   #|   float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
-  #|   vec3 tinted = vColor.rgb * color.rgb * uLeafTint;
+  #|   vec3 leafTint = uLeafTint;
+  #|   if (uTintStep > 0.0) {
+  #|     vec2 uv = ((vWorldXZ - uTintOrigin) / uTintStep + 0.5) * uTintInvSize;
+  #|     leafTint = texture(uLeafTintTex, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+  #|   }
+  #|   vec3 tinted = vColor.rgb * color.rgb * leafTint;
   #|   vec3 mixed = mix(tinted, uFogColor, fogAmount);
   #|   outColor = vec4(mixed, color.a * vColor.a);
   #| }

@@ -1,0 +1,49 @@
+///|
+pub let world_vertex_shader : String =
+  #| #version 300 es
+  #| precision highp float;
+  #| precision highp int;
+  #| in vec3 aPosition;
+  #| in vec4 aColor;
+  #| in vec2 aUv;
+  #| uniform mat4 uMvp;
+  #| uniform vec3 uCameraPosition;
+  #| out vec4 vColor;
+  #| out float vFogDistance;
+  #| out vec2 vUv;
+  #| out vec2 vWorldXZ;
+  #| void main() {
+  #|   vUv = aUv;
+  #|   vColor = aColor;
+  #|   vWorldXZ = aPosition.xz;
+  #|   vec4 pos = vec4(aPosition, 1.0);
+  #|   vFogDistance = distance(aPosition, uCameraPosition);
+  #|   gl_Position = uMvp * pos;
+  #| }
+
+///|
+pub let world_fragment_shader : String =
+  #| #version 300 es
+  #| precision highp float;
+  #| in vec2 vUv;
+  #| in float vFogDistance;
+  #| in vec4 vColor;
+  #| uniform sampler2D uTex;
+  #| uniform float uDebugSolid;
+  #| uniform vec3 uFogColor;
+  #| uniform float uFogNear;
+  #| uniform float uFogFar;
+  #| out vec4 outColor;
+  #| void main() {
+  #|   if (uDebugSolid > 0.5) {
+  #|     outColor = vec4(1.0, 0.2, 0.2, 1.0);
+  #|     return;
+  #|   }
+  #|   vec4 color = texture(uTex, vUv);
+  #|   if (color.a * vColor.a <= 0.3) {
+  #|     discard;
+  #|   }
+  #|   float fogAmount = smoothstep(uFogNear, uFogFar, vFogDistance);
+  #|   vec3 mixed = mix(vColor.rgb * color.rgb, uFogColor, fogAmount);
+  #|   outColor = vec4(mixed, color.a * vColor.a);
+  #| }

@@ -69,12 +69,17 @@ MoonBit parses `.gltf` and `.glb` files, decodes accessor data, creates shader p
 
 ## Shaders
 
-Hand-written vertex and fragment shaders:
-- **Leaf shader**: applies biome tint to leaf blocks, with fog distance blending for distance-based atmospheric fading
-- **Standard shader**: per-face directional shading (face_shade * light_scale) with texture mapping
-- **Water shader**: translucent blue tint with alpha
+All GLSL sources live in the MoonBit `shader` package: `world.mbt`, `water.mbt`,
+`leaf.mbt`, `outline.mbt`, `item.mbt`, and `gltf.mbt`. World, water, and leaves
+share the world vertex shader; renderers keep their own attribute and uniform bindings.
 
-Fragments are provided as string constants (`GLTF_VS_SOURCE`, `GLTF_FS_SOURCE`) and compiled at runtime.
+`shader/program.mbt` owns shader compilation, program linking, driver errors,
+and temporary shader cleanup. Browser renderers import `createProgram` from
+`virtual:mooncraft-shader` and select a built-in program by name. The function
+returns a WebGL program directly and throws a JS error containing the driver log
+on failure. The glTF package uses the same compiler and linker, translating
+`ShaderError` into its existing `GltfError` variants.
+
 
 ## UI Mesh
 
@@ -96,25 +101,29 @@ Raw WebGL 2.0 bindings: shader compilation/linking, buffer and VAO lifecycle, te
 
 ## Configuration
 
-Three compile-time flags control lighting behavior (in `level/light.mbt`):
+Four compile-time flags control lighting behavior (in `level/light.mbt`):
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `USE_FIXED_LIGHT` | **true** | Skip all lighting computation. Every block is full brightness (15). |
+| `USE_FIXED_LIGHT` | **false** | When enabled, skip lighting computation and use full brightness (15). |
 | `ENABLE_SKY_FLOOD_FILL` | true | When fixed light is off, run skylight propagation. |
 | `ENABLE_TORCH_LIGHTING` | true | When fixed light is off, run torchlight propagation. |
 | `ENABLE_SMOOTH_LIGHTING` | **false** | Blend neighbor light values (expensive, subtle visual effect). |
 
-**Current state**: Fixed lighting is ON by default, so the full propagation code exists but is not exercised at runtime. The codebase is prepared for toggling to dynamic lighting.
+Dynamic lighting is active. `LightCache` stores block opacity, emission and direct skylight for loaded columns. Generation initializes the cache; edits update one voxel and, when opacity changes, its vertical sky shaft. This retains the effect of roofs above the mesh window without rescanning the world height for each solve.
+
+Dirty chunks enter a coalescing queue prioritized by distance to the player in all three axes. Each task solves one output chunk and its one-chunk source halo, including vertical neighbors. Tasks outside the mesh window are deferred until that height enters view. Each frame advances at most 262144 work units, with six units per flood step. Completed chunks publish independently; edits during a solve invalidate stale results.
+
+New or rebuilt meshes wait for their current light map instead of showing fallback lighting. Existing meshes stay visible while replacements are prepared. Recolors share the mesh budget and are superseded by pending geometry rebuilds.
 
 ## Algorithm
 
-When `USE_FIXED_LIGHT` is off, `build_world_light` runs on all loaded chunks:
+When `USE_FIXED_LIGHT` is off, `WorldLightJob` advances these phases across frames. `build_world_light` drains the same solver synchronously for callers outside the frame loop:
 
-1. **Gather block data**: Reads opacity (0-15) and luminance (0-15) from every loaded chunk into a consolidated 3D grid. Unloaded neighbors are treated as fully opaque.
+1. **Gather block data**: Copies cached opacity, emission and direct sky from the local source chunks into byte buffers. Propagation work is independent of total render distance and world height. Unloaded neighbors are treated as fully opaque.
 
 2. **Skylight propagation** (`ENABLE_SKY_FLOOD_FILL`):
-   - Start from the top Y layer: for each XZ column, light enters with value 15, reduced by block opacity. Push non-opaque top cells into a BFS queue.
+   - Start from the top Y layer: for each XZ column, light enters with value 15, reduced by block opacity. First solve direct vertical skylight, then enqueue only cells whose light can spread laterally. Open sky does not fill the BFS queue with redundant cells.
    - BFS propagates downward and horizontally, reducing light by (block_opacity + 1) per step. A special case preserves full 15 light when moving straight down through transparent blocks.
    - Result: light attenuates as it passes through partial-opacity blocks, creating realistic shadows under overhangs.
 
@@ -128,9 +137,9 @@ When `USE_FIXED_LIGHT` is off, `build_world_light` runs on all loaded chunks:
 
 5. **Final light**: per-voxel `max(skylight, torchlight)`.
 
-6. **Per-chunk output**: For each loaded chunk, extract the interior light values (trimming one-block padding) into a packed byte buffer for the mesh builder.
+6. **Per-chunk output**: Each chunk receives a `(size + 2)^3` light buffer. Mesh sections retain the one-block neighbor layer, so faces on section and chunk boundaries sample actual neighboring light.
 
-**WIP**: Fixed lighting is the active path. The full propagation system works but is disabled. Smooth lighting (neighbor interpolation) is implemented but turned off by default.
+glTF primitives sample the same combined world light at their transformed centers through `ChunkRuntime::light_at`. Smooth lighting (neighbor interpolation) remains disabled.
 
 ## Light in Mesh Building
 
@@ -141,7 +150,9 @@ face_shade * light_scale * material_tint
 
 Where:
 - `face_shade`: directional constant (1.0 for top, 0.62 for bottom, 0.72 for X faces, 0.84 for Z faces)
-- `light_scale`: `0.18 + light_level * (0.82 / 15)`, where `light_level` is the block's light value (0-15). The 0.18 lift prevents total darkness.
+- `light_scale`: `0.18 + 0.82 * pow(0.9, 15 - light_level)`, shared with glTF entities through `util.light_level_scale`. Level zero remains dimly visible.
 - `material_tint`: biome-dependent color for leaves and water; white for normal blocks.
 
-**WIP**: The light scale formula uses a simple linear ramp, not Minecraft's more complex light curve. Smooth lighting blends are not active.
+Smooth lighting blends are not active.
+
+The vertical mesh window only schedules sections that newly enter it. Moving within the same section range does not rebuild existing geometry.

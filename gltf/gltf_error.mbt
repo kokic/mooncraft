@@ -31,3 +31,11 @@ pub fn GltfError::message(self : GltfError) -> String {
     ProgramLinkFailed(log) => "program link: \{log}"
   }
 }
+
+///|
+fn GltfError::from_shader(error : @shader.ShaderError) -> GltfError {
+  match error {
+    CompileFailed(log) => ShaderCompileFailed(log)
+    LinkFailed(log) => ProgramLinkFailed(log)
+  }
+}

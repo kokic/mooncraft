@@ -62,10 +62,8 @@ pub fn chunk_key_by_block_xyz(
 
 ///|
 fn parse_int_or_zero(sv : StringView) -> Int {
-  try @string.parse_int(sv) catch {
+  @string.parse_int(sv) catch {
     _ => 0
-  } noraise {
-    v => v
   }
 }
 

@@ -310,7 +310,7 @@ fn emit_face(
 }
 
 ///|
-fn emit_face_rev(
+fn emit_reversed_face(
   arrays : MeshFaceArrays,
   a : (Float, Float, Float),
   b : (Float, Float, Float),
@@ -360,35 +360,6 @@ fn emit_face_cube(
     normal,
     [a, b, c, a, c, d],
     uv_base,
-    uv_rect,
-    flip_v,
-    layer_f,
-    tint,
-    color_scale,
-    alpha_scale,
-  )
-}
-
-///|
-fn emit_face_rev_cube(
-  arrays : MeshFaceArrays,
-  a : (Float, Float, Float),
-  b : (Float, Float, Float),
-  c : (Float, Float, Float),
-  d : (Float, Float, Float),
-  normal : (Int, Int, Int),
-  uv_rect : (Float, Float, Float, Float),
-  flip_v : Bool,
-  layer_f : Float,
-  tint : (Float, Float, Float, Float),
-  color_scale : Float,
-  alpha_scale : Float,
-) -> Unit {
-  emit_face_vertices(
-    arrays,
-    normal,
-    [a, c, b, a, d, c],
-    face_uvs_rev,
     uv_rect,
     flip_v,
     layer_f,
@@ -456,7 +427,7 @@ fn emit_model_faces(
   let by = Float::from_int(y)
   let bz = Float::from_int(z)
   let tint = render_block.block.material.tint()
-  let emit_face = fn(
+  let emit_face = (
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -466,12 +437,12 @@ fn emit_model_faces(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
-  ) -> Unit {
+  ) => {
     emit_face(
       arrays, a, b, c, d, normal, uv_rect, flip_v, layer_f, tint, color_scale, 1.0F,
     )
   }
-  let emit_face_rev = fn(
+  let emit_face_rev = (
     a : (Float, Float, Float),
     b : (Float, Float, Float),
     c : (Float, Float, Float),
@@ -481,8 +452,8 @@ fn emit_model_faces(
     uv_rect : (Float, Float, Float, Float),
     flip_v : Bool,
     color_scale : Float,
-  ) -> Unit {
-    emit_face_rev(
+  ) => {
+    emit_reversed_face(
       arrays, a, b, c, d, normal, uv_rect, flip_v, layer_f, tint, color_scale, 1.0F,
     )
   }
@@ -525,7 +496,7 @@ fn emit_model_faces(
         alpha_scale,
       )
       if is_double_sided {
-        emit_face_rev_cube(
+        emit_reversed_face(
           arrays,
           a,
           b,

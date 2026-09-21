@@ -280,11 +280,12 @@ fn gltf_model_boxes(name : String, state : UInt) -> Array[@shape.Box] {
 /// boxes follow the model's own extents; only the render model differs from
 /// the procedural shapes.
 fn gltf_profile(name : String) -> BlockProfile {
+  let boxes = state => gltf_model_boxes(name, state)
   {
     model: @genus.default_model,
-    collision_boxes: fn(state : UInt) { gltf_model_boxes(name, state) },
-    raycast_boxes: fn(state : UInt) { gltf_model_boxes(name, state) },
-    outline_boxes: fn(state : UInt) { gltf_model_boxes(name, state) },
+    collision_boxes: boxes,
+    raycast_boxes: boxes,
+    outline_boxes: boxes,
     selectable: true,
     raycast_mode: RaycastMode::Bounds,
     placement_state: default_placement_state,

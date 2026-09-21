@@ -107,6 +107,7 @@ fn ChunkRuntime::take_dirty_sections(
       self.chunk_min_y,
       self.chunk_max_y,
     ) {
+    guard self.light_ready(chunk_key) else { continue }
     for sx in 0..<self.sections_per_axis {
       for sy in 0..<self.sections_per_axis {
         for sz in 0..<self.sections_per_axis {

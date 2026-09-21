@@ -6,6 +6,7 @@ const webRoot = resolve("web");
 const distRoot = resolve(".dist");
 
 const mooncraftModules = new Map([
+  ["virtual:mooncraft-shader", resolve("_build/js/release/build/shader/shader.js")],
   ["virtual:mooncraft-camera", resolve("_build/js/release/build/camera/camera.js")],
   ["virtual:mooncraft-level", resolve("_build/js/release/build/level/level.js")],
   ["virtual:mooncraft-block", resolve("_build/js/release/build/block/block.js")],

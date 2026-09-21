@@ -57,11 +57,6 @@ pub fn block_gltf_model(name : String) -> GltfBakedModel? {
 }
 
 ///|
-fn register_block_gltf_model(name : String, model : GltfBakedModel) -> Unit {
-  block_gltf_models[name] = model
-}
-
-///|
 /// Asynchronously fetch, parse, and bake one glTF model for use as a block
 /// shape. `on_done` receives an empty string on success or an error message.
 fn load_block_gltf_spec(
@@ -121,13 +116,11 @@ fn decode_block_gltf(
   fit_in_block : Bool,
   on_done : (String) -> Unit,
 ) -> Unit {
-  let (json_text, glb_bin) = try decode_glb_or_json_text(buffer) catch {
+  let (json_text, glb_bin) = decode_glb_or_json_text(buffer) catch {
     error => {
       on_done(error.message())
       return
     }
-  } noraise {
-    result => result
   }
   try @json.parse(json_text) catch {
     error => on_done(error.to_string())
@@ -140,13 +133,13 @@ fn decode_block_gltf(
         buffers => {
           match bake_gltf_model(root, buffers, fit_in_block) {
             Some(model) => {
-              register_block_gltf_model(name, model)
+              block_gltf_models[name] = model
               on_done("")
             }
             None => on_done("no drawable triangles in \{url}")
           }
         },
-        message => on_done(message),
+        on_done,
       )
   }
 }

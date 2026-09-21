@@ -1,2 +1,5 @@
 import {
+  "kokic/mooncraft/ffi/webgl",
 }
+
+pkgtype(kind: "foreign_library")

@@ -3,14 +3,14 @@ const MAX_LIGHT : Int = 15
 
 ///|
 /// Fixed lighting ignores skylight / torchlight and uses full brightness.
-pub const USE_FIXED_LIGHT : Bool = true
+pub const USE_FIXED_LIGHT : Bool = false
 
 ///|
-/// Keep only vertical skylight blocking (cheap and stable).
+/// Let skylight spread into openings and around obstacles.
 pub const ENABLE_SKY_FLOOD_FILL : Bool = true
 
 ///|
-/// Torch flood fill is visually subtle but expensive.
+/// Propagate light from emitting blocks.
 pub const ENABLE_TORCH_LIGHTING : Bool = true
 
 ///|
@@ -18,69 +18,342 @@ pub const ENABLE_TORCH_LIGHTING : Bool = true
 pub const ENABLE_SMOOTH_LIGHTING : Bool = false
 
 ///|
-let light_dirs : Array[(Int, Int, Int)] = [
-  (1, 0, 0),
-  (-1, 0, 0),
-  (0, 1, 0),
-  (0, -1, 0),
-  (0, 0, 1),
-  (0, 0, -1),
-]
-
-///|
-fn clamp_light(value : Int) -> Int {
-  if value < 0 {
-    0
-  } else if value > MAX_LIGHT {
-    MAX_LIGHT
-  } else {
-    value
-  }
+enum LightPhase {
+  Copy
+  Frontier
+  FloodSky
+  FloodTorch
+  Emit
+  Done
 }
 
 ///|
-fn build_light_lookup() -> @hashmap.HashMap[Int, (Int, Int)] {
-  let lookup : @hashmap.HashMap[Int, (Int, Int)] = @hashmap.HashMap([])
-  for entry in @block.collect_block_light_info() {
-    if entry.length() >= 3 {
-      lookup[entry[0]] = (entry[1], entry[2])
-    }
-  }
-  lookup
+struct LightSource {
+  column : LightColumn
+  offset : Int
+  base : Int
 }
 
 ///|
-/// The loaded chunks that contribute light, plus the world-space bounds of
-/// the light region they span.
-priv struct LightCoords {
-  loaded : Array[(String, Int, Int, Int)]
-  min_cx : Int
-  max_cx : Int
-  min_cz : Int
-  max_cz : Int
-  min_cy : Int
-  max_cy : Int
-}
-
-///|
-/// Per-block opacity, luminance, and presence over the whole light region.
-priv struct LightGrid {
+/// A resumable light solve. Runtime batches nearby output columns;
+/// the neighboring source columns cover the maximum horizontal light reach.
+/// Only completed results are published, so mesh and entity samples agree.
+pub struct WorldLightJob {
+  size : Int
   dim_x : Int
   dim_y : Int
   dim_z : Int
-  opacity : Array[Int]
-  luminance : Array[Int]
-  loaded : Array[Bool]
+  sources : Array[LightSource]
+  outputs : Array[(String, Int)]
+  opacity : FixedArray[Byte]
+  sky : FixedArray[Byte]
+  torch : FixedArray[Byte]
+  sky_queue : Array[Int]
+  torch_queue : Array[Int]
+  buffer : Array[Byte]
+  results : Array[(String, Bytes)]
+  mut phase : LightPhase
+  mut cursor : Int
 }
 
 ///|
-fn LightGrid::index_of(self : LightGrid, rx : Int, ry : Int, rz : Int) -> Int {
-  (ry * self.dim_z + rz) * self.dim_x + rx
+pub fn LightCache::begin(
+  self : LightCache,
+  chunk_keys : Array[String],
+) -> WorldLightJob {
+  let size = self.size
+  let mut min_x = 0
+  let mut max_x = 0
+  let mut min_y = self.max_cy
+  let mut max_y = self.min_cy
+  let mut min_z = 0
+  let mut max_z = 0
+  for i, key in chunk_keys {
+    let (x, y, z) = chunk_xyz_by_chunk_key(key)
+    min_y = if y < min_y { y } else { min_y }
+    max_y = if y > max_y { y } else { max_y }
+    if i == 0 {
+      min_x = x
+      max_x = x
+      min_z = z
+      max_z = z
+    } else {
+      min_x = if x < min_x { x } else { min_x }
+      max_x = if x > max_x { x } else { max_x }
+      min_z = if z < min_z { z } else { min_z }
+      max_z = if z > max_z { z } else { max_z }
+    }
+  }
+  let halo = (MAX_LIGHT + size - 1) / size
+  min_x = min_x - halo
+  max_x = max_x + halo
+  min_z = min_z - halo
+  max_z = max_z + halo
+  min_y = (min_y - halo).clamp(min=self.min_cy, max=self.max_cy)
+  max_y = (max_y + halo).clamp(min=self.min_cy, max=self.max_cy)
+  let dim_x = (max_x - min_x + 1) * size
+  let dim_z = (max_z - min_z + 1) * size
+  let dim_y = (max_y - min_y + 1) * size
+  let base_of = (x : Int, y : Int, z : Int) => {
+    (((y - min_y) * dim_z + z - min_z) * dim_x + x - min_x) * size
+  }
+  let sources : Array[LightSource] = []
+  for x in min_x..<=max_x {
+    for z in min_z..<=max_z {
+      for y in min_y..<=max_y {
+        guard self.columns.get(chunk_column_key_by_chunk_xz(x, z))
+          is Some(column) else {
+          continue
+        }
+        sources.push({
+          column,
+          offset: (y - self.min_cy) * size * size * size,
+          base: base_of(x, y, z),
+        })
+      }
+    }
+  }
+  let outputs : Array[(String, Int)] = []
+  for key in chunk_keys {
+    let (x, y, z) = chunk_xyz_by_chunk_key(key)
+    outputs.push((key, base_of(x, y, z)))
+  }
+  let total = dim_x * dim_y * dim_z
+  {
+    size,
+    dim_x,
+    dim_y,
+    dim_z,
+    sources,
+    outputs,
+    opacity: FixedArray::make(total, MAX_LIGHT.to_byte()),
+    sky: FixedArray::make(total, 0),
+    torch: FixedArray::make(total, 0),
+    sky_queue: [],
+    torch_queue: [],
+    buffer: [],
+    results: [],
+    phase: Copy,
+    cursor: 0,
+  }
 }
 
 ///|
-/// Build per-chunk light maps (max of skylight and torchlight) for the
-/// specified chunk keys.
+fn WorldLightJob::neighbors(
+  self : WorldLightJob,
+  index : Int,
+  visit : (Int, Bool) -> Unit,
+) -> Unit {
+  let x = index % self.dim_x
+  let z = index / self.dim_x % self.dim_z
+  let plane = self.dim_x * self.dim_z
+  if x > 0 {
+    visit(index - 1, false)
+  }
+  if x + 1 < self.dim_x {
+    visit(index + 1, false)
+  }
+  if z > 0 {
+    visit(index - self.dim_x, false)
+  }
+  if z + 1 < self.dim_z {
+    visit(index + self.dim_x, false)
+  }
+  if index >= plane {
+    visit(index - plane, true)
+  }
+  if index + plane < self.opacity.length() {
+    visit(index + plane, false)
+  }
+}
+
+///|
+fn WorldLightJob::spread(
+  self : WorldLightJob,
+  index : Int,
+  skylight : Bool,
+) -> Unit {
+  let light = if skylight { self.sky } else { self.torch }
+  let queue = if skylight { self.sky_queue } else { self.torch_queue }
+  let current = light[index].to_int()
+  self.neighbors(index, (next_index, down) => {
+    let opacity = self.opacity[next_index].to_int()
+    guard opacity < MAX_LIGHT else { return }
+    let next = if skylight && down && current == MAX_LIGHT && opacity == 0 {
+      MAX_LIGHT
+    } else {
+      current - opacity - 1
+    }
+    if next > light[next_index].to_int() {
+      light[next_index] = next.to_byte()
+      queue.push(next_index)
+    }
+  })
+}
+
+///|
+fn WorldLightJob::combined(self : WorldLightJob, index : Int) -> Int {
+  if self.sky[index].to_int() > self.torch[index].to_int() {
+    self.sky[index].to_int()
+  } else {
+    self.torch[index].to_int()
+  }
+}
+
+///|
+/// Spend at most `budget` voxel/queue operations. No whole-region pass runs
+/// outside this budget. Fixed-size typed buffers avoid growing JS number arrays.
+pub fn WorldLightJob::advance(self : WorldLightJob, budget : Int) -> Bool {
+  let plane = self.dim_x * self.dim_z
+  let total = self.opacity.length()
+  let cells = self.size * self.size * self.size
+  let pad = self.size + 2
+  let padded_cells = pad * pad * pad
+  let mut remaining = budget
+  while remaining > 0 {
+    // Flooding visits up to six neighbors per cell, unlike a linear pass.
+    let cost = if self.phase is FloodSky || self.phase is FloodTorch {
+      6
+    } else {
+      1
+    }
+    guard remaining >= cost else { return false }
+    remaining = remaining - cost
+    match self.phase {
+      Copy => {
+        let i = self.cursor
+        if i >= self.sources.length() * cells {
+          self.phase = if ENABLE_SKY_FLOOD_FILL { Frontier } else { FloodTorch }
+          self.cursor = 0
+          continue
+        }
+        let source = self.sources[i / cells]
+        let offset = i % cells
+        let x = offset % self.size
+        let z = offset / self.size % self.size
+        let y = offset / (self.size * self.size)
+        let index = source.base + y * plane + z * self.dim_x + x
+        let source_index = source.offset + offset
+        self.opacity[index] = source.column.opacity[source_index]
+        self.sky[index] = source.column.sky[source_index]
+        let luminance = source.column.luminance[source_index]
+        if ENABLE_TORCH_LIGHTING && luminance > 0 {
+          self.torch[index] = luminance
+          self.torch_queue.push(index)
+        }
+        self.phase = Copy
+        self.cursor = i + 1
+      }
+      Frontier => {
+        let i = self.cursor
+        if i >= total {
+          self.phase = FloodSky
+          self.cursor = 0
+          continue
+        }
+        // Direct vertical sky is already solved. Queue only cells that can
+        // brighten a neighbor, not every voxel in the open sky.
+        let current = self.sky[i].to_int()
+        if current > 1 {
+          let x = i % self.dim_x
+          let z = i / self.dim_x % self.dim_z
+          if (
+              x > 0 &&
+              current - self.opacity[i - 1].to_int() - 1 >
+              self.sky[i - 1].to_int()
+            ) ||
+            (
+              x + 1 < self.dim_x &&
+              current - self.opacity[i + 1].to_int() - 1 >
+              self.sky[i + 1].to_int()
+            ) ||
+            (
+              z > 0 &&
+              current - self.opacity[i - self.dim_x].to_int() - 1 >
+              self.sky[i - self.dim_x].to_int()
+            ) ||
+            (
+              z + 1 < self.dim_z &&
+              current - self.opacity[i + self.dim_x].to_int() - 1 >
+              self.sky[i + self.dim_x].to_int()
+            ) {
+            self.sky_queue.push(i)
+          }
+        }
+        self.phase = Frontier
+        self.cursor = i + 1
+      }
+      FloodSky => {
+        let head = self.cursor
+        if head >= self.sky_queue.length() {
+          self.phase = FloodTorch
+          self.cursor = 0
+          continue
+        }
+        self.spread(self.sky_queue[head], true)
+        self.phase = FloodSky
+        self.cursor = head + 1
+      }
+      FloodTorch => {
+        let head = self.cursor
+        if head >= self.torch_queue.length() {
+          self.phase = Emit
+          self.cursor = 0
+          continue
+        }
+        self.spread(self.torch_queue[head], false)
+        self.phase = FloodTorch
+        self.cursor = head + 1
+      }
+      Emit => {
+        let i = self.cursor
+        if i >= self.outputs.length() * padded_cells {
+          self.phase = Done
+          return true
+        }
+        let (key, base) = self.outputs[i / padded_cells]
+        let offset = i % padded_cells
+        let index = base +
+          (offset / (pad * pad) - 1) * plane +
+          (offset / pad % pad - 1) * self.dim_x +
+          offset % pad -
+          1
+        let light = if USE_FIXED_LIGHT {
+          MAX_LIGHT
+        } else if index < 0 || index >= total {
+          0
+        } else if ENABLE_SMOOTH_LIGHTING {
+          let mut sum = self.combined(index)
+          let mut count = 1
+          self.neighbors(index, (neighbor, _) => {
+            sum = sum + self.combined(neighbor)
+            count = count + 1
+          })
+          sum / count
+        } else {
+          self.combined(index)
+        }
+        self.buffer.push(light.to_byte())
+        if offset + 1 == padded_cells {
+          self.results.push((key, Bytes::from_array(self.buffer)))
+          self.buffer.clear()
+        }
+        self.phase = Emit
+        self.cursor = i + 1
+      }
+      Done => return true
+    }
+  }
+  self.phase is Done
+}
+
+///|
+pub fn WorldLightJob::results(self : WorldLightJob) -> Array[(String, Bytes)] {
+  self.results
+}
+
+///|
+/// Synchronous entry for callers outside the frame loop. Runtime uses advance.
 pub fn build_world_light(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
@@ -88,400 +361,36 @@ pub fn build_world_light(
   world_min_y : Int,
   world_max_y : Int,
 ) -> Array[(String, Bytes)] {
-  if chunk_keys.length() == 0 {
-    return []
-  }
-  if USE_FIXED_LIGHT {
-    return fixed_light_results(chunk_keys, size)
-  }
-  let coords = collect_light_coords(
+  guard chunk_keys.length() > 0 else { [] }
+  let job = WorldLightJob::new(
     chunk_map, size, chunk_keys, world_min_y, world_max_y,
   )
-  guard coords.loaded.length() > 0 else { [] }
-  let grid = build_light_grid(chunk_map, coords, size)
-  let sky = compute_sky_light(grid)
-  let torch = compute_torch_light(grid)
-  let light = combine_light(sky, torch)
-  let light_out = if ENABLE_SMOOTH_LIGHTING {
-    smooth_light(grid, light)
-  } else {
-    light
+  while !job.advance(65536) {
+
   }
-  emit_chunk_light(coords, grid, light_out, size)
+  job.results()
 }
 
 ///|
-fn fixed_light_results(
-  chunk_keys : Array[String],
-  size : Int,
-) -> Array[(String, Bytes)] {
-  let pad = size + 2
-  let light_bytes = Bytes::makei(pad * pad * pad, _ => Int::to_byte(MAX_LIGHT))
-  chunk_keys.map(key => (key, light_bytes))
-}
-
-///|
-/// Collect the loaded chunk coordinates for the requested keys, then fill in
-/// the neighbor columns of the bounding rectangle.
-fn collect_light_coords(
+pub fn WorldLightJob::new(
   chunk_map : @hashmap.HashMap[String, Array[UInt]],
   size : Int,
   chunk_keys : Array[String],
   world_min_y : Int,
   world_max_y : Int,
-) -> LightCoords {
-  let loaded : Array[(String, Int, Int, Int)] = []
-  let chunk_data_by_key : @hashmap.HashMap[String, Array[UInt]] = @hashmap.HashMap([],
-  )
-  let mut min_cx = 0
-  let mut min_cz = 0
-  let mut max_cx = 0
-  let mut max_cz = 0
-  let mut initialized = false
+) -> WorldLightJob {
+  let cache = LightCache::new(size, world_min_y, world_max_y)
+  let halo = (MAX_LIGHT + size - 1) / size
   for key in chunk_keys {
-    let (cx, cy, cz) = chunk_xyz_by_chunk_key(key)
-    if !initialized {
-      initialized = true
-      min_cx = cx
-      min_cz = cz
-      max_cx = cx
-      max_cz = cz
-    } else {
-      if cx < min_cx {
-        min_cx = cx
-      }
-      if cz < min_cz {
-        min_cz = cz
-      }
-      if cx > max_cx {
-        max_cx = cx
-      }
-      if cz > max_cz {
-        max_cz = cz
-      }
-    }
-    guard get_chunk_data(chunk_map, key) is Some(data) else { continue }
-    loaded.push((key, cx, cy, cz))
-    chunk_data_by_key[key] = data
-  }
-  let min_cy = @util.floor_div(world_min_y, size)
-  let max_cy = @util.floor_div(world_max_y, size)
-  if min_cy <= max_cy {
-    for cx in min_cx..<=max_cx {
-      for cz in min_cz..<=max_cz {
-        for cy in min_cy..<=max_cy {
-          let key = chunk_key_by_chunk_xyz(cx, cy, cz)
-          if chunk_data_by_key.contains(key) {
-            continue
-          }
-          guard get_chunk_data(chunk_map, key) is Some(data) else { continue }
-          loaded.push((key, cx, cy, cz))
-          chunk_data_by_key[key] = data
-        }
-      }
-    }
-  }
-  { loaded, min_cx, max_cx, min_cz, max_cz, min_cy, max_cy, }
-}
-
-///|
-/// Copy each loaded chunk's block opacity and luminance into the region grid.
-fn build_light_grid(
-  chunk_map : @hashmap.HashMap[String, Array[UInt]],
-  coords : LightCoords,
-  size : Int,
-) -> LightGrid {
-  let dim_x = (coords.max_cx - coords.min_cx + 1) * size
-  let dim_y = (coords.max_cy - coords.min_cy + 1) * size
-  let dim_z = (coords.max_cz - coords.min_cz + 1) * size
-  let total = dim_x * dim_y * dim_z
-  let grid = LightGrid::{
-    dim_x,
-    dim_y,
-    dim_z,
-    opacity: Array::make(total, 15),
-    luminance: Array::make(total, 0),
-    loaded: Array::make(total, false),
-  }
-  let lookup = build_light_lookup()
-  for coord in coords.loaded {
-    let (key, cx, cy, cz) = coord
-    guard get_chunk_data(chunk_map, key) is Some(data) else { continue }
-    let base_rx = (cx - coords.min_cx) * size
-    let base_ry = (cy - coords.min_cy) * size
-    let base_rz = (cz - coords.min_cz) * size
-    let max_len = size * size * size
-    let len = if data.length() < max_len { data.length() } else { max_len }
-    for i in 0..<len {
-      let (lx, ly, lz) = get_block_rxyz_by_linear_index(i)
-      let idx = grid.index_of(base_rx + lx, base_ry + ly, base_rz + lz)
-      let key = data[i].reinterpret_as_int()
-      guard lookup.get(key) is Some((op, lum)) else { continue }
-      grid.opacity[idx] = op
-      grid.luminance[idx] = lum
-      grid.loaded[idx] = true
-    }
-  }
-  grid
-}
-
-///|
-/// Skylight: flood from the top when `ENABLE_SKY_FLOOD_FILL`, otherwise a
-/// single vertical pass.
-fn compute_sky_light(grid : LightGrid) -> Array[Int] {
-  if ENABLE_SKY_FLOOD_FILL {
-    flood_sky_light(grid)
-  } else {
-    vertical_sky_light(grid)
-  }
-}
-
-///|
-fn flood_sky_light(grid : LightGrid) -> Array[Int] {
-  let sky : Array[Int] = Array::make(grid.dim_x * grid.dim_y * grid.dim_z, 0)
-  let sky_qx : Array[Int] = []
-  let sky_qy : Array[Int] = []
-  let sky_qz : Array[Int] = []
-  let sky_push = fn(rx : Int, ry : Int, rz : Int) -> Unit {
-    sky_qx.push(rx)
-    sky_qy.push(ry)
-    sky_qz.push(rz)
-  }
-  let top_y = grid.dim_y - 1
-  for rx in 0..<grid.dim_x {
-    for rz in 0..<grid.dim_z {
-      let idx = grid.index_of(rx, top_y, rz)
-      let block_opacity = if grid.loaded[idx] { grid.opacity[idx] } else { 15 }
-      if block_opacity >= 15 {
-        continue
-      }
-      let light = if block_opacity == 0 {
-        15
-      } else {
-        clamp_light(15 - block_opacity - 1)
-      }
-      sky[idx] = light
-      if light > 0 {
-        sky_push(rx, top_y, rz)
-      }
-    }
-  }
-  let mut sky_head = 0
-  while sky_head < sky_qx.length() {
-    let rx = sky_qx[sky_head]
-    let ry = sky_qy[sky_head]
-    let rz = sky_qz[sky_head]
-    sky_head = sky_head + 1
-    let idx = grid.index_of(rx, ry, rz)
-    let current = sky[idx]
-    if current <= 0 {
-      continue
-    }
-    for dir in light_dirs {
-      let (dx, dy, dz) = dir
-      let nrx = rx + dx
-      let nry = ry + dy
-      let nrz = rz + dz
-      guard in_bounds(grid, nrx, nry, nrz) else { continue }
-      let nidx = grid.index_of(nrx, nry, nrz)
-      guard grid.loaded[nidx] else { continue }
-      let block_opacity = grid.opacity[nidx]
-      guard block_opacity < 15 else { continue }
-      let next = if current == 15 && dy == -1 && block_opacity == 0 {
-        15
-      } else {
-        clamp_light(current - block_opacity - 1)
-      }
-      if next > sky[nidx] {
-        sky[nidx] = next
-        if next > 0 {
-          sky_push(nrx, nry, nrz)
-        }
-      }
-    }
-  }
-  sky
-}
-
-///|
-/// Fast path: vertical skylight only (full block opacity casts obvious shadows).
-fn vertical_sky_light(grid : LightGrid) -> Array[Int] {
-  let sky : Array[Int] = Array::make(grid.dim_x * grid.dim_y * grid.dim_z, 0)
-  for rx in 0..<grid.dim_x {
-    for rz in 0..<grid.dim_z {
-      let mut current = 15
-      let mut ry = grid.dim_y - 1
-      while ry >= 0 {
-        let idx = grid.index_of(rx, ry, rz)
-        if !grid.loaded[idx] {
-          current = 0
-          sky[idx] = 0
-          ry = ry - 1
+    let (cx, _, cz) = chunk_xyz_by_chunk_key(key)
+    for x in (cx - halo)..<=(cx + halo) {
+      for z in (cz - halo)..<=(cz + halo) {
+        guard !cache.columns.contains(chunk_column_key_by_chunk_xz(x, z)) else {
           continue
         }
-        let block_opacity = grid.opacity[idx]
-        if block_opacity >= 15 {
-          current = 0
-          sky[idx] = 0
-        } else {
-          if block_opacity > 0 {
-            current = clamp_light(current - block_opacity - 1)
-          }
-          sky[idx] = current
-        }
-        ry = ry - 1
+        cache.update_column(chunk_map, x, z)
       }
     }
   }
-  sky
-}
-
-///|
-/// Torchlight: flood from every emitting block.
-fn compute_torch_light(grid : LightGrid) -> Array[Int] {
-  if !ENABLE_TORCH_LIGHTING {
-    return Array::make(grid.dim_x * grid.dim_y * grid.dim_z, 0)
-  }
-  let torch : Array[Int] = Array::make(grid.dim_x * grid.dim_y * grid.dim_z, 0)
-  let torch_qx : Array[Int] = []
-  let torch_qy : Array[Int] = []
-  let torch_qz : Array[Int] = []
-  let torch_push = fn(rx : Int, ry : Int, rz : Int) -> Unit {
-    torch_qx.push(rx)
-    torch_qy.push(ry)
-    torch_qz.push(rz)
-  }
-  for ry in 0..<grid.dim_y {
-    for rz in 0..<grid.dim_z {
-      for rx in 0..<grid.dim_x {
-        let idx = grid.index_of(rx, ry, rz)
-        let lum = grid.luminance[idx]
-        if lum > 0 {
-          let light = clamp_light(lum)
-          torch[idx] = light
-          torch_push(rx, ry, rz)
-        }
-      }
-    }
-  }
-  let mut torch_head = 0
-  while torch_head < torch_qx.length() {
-    let rx = torch_qx[torch_head]
-    let ry = torch_qy[torch_head]
-    let rz = torch_qz[torch_head]
-    torch_head = torch_head + 1
-    let idx = grid.index_of(rx, ry, rz)
-    let current = torch[idx]
-    if current <= 0 {
-      continue
-    }
-    for dir in light_dirs {
-      let (dx, dy, dz) = dir
-      let nrx = rx + dx
-      let nry = ry + dy
-      let nrz = rz + dz
-      guard in_bounds(grid, nrx, nry, nrz) else { continue }
-      let nidx = grid.index_of(nrx, nry, nrz)
-      let block_opacity = grid.opacity[nidx]
-      guard block_opacity < 15 else { continue }
-      let next = clamp_light(current - block_opacity - 1)
-      if next > torch[nidx] {
-        torch[nidx] = next
-        if next > 0 {
-          torch_push(nrx, nry, nrz)
-        }
-      }
-    }
-  }
-  torch
-}
-
-///|
-fn in_bounds(grid : LightGrid, rx : Int, ry : Int, rz : Int) -> Bool {
-  rx >= 0 &&
-  rx < grid.dim_x &&
-  ry >= 0 &&
-  ry < grid.dim_y &&
-  rz >= 0 &&
-  rz < grid.dim_z
-}
-
-///|
-fn combine_light(sky : Array[Int], torch : Array[Int]) -> Array[Int] {
-  let light = Array::make(sky.length(), 0)
-  for i in 0..<sky.length() {
-    let sky_val = sky[i]
-    let torch_val = torch[i]
-    light[i] = if sky_val > torch_val { sky_val } else { torch_val }
-  }
-  light
-}
-
-///|
-/// Blend each cell with its in-bounds neighbors.
-fn smooth_light(grid : LightGrid, light : Array[Int]) -> Array[Int] {
-  let smoothed : Array[Int] = Array::make(
-    grid.dim_x * grid.dim_y * grid.dim_z,
-    0,
-  )
-  for rx in 0..<grid.dim_x {
-    for ry in 0..<grid.dim_y {
-      for rz in 0..<grid.dim_z {
-        let idx = grid.index_of(rx, ry, rz)
-        let mut sum = light[idx]
-        let mut count = 1
-        for dir in light_dirs {
-          let (dx, dy, dz) = dir
-          let nrx = rx + dx
-          let nry = ry + dy
-          let nrz = rz + dz
-          guard in_bounds(grid, nrx, nry, nrz) else { continue }
-          let nidx = grid.index_of(nrx, nry, nrz)
-          sum = sum + light[nidx]
-          count = count + 1
-        }
-        smoothed[idx] = sum / count
-      }
-    }
-  }
-  smoothed
-}
-
-///|
-/// Emit each loaded chunk's light as a padded (size+2)^3 byte map.
-fn emit_chunk_light(
-  coords : LightCoords,
-  grid : LightGrid,
-  light_out : Array[Int],
-  size : Int,
-) -> Array[(String, Bytes)] {
-  let pad = size + 2
-  let results : Array[(String, Bytes)] = []
-  for coord in coords.loaded {
-    let (key, cx, cy, cz) = coord
-    let base_rx = (cx - coords.min_cx) * size
-    let base_ry = (cy - coords.min_cy) * size
-    let base_rz = (cz - coords.min_cz) * size
-    let light_bytes = Bytes::makei(pad * pad * pad, fn(i) {
-      let px = i % pad
-      let py = i / (pad * pad)
-      let pz = i / pad % pad
-      let rx = base_rx + (px - 1)
-      let ry = base_ry + (py - 1)
-      let rz = base_rz + (pz - 1)
-      if rx < 0 ||
-        rx >= grid.dim_x ||
-        ry < 0 ||
-        ry >= grid.dim_y ||
-        rz < 0 ||
-        rz >= grid.dim_z {
-        Int::to_byte(0)
-      } else {
-        let idx = grid.index_of(rx, ry, rz)
-        light_out[idx].to_byte()
-      }
-    })
-    results.push((key, light_bytes))
-  }
-  results
+  cache.begin(chunk_keys)
 }

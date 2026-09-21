@@ -29,32 +29,17 @@ fn fill_flat(
       }
     }
   }
-  // if layer_count > 0 {
-  //   let surface_y = layer_count - 1
-  //   let set_block = fn(wx : Int, wy : Int, wz : Int, id : UInt) -> Unit {
-  //     Chunk::set_block(chunk, wx, wy, wz, id)
-  //   }
-  //   @feature.place_crop_circle_texts_flat(
-  //     set_block,
-  //     world.seed.reinterpret_as_int(),
-  //     surface_y,
-  //   )
-  // }
   chunk
 }
 
 ///|
 /// Resolve flat-layer names to long IDs (unknown names become air).
 fn flat_layer_internal_ids(flat_layer_blocks : Array[String]) -> Array[UInt] {
-  let ids : Array[UInt] = []
-  for name in flat_layer_blocks {
-    ids.push(
-      @block.lookup_by_name(name)
-      .map(block => block.internal_id())
-      .unwrap_or(@schema.AIR_ID),
-    )
-  }
-  ids
+  flat_layer_blocks.map(name => {
+    @block.lookup_by_name(name)
+    .map(block => block.internal_id())
+    .unwrap_or(@schema.AIR_ID)
+  })
 }
 
 ///|

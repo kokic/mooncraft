@@ -3,11 +3,7 @@
 fn parse_palette_entry(entry : String) -> (String, UInt) {
   let parts = entry.split(":").to_array()
   guard parts.length() == 2 else { (entry, 0) }
-  let state = try @string.parse_uint(parts[1]) catch {
-    _ => 0U
-  } noraise {
-    v => v
-  }
+  let state = @string.parse_uint(parts[1]) catch { _ => 0U }
   (parts[0].to_owned(), state)
 }
 

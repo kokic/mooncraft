@@ -1,3 +1,4 @@
+import { createProgram } from "virtual:mooncraft-shader";
 import {
   mcMat4Ortho,
   mcMat4LookAt,
@@ -32,35 +33,6 @@ function resolveTextureLayer(textures, name) {
   return index;
 }
 
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const info = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(info || "shader compile failed");
-  }
-  return shader;
-}
-
-function createProgram(gl, vertexSource, fragmentSource) {
-  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-  const program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  gl.deleteShader(vertexShader);
-  gl.deleteShader(fragmentShader);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const info = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(info || "program link failed");
-  }
-  return program;
-}
-
 class ItemIconRenderer {
   constructor() {
     this.canvas = document.createElement("canvas");
@@ -71,43 +43,7 @@ class ItemIconRenderer {
     if (!this.gl) {
       throw new Error("webgl2 not supported");
     }
-    const vertexSource = `#version 300 es
-      precision highp int;
-      precision highp float;
-      in vec3 position;
-      in vec4 normal;
-      in vec4 color;
-      in vec3 textureCoord;
-      uniform mat4 mvpMatrix;
-      uniform mat4 normalMatrix;
-      uniform vec3 diffuseLightDirection;
-      uniform vec3 diffuseLightColor;
-      uniform vec3 ambientLightColor;
-      out vec4 vColor;
-      out vec3 vTextureCoord;
-      void main(void) {
-        gl_Position = mvpMatrix * vec4(position, 1.0);
-        vTextureCoord = textureCoord;
-        vec4 nor = normalMatrix * normal;
-        vec3 nor2 = normalize(nor.xyz);
-        float nDotL = max(dot(diffuseLightDirection, nor2), 0.0);
-        vec3 diffuse = diffuseLightColor * color.rgb * nDotL;
-        vec3 ambient = ambientLightColor * color.rgb;
-        vColor = vec4(diffuse + ambient, color.a);
-      }`;
-    const fragmentSource = `#version 300 es
-      precision highp int;
-      precision highp float;
-      uniform sampler2D blockTex;
-      in vec4 vColor;
-      in vec3 vTextureCoord;
-      out vec4 fragmentColor;
-      void main(void){
-        vec4 smpColor = texture(blockTex, vTextureCoord.xy);
-        if (smpColor.a == 0.0) discard;
-        fragmentColor = vColor * smpColor;
-      }`;
-    this.program = createProgram(this.gl, vertexSource, fragmentSource);
+    this.program = createProgram(this.gl, "item");
     this.aPosition = this.gl.getAttribLocation(this.program, "position");
     this.aNormal = this.gl.getAttribLocation(this.program, "normal");
     this.aColor = this.gl.getAttribLocation(this.program, "color");
@@ -119,34 +55,17 @@ class ItemIconRenderer {
     this.uAmbientColor = this.gl.getUniformLocation(this.program, "ambientLightColor");
     this.uTex = this.gl.getUniformLocation(this.program, "blockTex");
 
-    const leafVertexSource = window.mcOakLeavesVertexShader;
-    const leafFragmentSource = window.mcOakLeavesFragmentShader;
-    this.leafProgram = null;
-    this.leafPosition = null;
-    this.leafColor = null;
-    this.leafUv = null;
-    this.leafMvp = null;
-    this.leafView = null;
-    this.leafTex = null;
-    this.leafTint = null;
-    this.leafDebugSolid = null;
-    this.leafFogColor = null;
-    this.leafFogNear = null;
-    this.leafFogFar = null;
-    if (typeof leafVertexSource === "string" && typeof leafFragmentSource === "string") {
-      this.leafProgram = createProgram(this.gl, leafVertexSource, leafFragmentSource);
-      this.leafPosition = this.gl.getAttribLocation(this.leafProgram, "aPosition");
-      this.leafColor = this.gl.getAttribLocation(this.leafProgram, "aColor");
-      this.leafUv = this.gl.getAttribLocation(this.leafProgram, "aUv");
-      this.leafMvp = this.gl.getUniformLocation(this.leafProgram, "uMvp");
-      this.leafView = this.gl.getUniformLocation(this.leafProgram, "uView");
-      this.leafTex = this.gl.getUniformLocation(this.leafProgram, "uTex");
-      this.leafTint = this.gl.getUniformLocation(this.leafProgram, "uLeafTint");
-      this.leafDebugSolid = this.gl.getUniformLocation(this.leafProgram, "uDebugSolid");
-      this.leafFogColor = this.gl.getUniformLocation(this.leafProgram, "uFogColor");
-      this.leafFogNear = this.gl.getUniformLocation(this.leafProgram, "uFogNear");
-      this.leafFogFar = this.gl.getUniformLocation(this.leafProgram, "uFogFar");
-    }
+    this.leafProgram = createProgram(this.gl, "leaf");
+    this.leafPosition = this.gl.getAttribLocation(this.leafProgram, "aPosition");
+    this.leafColor = this.gl.getAttribLocation(this.leafProgram, "aColor");
+    this.leafUv = this.gl.getAttribLocation(this.leafProgram, "aUv");
+    this.leafMvp = this.gl.getUniformLocation(this.leafProgram, "uMvp");
+    this.leafTex = this.gl.getUniformLocation(this.leafProgram, "uTex");
+    this.leafTint = this.gl.getUniformLocation(this.leafProgram, "uLeafTint");
+    this.leafDebugSolid = this.gl.getUniformLocation(this.leafProgram, "uDebugSolid");
+    this.leafFogColor = this.gl.getUniformLocation(this.leafProgram, "uFogColor");
+    this.leafFogNear = this.gl.getUniformLocation(this.leafProgram, "uFogNear");
+    this.leafFogFar = this.gl.getUniformLocation(this.leafProgram, "uFogFar");
     this.positionBuffer = this.gl.createBuffer();
     this.normalBuffer = this.gl.createBuffer();
     this.colorBuffer = this.gl.createBuffer();
@@ -239,7 +158,6 @@ class ItemIconRenderer {
       gl.useProgram(this.leafProgram);
       gl.uniform1i(this.leafTex, 0);
       gl.uniformMatrix4fv(this.leafMvp, false, this.mvpMatrix);
-      gl.uniformMatrix4fv(this.leafView, false, this.viewMatrix);
       gl.uniform1f(this.leafDebugSolid, 0.0);
       gl.uniform3f(this.leafFogColor, 0.0, 0.0, 0.0);
       gl.uniform1f(this.leafFogNear, 1000.0);

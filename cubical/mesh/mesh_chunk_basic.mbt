@@ -26,7 +26,7 @@ pub fn build_chunk_mesh(
     for y in 0..<size {
       for z in 0..<size {
         let render_block = chunk.block(x, y, z)
-        if render_block.block.shape is @block.Shape::Air {
+        if render_block.block.geometry is @block.Geometry::Empty {
           continue
         }
         emit_model_faces(chunk, arrays, render_block, x, y, z)

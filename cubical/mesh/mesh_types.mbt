@@ -18,6 +18,8 @@ pub(all) struct MeshData {
 }
 
 ///|
+/// Browser render-buffer names: `leaf` carries the tinted pass and `water`
+/// carries the liquid pass. The game assigns blocks to these engine passes.
 pub struct MeshSplit {
   normal : MeshData
   leaf : MeshData

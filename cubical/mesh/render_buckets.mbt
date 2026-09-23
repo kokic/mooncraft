@@ -17,11 +17,11 @@ fn[T] RenderBuckets::for_block(
   self : RenderBuckets[T],
   render_block : @block.RenderBlock,
 ) -> T {
-  if render_block.block.is_water() {
+  if render_block.block.render_pass is @block.RenderPass::Liquid {
     self.water
-  } else if render_block.block.material is @block.Material::TintedLeaf {
+  } else if render_block.block.render_pass is @block.RenderPass::Tinted {
     self.leaf
-  } else if render_block.block.alpha_mode is @block.AlphaMode::Translucent {
+  } else if render_block.block.render_pass is @block.RenderPass::Translucent {
     self.translucent
   } else {
     self.normal
@@ -46,7 +46,9 @@ fn MeshFaceArrays::into_mesh(self : MeshFaceArrays) -> MeshData {
 }
 
 ///|
-fn RenderBuckets::into_mesh_split(self : RenderBuckets[MeshFaceArrays]) -> MeshSplit {
+fn RenderBuckets::into_mesh_split(
+  self : RenderBuckets[MeshFaceArrays],
+) -> MeshSplit {
   {
     normal: self.normal.into_mesh(),
     leaf: self.leaf.into_mesh(),

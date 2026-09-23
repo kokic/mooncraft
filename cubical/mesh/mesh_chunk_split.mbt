@@ -30,11 +30,11 @@ fn emit_split_block_mesh(
   z : Int,
 ) -> Unit {
   let render_block = chunk.block(x, y, z)
-  if render_block.block.shape is @block.Shape::Air {
+  if render_block.block.geometry is @block.Geometry::Empty {
     return
   }
   let arrays = targets.for_block(render_block)
-  if render_block.block.shape is @block.Shape::Gltf {
+  if render_block.block.geometry is @block.Geometry::Gltf {
     guard @gltf.block_gltf_model(render_block.block.name) is Some(model) else {
       return
     }

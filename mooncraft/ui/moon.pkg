@@ -2,5 +2,5 @@ import {
   "kokic/cubical/core/schema",
   "kokic/mooncraft/block",
   "kokic/mooncraft/item",
-  "kokic/mooncraft/mesh",
+  "kokic/cubical/mesh",
 }

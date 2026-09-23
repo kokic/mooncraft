@@ -4,7 +4,7 @@ import {
   "kokic/mooncraft/block",
   "kokic/cubical/util",
   "kokic/mooncraft/level",
-  "kokic/mooncraft/mesh",
+  "kokic/cubical/mesh",
 }
 
 import {

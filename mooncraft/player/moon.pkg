@@ -5,7 +5,7 @@ import {
   "kokic/cubical/core/schema",
   "kokic/mooncraft/block",
   "kokic/mooncraft/level",
-  "kokic/mooncraft/block/shape",
+  "kokic/cubical/block/shape",
 }
 
 import {

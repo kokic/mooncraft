@@ -35,19 +35,6 @@ Supported play-world names:
 - `Flat`
 - `PreClassic`
 
-## Code structure
-
-The repository is a MoonBit workspace (`moon.work`) with three modules:
-
-- `cubical/` (engine): types, math, FFI, camera, shaders, glTF, render models.
-- `mooncraft/` (game core): `chunk/`, `level/`, `player/`, `entity/`, `mob/`,
-  `block/`, `item/`, `mesh/`, plus generation, commands, and blueprints.
-- `browser/` (browser launcher): `client/` assembles the runtime and registers
-  the browser APIs, `bridge/` calls back into JS, and `web/` holds the browser
-  integration and assets.
-
-MoonBit owns world generation, simulation, mesh preparation, and glTF rendering.
-
 ## Asset Copyright Notice (Minecraft EULA)
 
 - Files under `browser/web/assets` may contain textures or other resources derived from Minecraft.

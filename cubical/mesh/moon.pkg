@@ -1,7 +1,7 @@
 import {
   "kokic/cubical/core/schema",
-  "kokic/mooncraft/block",
-  "kokic/mooncraft/block/shape",
+  "kokic/cubical/block",
+  "kokic/cubical/block/shape",
   "kokic/cubical/gltf",
   "kokic/cubical/util",
 }

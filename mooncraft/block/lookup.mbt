@@ -1,52 +1,4 @@
 ///|
-pub struct RenderBlock {
-  block : Block
-  faces : @shape.FaceLayerIndices
-  internal_id : @schema.InternalID
-}
-
-///|
-pub struct BlockRegistry[V] {
-  by_name : @hashmap.HashMap[String, V]
-  by_internal_id : @hashmap.HashMap[@schema.InternalID, V]
-}
-
-///|
-pub fn[V] BlockRegistry::from_maps(
-  by_name : @hashmap.HashMap[String, V],
-  by_internal_id : @hashmap.HashMap[@schema.InternalID, V],
-) -> BlockRegistry[V] {
-  { by_name, by_internal_id, }
-}
-
-///|
-pub fn[V] BlockRegistry::get_by_name(
-  self : BlockRegistry[V],
-  name : String,
-) -> V? {
-  self.by_name.get(name)
-}
-
-///|
-pub fn[V] BlockRegistry::get_by_internal_id(
-  self : BlockRegistry[V],
-  id : @schema.InternalID,
-) -> V? {
-  self.by_internal_id.get(id)
-}
-
-///|
-pub fn BlockRegistry::name_to_internal_id(
-  self : BlockRegistry[Block],
-  name : String,
-) -> @schema.InternalID {
-  self
-  .get_by_name(name)
-  .map(block => block.internal_id())
-  .unwrap_or(@schema.AIR_ID)
-}
-
-///|
 let texture_index : @hashmap.HashMap[String, Int] = {
   let names = collect_texture_names()
   let idx : @hashmap.HashMap[String, Int] = @hashmap.HashMap([])
@@ -68,7 +20,7 @@ fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
   for def in blocks {
     block_by_name[def.name] = def
     block_by_id[def.internal_id()] = def
-    let resolve_layer = fn(tex_name : String?) -> Int {
+    let resolve_layer = (tex_name : String?) => {
       tex_name.bind(name => texture_index.get(name)).unwrap_or(0)
     }
     let faces = @shape.FaceLayerIndices::{
@@ -79,12 +31,16 @@ fn build_registries() -> (BlockRegistry[Block], BlockRegistry[RenderBlock]) {
       pos_z: resolve_layer(def.faces.pos_z),
       neg_z: resolve_layer(def.faces.neg_z),
     }
-    let rb = RenderBlock::{ block: def, faces, internal_id: def.internal_id(), }
+    let rb = RenderBlock::{
+      block: def.engine_block(),
+      faces,
+      internal_id: def.internal_id(),
+    }
     render_by_name[def.name] = rb
     render_by_id[rb.internal_id] = rb
   }
   (
-    BlockRegistry::{ by_name: block_by_name, by_internal_id: block_by_id, },
+    BlockRegistry::from_maps(block_by_name, block_by_id),
     BlockRegistry::from_maps(render_by_name, render_by_id),
   )
 }
@@ -110,5 +66,8 @@ pub fn lookup_by_internal_id(internal_id : @schema.InternalID) -> Block? {
 
 ///|
 pub fn name_to_internal_id(name : String) -> @schema.InternalID {
-  block_registry.name_to_internal_id(name)
+  block_registry
+  .get_by_name(name)
+  .map(block => block.internal_id())
+  .unwrap_or(@schema.AIR_ID)
 }

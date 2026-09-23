@@ -9,7 +9,7 @@ let face_uvs_base : Array[(Float, Float)] = [
 ]
 
 ///|
-let face_uvs_rot90 : Array[(Float, Float)] = face_uvs_base.map((uv) => {
+let face_uvs_rot90 : Array[(Float, Float)] = face_uvs_base.map(uv => {
   let (u, v) = uv
   (v, 1.0F - u)
 })
@@ -186,7 +186,7 @@ fn emit_model_faces(
   y : Int,
   z : Int,
 ) -> Unit {
-  let model = @block.model_by_block(render_block.block)
+  let model = render_block.block.model
   let render_info = @shape.FaceSource::{
     faces: render_block.faces,
     state: render_block.block.state,
@@ -194,7 +194,7 @@ fn emit_model_faces(
   let bx = Float::from_int(x)
   let by = Float::from_int(y)
   let bz = Float::from_int(z)
-  let tint = render_block.block.material.tint()
+  let tint = render_block.block.tint
   let emit_face = (
     a : (Float, Float, Float),
     b : (Float, Float, Float),
@@ -230,9 +230,10 @@ fn emit_model_faces(
   }
   let is_double_sided = (model.double_sided)(render_info)
   for face in @shape.faces {
-    guard face_lighting(
-      chunk, model, render_info, face, render_block, x, y, z,
-    ) is Some(lighting) else { continue }
+    guard face_lighting(chunk, model, render_info, face, render_block, x, y, z)
+      is Some(lighting) else {
+      continue
+    }
     let custom_box = (model.face_box)(render_info, face.name)
     let (a, b, c, d) = face_corners_world(face, x, y, z, custom_box)
     let rotate_uv = (model.rotate_uv)(render_info, face)
@@ -283,17 +284,13 @@ fn emit_face_colors(
   y : Int,
   z : Int,
 ) -> Unit {
-  let model = @block.model_by_block(render_block.block)
+  let model = render_block.block.model
   let render_info = @shape.FaceSource::{
     faces: render_block.faces,
     state: render_block.block.state,
   }
-  let tint = render_block.block.material.tint()
-  let push_color_alpha = (
-    count : Int,
-    color_scale : Float,
-    alpha_scale : Float,
-  ) => {
+  let tint = render_block.block.tint
+  let push_color_alpha = (count : Int, color_scale : Float, alpha_scale : Float) => {
     push_face_color_into(target, count, color_scale, tint, alpha_scale)
   }
   let push_color = (count : Int, color_scale : Float) => {
@@ -304,11 +301,18 @@ fn emit_face_colors(
   }
   let is_double_sided = (model.double_sided)(render_info)
   for face in @shape.faces {
-    guard face_lighting(
-      chunk, model, render_info, face, render_block, x, y, z,
-    ) is Some(lighting) else { continue }
+    guard face_lighting(chunk, model, render_info, face, render_block, x, y, z)
+      is Some(lighting) else {
+      continue
+    }
     let count = if is_double_sided { 12 } else { 6 }
-    push_face_color_into(target, count, lighting.color_scale, tint, lighting.alpha_scale)
+    push_face_color_into(
+      target,
+      count,
+      lighting.color_scale,
+      tint,
+      lighting.alpha_scale,
+    )
   }
 }
 

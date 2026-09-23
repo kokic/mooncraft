@@ -40,11 +40,11 @@ fn emit_split_block_colors(
   z : Int,
 ) -> Unit {
   let render_block = chunk.block(x, y, z)
-  if render_block.block.shape is @block.Shape::Air {
+  if render_block.block.geometry is @block.Geometry::Empty {
     return
   }
   let target = targets.for_block(render_block)
-  if render_block.block.shape is @block.Shape::Gltf {
+  if render_block.block.geometry is @block.Geometry::Gltf {
     guard @gltf.block_gltf_model(render_block.block.name) is Some(model) else {
       return
     }
@@ -71,7 +71,7 @@ pub fn build_chunk_colors(
     for y in 0..<size {
       for z in 0..<size {
         let render_block = chunk.block(x, y, z)
-        if render_block.block.shape is @block.Shape::Air {
+        if render_block.block.geometry is @block.Geometry::Empty {
           continue
         }
         emit_face_colors(chunk, colors, render_block, x, y, z)

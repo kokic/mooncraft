@@ -1100,8 +1100,8 @@ function renderTestChunk({
       ? window.mcGetRenderBlockByInternalId(blockRegistry, currentId)
       : null;
     const block = renderBlock && renderBlock.block ? renderBlock.block : null;
-    const isSelectable = block && typeof window.mcBlockIsSelectable === "function"
-      ? window.mcBlockIsSelectable(block)
+    const isSelectable = block
+      ? block.selectable
       : currentId !== airLongId;
     if (!isSelectable) return null;
     return { pos: hit.block, internalId: currentId };

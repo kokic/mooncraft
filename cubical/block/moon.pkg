@@ -1,6 +1,6 @@
 import {
-  "moonbitlang/core/math",
+  "moonbitlang/core/hashmap",
+  "kokic/cubical/core/schema",
   "kokic/cubical/block/shape",
   "kokic/cubical/util",
-  "kokic/mooncraft/biome",
 }

@@ -338,10 +338,10 @@ pub fn Torch::append_classic_colors(push_color : (Int, Float) -> Unit) -> Unit {
   push_color(6, shade_yn)
   push_color(6, shade_xp)
   push_color(6, shade_xn)
-  push_color(6, shade_zp)
-  push_color(6, shade_zn)
   push_color(6, shade_xn)
   push_color(6, shade_xp)
+  push_color(6, shade_zp)
+  push_color(6, shade_zn)
   push_color(6, shade_zn)
   push_color(6, shade_zp)
 }

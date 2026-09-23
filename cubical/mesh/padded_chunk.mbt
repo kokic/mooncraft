@@ -51,14 +51,24 @@ fn PaddedChunk::sample_index(
   let px = x + offset
   let py = y + offset
   let pz = z + offset
-  guard px >= 0 && px < stride && py >= 0 && py < stride && pz >= 0 && pz < stride else {
+  guard px >= 0 &&
+    px < stride &&
+    py >= 0 &&
+    py < stride &&
+    pz >= 0 &&
+    pz < stride else {
     None
   }
   Some((py * stride + pz) * stride + px)
 }
 
 ///|
-fn PaddedChunk::block(self : PaddedChunk, x : Int, y : Int, z : Int) -> @block.RenderBlock {
+fn PaddedChunk::block(
+  self : PaddedChunk,
+  x : Int,
+  y : Int,
+  z : Int,
+) -> @block.RenderBlock {
   guard self.sample_index(self.data.length(), x, y, z) is Some(index) else {
     self.air_block
   }
@@ -68,7 +78,11 @@ fn PaddedChunk::block(self : PaddedChunk, x : Int, y : Int, z : Int) -> @block.R
 ///|
 fn PaddedChunk::light(self : PaddedChunk, x : Int, y : Int, z : Int) -> Int {
   guard self.sample_index(self.light.length(), x, y, z) is Some(index) else {
-    if self.light.length() == self.pad_len { 0 } else { 15 }
+    if self.light.length() == self.pad_len {
+      0
+    } else {
+      15
+    }
   }
   self.light[index].to_int()
 }

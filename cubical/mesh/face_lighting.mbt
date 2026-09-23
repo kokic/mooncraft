@@ -38,7 +38,11 @@ fn face_lighting(
   let light = chunk.light(x + nx, y + ny, z + nz)
   Some({
     color_scale: face_color_scale(light, nx, ny, nz),
-    alpha_scale: if boundary_transparent && !visible { 0.0F } else { 1.0F },
+    alpha_scale: if boundary_transparent && !visible {
+      0.0F
+    } else {
+      1.0F
+    },
   })
 }
 
